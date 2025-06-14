@@ -1,14 +1,15 @@
 Bachelors project Scope: Development of a p2p zero-knowledge poker game in Rust.
 
-Todo's:
+Roadmap:
 
-    web client.
-    poker hand evaluator.
-    p2p lobby creation / message exchange / reconnects / disconnects.
-    account/ID management.
-    Betting logic.
-    p2p game state synchronization (blockchain?).
-    message passing protocol.
+1. web client:
+    
+2. poker hand evaluator.
+3. p2p lobby creation / message exchange / reconnects / disconnects.
+4. account/ID management.
+5. Betting logic.
+6. p2p game state synchronization (blockchain?).
+7. message passing protocol.
 
 Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
 
