@@ -1,0 +1,9 @@
+[package]
+name = "bachelors_project"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rand = "0.8"
+num-bigint = { version = "0.4.6", features = ["rand", "quickcheck", "arbitrary"] }
+quickcheck = "1.0.3"
