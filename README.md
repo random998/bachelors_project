@@ -3,8 +3,8 @@ Bachelors project Scope: Development of a p2p zero-knowledge poker game in Rust.
 Roadmap:
 
 1. web client:
-1.1 first starter screen application using egui.
-1.2 webclient structure / screen organization.
+    1.1 first starter screen application using egui.
+    1.2 webclient structure / screen organization.
     
 2. poker hand evaluator.
 3. p2p lobby creation / message exchange / reconnects / disconnects.
