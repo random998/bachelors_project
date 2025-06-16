@@ -11,7 +11,13 @@ Roadmap:
 3. p2p lobby creation / message exchange / reconnects / disconnects.
 4. account/ID management.
 5. Betting logic.
-6. p2p game state synchronization (blockchain?).
+6. p2p game state synchronization (blockchain?):
+    requirements:
+    6.1 No player acts as a permanent server.
+    6.2 Any player can host a lobby, but the game state is replicated.
+    6.3 Game must continue if any peer (including host) disconnects.
+    6.5 All messages must be authenticated and verifiable (Noise + signature).
+    6.6 Consensus on game state must be maintained among peers.
 7. message passing protocol.
 
 Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
