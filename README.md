@@ -54,5 +54,98 @@ Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
     Each player encrypts and permutes the deck using their public key.
     Cards are revealed through cooperative decryption.
     Prevents cheating and allows verifiable fairness.
-    
+
+
+
+WEEKLY PLAN:
+Revised Weekly Plan
+Weeks 1–2: Jun 16–29
+
+Focus: GUI + Core Infrastructure
+
+    egui startup screen + console logger
+    Project structure based on freezeout
+    Noise-encrypted WebSocket P2P setup
+    Local log/debug window working
+
+Weeks 3–4: Jun 30 – Jul 13
+
+Focus: Poker Engine + P2P Core
+
+    Poker hand evaluator (testing all hand types)
+    P2P lobby creation and handshake
+    Message authentication + account management
+
+Thesis Begins (Jul 1):
+
+    Read Mental Poker, Circom, and Boneh/Shoup
+    Decide on circuit stack (Circom, Halo2, etc.)
+    Sketch protocol phases + shuffle commitment design
+
+Week 5: Jul 14–20
+
+Focus: Game State & Turn Logic
+
+    Game state replication (FSM per peer)
+    Signed broadcast of actions
+    Turn order + timeouts
+
+Thesis Work:
+
+    Card commitment + prototype shuffle ZK circuit
+    Evaluate encryption strategies (ElGamal, Pedersen)
+
+Week 6: Jul 21–27
+
+Focus: Betting + Testing
+
+    Betting rules (check/call/raise/fold)
+    Pot tracking
+    Reconnect logic
+
+Thesis Work:
+
+    Begin card reveal + proof generation logic
+    Validate proof verification workflow across peers
+
+Week 7: Jul 28-31
+
+Wrap-Up:
+
+    Final integration test with 2-3 peers
+    Document project architecture and limitations
+    Prepare and submit short project report (~5-10 pages)
+
+So here's what happens after July 31:
+After July 31: Thesis-Only Phase (Aug 1 - Sep 23)
+
+You now work full-time (~40 hours/week) on the Bachelor's thesis, focused on designing, implementing, and evaluating the zero-knowledge poker protocol.
+August 1-7
+    Finalize ZK circuit structure (shuffle, commitments, reveal)
+    Integrate commitment verification into game logic
+    Test card shuffling & reveal between 3 peers
+
+August 8-14
+    Formalize message signing protocol for each ZK proof
+    Implement failure recovery: timeouts, slashing non-cooperative peers
+
+August 15-21
+    Optimize and benchmark circuits (proof size, proving time)
+    Draft thesis chapters: Protocol Design, Implementation
+
+August 22-31
+    Finish all code and protocol evaluation
+    Start writing full Evaluation and Security chapters
+
+September 1-14
+    Complete draft of entire thesis
+    Perform code + proof review with advisor or peer
+    Prepare figures, diagrams, benchmarking charts
+
+September 15-21
+    Final thesis polishing: references, proofreading, formatting
+    Create README, reproducibility guide, and demo materials
+
+September 23
+    Submit the final thesis
 
