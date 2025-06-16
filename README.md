@@ -5,7 +5,8 @@ Roadmap:
 1. web client:
     1.1 first starter screen application using egui.
     1.2 webclient structure / screen organization.
-    
+    1.3 window/log/console that logs every action that happens & every interaction & message with any other client.    
+
 2. poker hand evaluator.
 3. p2p lobby creation / message exchange / reconnects / disconnects.
 4. account/ID management.
