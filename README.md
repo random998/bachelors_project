@@ -120,32 +120,40 @@ So here's what happens after July 31:
 After July 31: Thesis-Only Phase (Aug 1 - Sep 23)
 
 You now work full-time (~40 hours/week) on the Bachelor's thesis, focused on designing, implementing, and evaluating the zero-knowledge poker protocol.
-August 1-7
+
+August 1-7:
+
     Finalize ZK circuit structure (shuffle, commitments, reveal)
     Integrate commitment verification into game logic
     Test card shuffling & reveal between 3 peers
 
-August 8-14
+August 8-14:
+
     Formalize message signing protocol for each ZK proof
     Implement failure recovery: timeouts, slashing non-cooperative peers
 
-August 15-21
+August 15-21:
+
     Optimize and benchmark circuits (proof size, proving time)
     Draft thesis chapters: Protocol Design, Implementation
 
-August 22-31
+August 22-31:
+
     Finish all code and protocol evaluation
     Start writing full Evaluation and Security chapters
 
-September 1-14
+September 1-14:
+
     Complete draft of entire thesis
     Perform code + proof review with advisor or peer
     Prepare figures, diagrams, benchmarking charts
 
-September 15-21
+September 15-21:
+
     Final thesis polishing: references, proofreading, formatting
     Create README, reproducibility guide, and demo materials
 
-September 23
+September 23:
+
     Submit the final thesis
 
