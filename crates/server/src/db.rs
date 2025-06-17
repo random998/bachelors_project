@@ -1,14 +1,14 @@
 // code inspired by https://github.com/vincev/freezeout
+//! Database types and functions for persisting game state.
 
-//! Database types for persisting state.
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use parking_lot::Mutex;
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use std::{path::Path, sync::Arc};
 
 use zkpoker::{crypto::PeerId, poker::Chips};
 
-/// A database player row.
+/// A single row in the `players` table.
 #[derive(Debug)]
 pub struct Player {
     pub player_id: PeerId,
@@ -16,45 +16,39 @@ pub struct Player {
     pub chips: Chips,
 }
 
-/// Database for persisting the game state.
+/// Persistent database for storing player state.
 #[derive(Debug, Clone)]
-pub struct Db {
-    conn: Arc<Mutex<Connection>>,
+pub struct Database {
+    connection: Arc<Mutex<Connection>>,
 }
 
-impl Db {
-    /// Open a database at the specified path.
+impl Database {
+    /// Open a new database file on disk.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let conn = Connection::open(path)?;
-
-        Self::init_database(Mutex::new(conn))?;
-
-        Ok(Db {
-            conn: Arc::new(Mutex::new(conn))
+        Self::initialize_schema(&conn)?;
+        Ok(Self {
+            connection: Arc::new(Mutex::new(conn)),
         })
     }
 
-    /// Open an in-memory database.
+    /// Open a temporary in-memory database.
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
-        Self::init_database(Mutex::new(conn))?;
-        Ok(Db {
-            conn: Arc::new(Mutex::new(conn))
+        Self::initialize_schema(&conn)?;
+        Ok(Self {
+            connection: Arc::new(Mutex::new(conn)),
         })
     }
 
-    fn init_database(conn: &Connection) -> Result<()> {
-        conn.execute_batch(
-            "PRAGMA journal_mode = WAL; PRAGMA synchronous=NORMAL;")?; //TODO: ????
-
-        // create tables.
+    fn initialize_schema(conn: &Connection) -> Result<()> {
+        conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;")?;
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS players\
-            (\
-                id TEXT PRIMARY KEY, \
-                nickname TEXT NOT NULL, \
-                chips INTEGER NOT NULL, \
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP \
+            "CREATE TABLE IF NOT EXISTS players (
+                id TEXT PRIMARY KEY,
+                nickname TEXT NOT NULL,
+                chips INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_update DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
             (),
@@ -62,10 +56,168 @@ impl Db {
         Ok(())
     }
 
+    /// Insert or update a player joining the server.
+    pub async fn upsert_player(&self, player_id: PeerId, nickname: &str, initial_chips: Chips) -> Result<Player> {
+        let db = self.connection.clone();
+        let nickname = nickname.to_string();
 
-    /// A player joined the server.
-    ///
-    /// If the player doesn't exist it creates one with the given chips, for now if
-    /// the player exists but has fewer chips than join chips the chips are updated
-    /// so that the player has enough chips to join. TODO: fix
+        tokio::task::spawn_blocking(move || {
+            let conn = db.lock();
+
+            let mut stmt = conn.prepare("SELECT id, nickname, chips FROM players WHERE id = ?1")?;
+            let query_result = stmt.query_row(params![player_id.digits()], |row| {
+                Ok(Player {
+                    player_id: player_id.clone(),
+                    nickname: row.get(1)?,
+                    chips: Chips::from(row.get::<usize, i32>(2)? as u32),
+                })
+            });
+
+            match query_result {
+                Ok(mut player) => {
+                    let mut updated = false;
+
+                    if player.chips < initial_chips {
+                        player.chips = initial_chips;
+                        updated = true;
+                    }
+
+                    if player.nickname != nickname {
+                        player.nickname = nickname.clone();
+                        updated = true;
+                    }
+
+                    if updated {
+                        conn.execute(
+                            "UPDATE players SET chips = ?2, nickname = ?3, last_update = CURRENT_TIMESTAMP WHERE id = ?1",
+                            params![player.player_id.digits(), player.chips.amount(), player.nickname],
+                        )?;
+                    }
+
+                    Ok(player)
+                }
+                Err(_) => {
+                    let new_player = Player {
+                        player_id: player_id.clone(),
+                        nickname: nickname.clone(),
+                        chips: initial_chips,
+                    };
+                    conn.execute(
+                        "INSERT INTO players (id, nickname, chips) VALUES (?1, ?2, ?3)",
+                        params![player_id.digits(), nickname, initial_chips.amount()],
+                    )?;
+                    Ok(new_player)
+                }
+            }
+        })
+            .await?
+    }
+
+    /// Attempt to deduct chips from a player. Returns `false` if player has insufficient chips.
+    pub async fn deduct_chips(&self, player_id: PeerId, amount: Chips) -> Result<bool> {
+        let db = self.connection.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let conn = db.lock();
+
+            let mut stmt = conn.prepare("SELECT chips FROM players WHERE id = ?1")?;
+            let result = stmt.query_row(params![player_id.digits()], |row| {
+                Ok(Chips::from(row.get::<usize, i32>(0)? as u32))
+            });
+
+            match result {
+                Ok(current_chips) => {
+                    if current_chips < amount {
+                        return Ok(false);
+                    }
+                    let remaining = current_chips - amount;
+                    conn.execute(
+                        "UPDATE players SET chips = ?2, last_update = CURRENT_TIMESTAMP WHERE id = ?1",
+                        params![player_id.digits(), remaining.amount()],
+                    )?;
+                    Ok(true)
+                }
+                Err(e) => Err(e.into()),
+            }
+        })
+            .await?
+    }
+
+    /// Credit chips to a player.
+    pub async fn credit_chips(&self, player_id: PeerId, amount: Chips) -> Result<()> {
+        let db = self.connection.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let conn = db.lock();
+
+            let rows_updated = conn.execute(
+                "UPDATE players SET chips = chips + ?2, last_update = CURRENT_TIMESTAMP WHERE id = ?1",
+                params![player_id.digits(), amount.amount()],
+            )?;
+
+            if rows_updated == 0 {
+                bail!("Player {player_id} not found");
+            }
+
+            Ok(())
+        })
+            .await?
+    }
+
+    /// Fetch a player by ID.
+    pub async fn get_player_by_id(&self, player_id: PeerId) -> Result<Player> {
+        let db = self.connection.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let conn = db.lock();
+
+            let mut stmt = conn.prepare("SELECT id, nickname, chips FROM players WHERE id = ?1")?;
+            stmt.query_row(params![player_id.digits()], |row| {
+                Ok(Player {
+                    player_id: player_id.clone(),
+                    nickname: row.get(1)?,
+                    chips: Chips::from(row.get::<usize, i32>(2)? as u32),
+                })
+            }).map_err(anyhow::Error::from)
+        })
+            .await?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use zkpoker::crypto::SigningKey;
+
+    #[tokio::test]
+    async fn test_player_lifecycle() {
+        let db = Database::open_in_memory().expect("Failed to open in-memory database");
+        let player_id = SigningKey::default().verifying_key().peer_id();
+        let chips = Chips::new(1_000);
+
+        let player = db.upsert_player(player_id, "Alice", chips).await.expect("Join failed");
+        assert_eq!(player.nickname, "Alice");
+        assert_eq!(player.chips, chips);
+
+        let updated_player = db.upsert_player(player_id, "Bob", chips * 2).await.expect("Update failed");
+        assert_eq!(updated_player.nickname, "Bob");
+        assert_eq!(updated_player.chips, chips * 2);
+
+        db.credit_chips(player_id, chips).await.expect("Credit failed");
+        let post_credit = db.get_player_by_id(player_id).await.expect("Fetch failed");
+        assert_eq!(post_credit.chips, chips * 3);
+
+        let can_deduct = db.deduct_chips(player_id, chips).await.expect("Deduct failed");
+        assert!(can_deduct);
+        let post_deduct = db.get_player_by_id(player_id).await.expect("Fetch failed");
+        assert_eq!(post_deduct.chips, chips * 2);
+
+        let can_deduct = db.deduct_chips(player_id, chips * 2).await.expect("Deduct failed");
+        assert!(can_deduct);
+        let zero_balance = db.get_player_by_id(player_id).await.expect("Fetch failed");
+        assert_eq!(zero_balance.chips, Chips::new(0));
+
+        let cannot_deduct = db.deduct_chips(player_id, chips).await.expect("Deduct failed");
+        assert!(!cannot_deduct);
+    }
 }
