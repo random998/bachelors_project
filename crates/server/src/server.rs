@@ -273,7 +273,7 @@ const JOIN_TABLE_CHIPS: Chips = Chips::new(1_000_000); //TODO: make configurable
 
                         let has_chips = self.db.pay_from_player(player_id.clone(), Self::JOIN_TABLE_CHIPS).await?;
                         if has_chips {
-                            let result = self.tables.join(&player_id, &nickname, Self::JOIN_TABLE_CHIPS, table_tx.clone(),).await?;
+                            let result = self.tables.join(&player_id, &nickname, Self::JOIN_TABLE_CHIPS, table_tx.clone(), ).await?;
 
                             match res {
                                 Ok(table) => self.table = Some(table),
@@ -290,15 +290,45 @@ const JOIN_TABLE_CHIPS: Chips = Chips::new(1_000_000); //TODO: make configurable
                                     connection.send(&SignedMessage::new(&self.signing_key, message)).await?;
                                 }
                             };
-                    } else {
-                        // if player has not enough chips to join the table, notify the corresponding client.
+                        } else {
+                            // if player has not enough chips to join the table, notify the corresponding client.
+                            connection.send(&SignedMessage::new(&self.signing_key, Message::NotEnoughChips)).await?;
+                        }
                     }
+                    Message::LeaveTable => {
+                        if let Some(table) = &self.table {
+                            table.leave(&player_id).await;
+                        }
+                    }
+                    _ => {
+                        if let Some(table) = &self.table {
+                            table.leave(&player_id).await;
+                        }
+                    }
+                },
+                Branch::Table(message) => match message.message() {
+                        TableMessage::Send(message) => {
+                            if let error @ Err(_) = connection.send(&message).await {
+                                break Err(error.into());
+                            }
+                        }
+                        TableMessage::PlayerLeft => {
+                            // If a player leaves the table, reset the table and send updated player account info to the corresponding client.
+                            self.table = None;
+                            // tell the client to show the account dialog.
+                            let chips = self.get_or_refill_chips(&player_id).await?;
+                            let msg = Message::ShowAccount { chips };
+                            connection.send(&SignedMessage::new(&self.signed_key, message)).await?;
+                        }
+                        TableMessage::Throttle(dt) => { // TODO: dt?
+                            time::sleep(dt).await;
+                        }
+                        TableMessage::Close => {
+                            info!("Connection closed by table message.");
+                            break Ok(());
+                        }
+                },
             }
-        }
-        }
-}
-
-
-
-
+        };
+    }
 }
