@@ -124,3 +124,87 @@ impl Player {
         self.action_timer = None;
     }
 }
+
+/// represents the state of the players at the table.
+#[derive(Debug, Default)]
+pub struct PlayersState {
+    players: Vec<Player>,
+    active_player: Option<usize>,
+}
+
+impl PlayersState {
+    pub fn join(&mut self, player: Player) {
+        self.players.push(player);
+    }
+
+    pub fn clear(&mut self) {
+        self.players.clear();
+        self.active_player = None;
+    }
+
+    //TODO: reformat!
+    pub fn remove(&mut self, player_id: &PeerId) -> Option<Player> {
+        if let Some(pos) = self.players.iter().position(|p| &p.player_id == player_id) {
+            let player = self.players.remove(pos);
+
+            let active_count = self.count_active();
+            if active_count == 0 {
+                self.active_player = None;
+            } else if active_count == 1 {
+                self.active_player = self.players.iter().position(|p| p.is_active);
+            } else if let Some(active_player) = self.active_player.as_mut() {
+                // if we removed the active player, we need to select a new active player (one has to exist, since active_count > 1
+                match pos.cmp(active_player) {
+                    Ordering::Less => {
+                        *active_player -= 1;
+                    }
+                    Ordering::Equal => {
+                        if pos == self.players.len() {
+                            *active_player = None;
+                        }
+                        loop {
+                            if self.players[*active_player].is_active {
+                                break;
+                            }
+                            *active_player = (*active_player + 1) % self.players.len();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            Some(player)
+        } else {
+            None
+        }
+    }
+
+    pub fn shuffle_seats<R: Rng>(&mut self, rng: &mut R) {
+        self.players.shuffle(rng);
+    }
+
+    pub fn count_players(&self) -> usize {
+       self.players.len()
+    }
+
+    pub fn count_active(&self) -> usize {
+        self.players.iter().filter(|p| p.is_active).count()
+    }
+
+    pub fn count_with_chips(&self) -> usize {
+        self.players.iter().filter(|p| p.chis > Chips::ZERO).count()
+    }
+
+    pub fn count_active_with_chips(&self) -> usize {
+        self.players.iter().filter(|p| p.is_active && p.chips > Chips::Zero).count(); //TODO: maybe introduce has_chips function?
+    }
+
+    pub fn get_active_player(&self) -> Option<&mut Player> {
+        self.active_player.and_then(|idx| self.players.get_mut(idx)).filter(|p| p.is_active) //TODO: what is going on here?
+    }
+
+    pub fn is_active(&self, player_id: &PeerId) -> bool {
+        self.active_player.and_then(|idx| self.players.get(idx)).map(|p| &p.player_id == player_id).unwrap_or(false)
+    }
+
+
+}
