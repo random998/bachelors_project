@@ -179,8 +179,124 @@ impl Server {
             retry += 1;
         }
     }
+}
 
-    /// client connection handler.
+/// client connection handler.
+struct Handler {
+    tables: TablesPool, // tables associated with / offered by this server.
+    signing_key: SigningKey, // server signing key shared by all connections.
+    db: Db, // database for storing the player information.
+    table: Option<Table>,
+    shutdown_broadcast_rx: broadcast::Receiver<()>, // receiver channel for listening to shutdown-notifications.
+    _shutdown_complete_tx: mpsc::Sender<()>, // sender that is being dropped when this connection is done.
+}
+
+impl Handler {
+const JOIN_TABLE_CHIPS: Chips = Chips::new(1_000_000); //TODO: make configurable.
+
+    /// handle TLS steam.
+    async fn run_tls(&mut self, mut stream: TlsStream<TcpStream>) -> Result<()> {
+        let mut connection = connection::accept_async(stream).await?;
+        let result = self.handle_connection(&mut connection).await;
+        connection.close().await?;
+        result
+    }
+
+    /// handle unsecured steam.
+    async fn run_tcp(&mut self, stream: TcpStream) -> Result<()> {
+        let mut connection = connection::accept_async(stream).await?;
+        let result = self.handle_connection(&mut connection).await;
+        connection.close().await?;
+        result
+    }
+
+    /// handle connection messages.
+    async fn handle_connection<S>(&mut self, connection: &mut EncryptedConnection<S>) -> Result<()>
+        where
+            S: AsyncRead + AsyncWrite + Unpin,
+    {
+        // wait for a JoinServer message from the client to join this server and get the client nickname and player id.
+        let message = tokio::select! {
+            result = connection.recv() => match result {
+                Some(Ok(message)) => message,
+                Some(Err(error)) => { return Err(error.into()); }
+                None => { return Ok(()); }
+            _ = self.shutdown_broadcast_rx.recv() => return Ok(());
+            },
+        };
+
+        let (nickname, player_id) = match message.message() {
+            Message::JoinServer { nickname } => {
+                let player = self.db.join_server(message.sender(), nickname, SELF::JOIN_TABLE_CHIPS).await?;
+
+                // notify client associated with the player account.
+                let signed_message = SignedMessage::new(
+                    &self.signing_key,
+                    Message::ServerJoined {
+                        nickname: player.nickname.clone(),
+                        chips: player.chips.clone(),
+                    },
+                );
+                connection.send(&signed_message).await?;
+                (nickname.to_strint(), message.sender())
+            }
+            _ => bail!(
+                "Invalid message from {}, expecting a JoinServer message.",
+                message.sender()
+                ),
+        };
+        // create channel to get message from a table.
+        let (table_tx, mut table_tx) = mspc::channel(128); //TODO: meaning of this line?
+
+        let result = loop {
+            enum Branch {
+                Connection(SignedMessage),
+                Table(TableMessage),
+            }
+
+            let branch = tokio::select! {
+                // message received from client
+                result = connection.recv() => match result {
+                    Some(Ok(message)) => Branch::Connection(message),
+                    Some(Err(error)) => { break Err(error.into()); }
+                    None => { return Ok(()); }
+                },
+                // server is shutting down, exit this handler.
+                _ = self.shutdown_broadcast_rx.recv() => break Ok(()),
+            };
+
+            match branch {
+                Branch::Connection(message) => match message.message() {
+                    Message::JoinTable => {
+                        // for now, refill player chips if needed //TODO: fix
+                        self.get_or_refill_chips(&player_id).await?;
+
+                        let has_chips = self.db.pay_from_player(player_id.clone(), Self::JOIN_TABLE_CHIPS).await?;
+                        if has_chips {
+                            let result = self.tables.join(&player_id, &nickname, Self::JOIN_TABLE_CHIPS, table_tx.clone(),).await?;
+
+                            match res {
+                                Ok(table) => self.table = Some(table),
+                                Err(e) => {
+                                    // refund chips and notify client.
+                                    self.db.play_to_player(player_id.clone(), Self::JOIN_TABLE_CHIPS).await?;
+
+                                    let message = match e {
+                                        TablesPoolError::NoTablesLeft => Messgae::NoTablesLeft,
+                                        TablesPoolError::AlreadyJoined => {
+                                            Message::PlayerAlreadyJoined
+                                        },
+                                    };
+                                    connection.send(&SignedMessage::new(&self.signing_key, message)).await?;
+                                }
+                            };
+                    } else {
+                        // if player has not enough chips to join the table, notify the corresponding client.
+                    }
+            }
+        }
+        }
+}
 
 
 
