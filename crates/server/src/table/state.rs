@@ -17,7 +17,7 @@ use poker_core::{
     poker::{Card, Chips, Deck, HandValue, PlayerCards, TableId},
 };
 
-use crate::db::Db;
+use crate::db::Database;
 use super::{player::{Player, PlayersState}, TableMessage};
 
 /// Represents the current phase of a hand being played.
@@ -58,11 +58,11 @@ pub enum TableJoinError {
 
 /// Core state of a poker table instance.
 #[derive(Debug)]
-pub struct TableState {
+pub struct InternalTableState {
     table_id: TableId,
     max_seats: usize,
     signing_key: Arc<SigningKey>,
-    database: Db,
+    database: Database,
 
     phase: HandPhase,
     hand_number: usize,
@@ -87,34 +87,12 @@ impl InternalTableState {
     const INITIAL_SMALL_BLIND: Chips = Chips::new(10_000);
     const INITIAL_BIG_BLIND: Chips = Chips::new(20_000);
 
-    pub fn new(table_id: TableId, max_seats: usize, signing_key: Arc<SigningKey>, database: Db) -> Self {
-        let rng = StdRng::from_entropy();
+    pub fn new(table_id: TableId, max_seats: usize, signing_key: Arc<SigningKey>, database: Database) -> Self {
+        let rng = StdRng::from_os_rng();
         Self::with_rng(table_id, max_seats, signing_key, database, rng)
     }
 
-    fn with_rng(table_id: TableId, max_seats: usize, signing_key: Arc<SigningKey>, database: Db, mut rng: StdRng) -> Self {
-        Self {
-            table_id,
-            max_seats,
-            signing_key,
-            database,
-            phase: HandPhase::WaitingForPlayers,
-            hand_number: 0,
-            small_blind: Self::INITIAL_SMALL_BLIND,
-            big_blind: Self::INITIAL_BIG_BLIND,
-            players: PlayersState::default(),
-            deck: Deck::shuffled(&mut rng),
-            board: vec![],
-            last_bet: Chips::ZERO,
-            min_raise: Chips::ZERO,
-            pots: vec![Pot::default()],
-            rng,
-            hand_start_timer: None,
-            hand_start_delay: Duration::from_millis(3000),
-        }
-    }
-
-    fn with_rng(table_id: TableId, max_seats: usize, signing_key: Arc<SigningKey>, database: Db, mut rng: StdRng) -> Self {
+    fn with_rng(table_id: TableId, max_seats: usize, signing_key: Arc<SigningKey>, database: Database, mut rng: StdRng) -> Self {
         Self {
             table_id,
             max_seats,
@@ -193,7 +171,7 @@ impl InternalTableState {
     }
     pub async fn leave(&mut self, player_id: &PeerId) {
         if let Some(leaver) = self.players.remove(player_id) {
-            let msg = Message::PlayerLeft(player_id.clone());
+            let msg = Message::PlayerLeftNotification(player_id.clone());
             self.broadcast(msg).await;
             leaver.notify_left().await;
         }
