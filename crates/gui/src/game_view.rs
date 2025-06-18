@@ -5,7 +5,7 @@ use log::error;
 
 use poker_cards::egui::Textures;
 use poker_core::{
-    game_state::{GameState, Player},
+    game_state::{ClientGameState, Player},
     message::{Message, PlayerAction},
     poker::{Chips, PlayerCards},
 };
@@ -15,7 +15,7 @@ use crate::{AccountView, App, ConnectView, ConnectionEvent, View};
 /// Connect view.
 pub struct GameView {
     connection_closed: bool,
-    game_state: GameState,
+    game_state: ClientGameState,
     error: Option<String>,
     bet_params: Option<BetParams>,
     show_account: Option<Chips>,
@@ -104,7 +104,7 @@ impl GameView {
     const SMALL_BUTTON_SZ: Vec2 = vec2(30.0, 30.0);
 
     /// Creates a new [GameView].
-    pub fn new(ctx: &Context, game_state: GameState) -> Self {
+    pub fn new(ctx: &Context, game_state: ClientGameState) -> Self {
         ctx.request_repaint();
 
         Self {
