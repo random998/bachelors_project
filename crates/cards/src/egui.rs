@@ -129,7 +129,6 @@ static CARD_IMAGES: LazyLock<AHashMap<Card, &'static [u8]>> = LazyLock::new(|| {
         cards.insert(Card::new(Rank::King, Suit::Spades), BYTES_KING_OF_SPADES);
         cards.insert(Card::new(Rank::Ace, Suit::Spades), BYTES_ACE_OF_SPADES);
         cards
-    });
 });
 
 /// A collection of cards textures used for drawing.
