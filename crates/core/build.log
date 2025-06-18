@@ -1,0 +1,55 @@
+warning: /home/userNoPriv/code/zkpoker/crates/server/Cargo.toml: no edition set: defaulting to the 2015 edition while the latest is 2024
+    Blocking waiting for file lock on build directory
+   Compiling poker-core v0.0.1 (/home/userNoPriv/code/zkpoker/crates/core)
+error[E0432]: unresolved imports `crate::crypto::PeerID`, `crate::poker::PlayerCards`
+ --> crates/core/src/game_state.rs:5:5
+  |
+5 |     crypto::PeerID,
+  |     ^^^^^^^^^^^^^^ no `PeerID` in `crypto`
+6 |     message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage},
+7 |     poker::{Card, Chips, PlayerCards, TableId},
+  |                          ^^^^^^^^^^^ no `PlayerCards` in `poker`
+  |
+help: a similar name exists in the module
+  |
+5 -     crypto::PeerID,
+5 +     crypto::PeerId,
+  |
+help: a similar name exists in the module
+  |
+7 |     poker::{Card, Chips, PlayersCards, TableId},
+  |                                +
+
+error[E0432]: unresolved import `crate::poker::PlayerCards`
+  --> crates/core/src/message.rs:10:26
+   |
+10 |     poker::{Card, Chips, PlayerCards, TableId},
+   |                          ^^^^^^^^^^^
+   |                          |
+   |                          no `PlayerCards` in `poker`
+   |                          help: a similar name exists in the module: `PlayersCards`
+
+error[E0432]: unresolved import `cards`
+ --> crates/core/src/poker.rs:7:9
+  |
+7 | pub use cards::{Card, Deck, Rank, Suit};
+  |         ^^^^^ use of unresolved module or unlinked crate `cards`
+  |
+  = help: if you wanted to use a crate named `cards`, use `cargo add cards` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `digest`
+  --> crates/core/src/crypto.rs:21:32
+   |
+21 | type SignatureHasher = Blake2s<digest::consts::U32>;
+   |                                ^^^^^^ use of unresolved module or unlinked crate `digest`
+   |
+   = help: if you wanted to use a crate named `digest`, use `cargo add digest` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `digest`
+   --> crates/core/src/crypto.rs:115:36
+    |
+115 |         let mut hasher = Blake2s::<digest::consts::U16>::new();
+    |                                    ^^^^^^ use of unresolved module or unlinked crate `digest`
+    |
+    = help: if you wanted to use a crate named `digest`, use `cargo add digest` to add it to your `Cargo.toml`
+
