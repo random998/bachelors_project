@@ -1,17 +1,19 @@
 // code copied from github.com/vincev/freezeout
 
 #[cfg(feature = "eval")]
-pub use eval::{HandRank, HandValue};
+pub use poker_eval::eval::{HandRank, HandValue};
 pub use poker_cards::{Card, Deck, Rank, Suit};
 use serde::{Deserialize, Serialize};
 use std::{fmt, ops};
 
 // a unique table identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+/// table id
 pub struct TableId(u32);
 
 impl TableId {
     // unassigned tables receive id 0.
+    /// no table const
     pub const NO_TABLE: TableId = TableId(0);
 
     fn get_random_u32() -> Result<u32, getrandom::Error> {
@@ -19,24 +21,25 @@ impl TableId {
         getrandom::fill(&mut buf)?;
         Ok(u32::from_ne_bytes(buf))
     }
-    // create new unique (with high probability) table id.
+    /// create new unique (with high probability) table id.
     pub fn new_id() -> TableId {
         TableId(Self::get_random_u32().unwrap())
     }
 }
 
 impl fmt::Display for TableId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-// data structure for storing the amount of chips for a given table.
+/// data structure for storing the amount of chips for a given table.
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[derive(Clone)]
 pub struct Chips(u32);
 
 impl Chips {
+    /// const for zero chips.
     pub const ZERO: Chips = Chips(0);
 
     /// create chips struct with the given amount of chips.
@@ -106,7 +109,7 @@ impl ops::Rem<u32> for Chips {
 }
 
 impl fmt::Display for Chips {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let amount = self.0;
         if amount >= 10_000_000 {
             write!(f, "{:.1}M", amount as f64 / 1e6)
@@ -126,11 +129,15 @@ impl fmt::Display for Chips {
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+/// enum for listening the different states the player's cards can be in.
 pub enum PlayerCards {
     #[default]
-    None, // the player has no cards.
-    Covered, // the player has cards but they are covered.
-    Cards(Card, Card) // the player has two cards, which are not covered.
+    /// the player has no cards.
+    None,
+    /// the player has cards, but they are covered (only visible to the player himself).
+    Covered,
+    /// the player has two cards, which are not covered (only visible to the player himself).
+    Cards(Card, Card)
 }
 
 #[cfg(test)]
