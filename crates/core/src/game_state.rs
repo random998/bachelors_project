@@ -2,7 +2,7 @@
 // Game state representation for each peer client in a peer-to-peer poker game.
 
 use crate::{
-    crypto::PeerID,
+    crypto::PeerId,
     message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage},
     poker::{Card, Chips, PlayerCards, TableId},
 };
