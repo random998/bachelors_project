@@ -16,6 +16,12 @@ error[E0432]: unresolved import `crate::poker::PlayerCards`
    |                          no `PlayerCards` in `poker`
    |                          help: a similar name exists in the module: `PlayersCards`
 
+error[E0432]: unresolved import `eval`
+ --> crates/core/src/poker.rs:7:9
+  |
+7 | pub use eval::{HandRank, HandValue};
+  |         ^^^^ help: a similar path exists: `poker_eval::eval`
+
 error[E0433]: failed to resolve: use of unresolved module or unlinked crate `digest`
   --> crates/core/src/crypto.rs:21:32
    |
@@ -44,15 +50,4 @@ help: there is an enum variant `serde::__private::de::Content::U16`; try using t
 129 - pub struct PeerId([u8; digest::consts::U16::INT]);
 129 + pub struct PeerId([u8; serde::__private::de::Content::INT]);
     |
-
-error[E0412]: cannot find type `PeerID` in this scope
-   --> crates/core/src/game_state.rs:54:21
-    |
-54  |     fn new(peer_id: PeerID, nickname: String, chips: Chips) -> Player {
-    |                     ^^^^^^ help: a struct with a similar name exists: `PeerId`
-    |
-   ::: crates/core/src/crypto.rs:129:1
-    |
-129 | pub struct PeerId([u8; digest::consts::U16::INT]);
-    | -------------------------------------------------- similarly named struct `PeerId` defined here
 

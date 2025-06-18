@@ -1,10 +1,10 @@
 // code copied from github.com/vincev/freezeout
 
-use serde::{ Deserialize, Serialize};
-use std::{fmt, ops, sync::atomic};
-pub use poker_cards::{Card, Deck, Rank, Suit};
 #[cfg(feature = "eval")]
 pub use eval::{HandRank, HandValue};
+pub use poker_cards::{Card, Deck, Rank, Suit};
+use serde::{Deserialize, Serialize};
+use std::{fmt, ops};
 
 // a unique table identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ impl fmt::Display for TableId {
 }
 
 // data structure for storing the amount of chips for a given table.
-#[derive(Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Chips(u32);
 
 impl Chips {
@@ -50,7 +50,7 @@ impl Chips {
 }
 
 impl From<Chips> for u32 {
-    fn from(chips: Chips) -> Self { val.0}
+    fn from(val: Chips) -> Self { val.0}
 }
 
 impl ops::Add for Chips {
@@ -100,7 +100,7 @@ impl ops::Div<u32> for Chips {
 impl ops::Rem<u32> for Chips {
     type Output = Chips;
     fn rem(self, rhs: u32) -> Chips {
-        Chips(self.0.saturating_rem(rhs))
+        Chips(self.0 % rhs)
     }
 }
 
@@ -108,7 +108,7 @@ impl fmt::Display for Chips {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let amount = self.0;
         if amount >= 10_000_000 {
-            write!(f, "{:.1}M", amount as f64 / 1e6);
+            write!(f, "{:.1}M", amount as f64 / 1e6)
         } else if amount >= 1_000_000 {
             write!(f,
                    "{},{:03},{:03}K",
@@ -125,7 +125,7 @@ impl fmt::Display for Chips {
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
-pub enum PlayersCards {
+pub enum PlayerCards {
     #[default]
     None, // the player has no cards.
     Covered, // the player has cards but they are covered.
