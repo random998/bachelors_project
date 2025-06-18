@@ -223,7 +223,7 @@ fn extract_hand(hand: &[Card], ranks: &[u8; 3]) -> [Card; 5] {
 
     let mut cards = [0u8; 7];
     for (idx, c) in hand.iter().enumerate() {
-        cards[idx] = c.rank_bits() << 4 | idx as u8;
+        cards[idx] = (c.rank_bits() << 4 | (idx as u32)) as u8;
     }
 
     cards.sort();

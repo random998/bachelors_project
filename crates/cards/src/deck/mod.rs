@@ -1,4 +1,5 @@
 // code inspired by https://github.com/vincev/freezeout
+
 /// Poker cards definition
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -53,7 +54,7 @@ impl Card {
 
     /// Returns the card's rank.
     pub fn rank(&self) -> Rank {
-        let rank_bits = self.rank_bits();;
+        let rank_bits = self.rank_bits();
         match rank_bits {
             0 => Rank::Deuce,
             1 => Rank::Trey,
@@ -76,7 +77,7 @@ impl Card {
     #[inline] // tells the compiler it might be worth inlining the function for perfomance (see https://doc.rust-lang.org/nightly/reference/attributes/codegen.html?highlight=inline#the-inline-attribute)
     /// extracts the rank bits of a Card from its encoded u32 representation.
     pub fn rank_bits(&self) -> u32 {
-        ((self.0 >> 8) & 0xf) as u8
+        (self.0 >> 8) & 0xf
     }
 
     /// Returns the suit bits.
@@ -98,7 +99,7 @@ impl fmt::Display for Card {
     }
 }
 
-impl Debug for Card {
+impl fmt::Debug for Card {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}{}", self.rank(), self.suit())
     }
@@ -149,12 +150,16 @@ impl fmt::Display for Rank {
             Rank::King => "K",
             Rank::Ace => "A",
         };
-        write!(f, "{}", rank);
+        write!(f, "{}", rank)
     }
 }
 
 
+
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Suit {
+
     Clubs = 8,
     Diamonds = 4,
     Hearts = 2,
@@ -169,7 +174,7 @@ impl fmt::Display for Suit {
             Suit::Hearts => 'H',
             Suit::Spades => 'S',
         };
-        write!(f, "{}", suit);
+        write!(f, "{}", suit)
     }
 }
 
@@ -182,7 +187,7 @@ impl Suit {
 }
 
 
-#[derive(Deck)]
+#[derive(Debug)]
 pub struct Deck {
     cards: Vec<Card>,
 }
@@ -200,7 +205,7 @@ impl Deck {
 
     /// deals a card from the deck.
     pub fn deal(&mut self) -> Card {
-        self.cards.pop().except("Could not deal card from deck")
+        self.cards.pop().expect("Could not deal card from deck")
     }
 
     /// checks whether the deck is empty.
@@ -221,7 +226,7 @@ impl Deck {
     /// Calls the given closure n times with a sample of k cards.
     ///
     /// Panics if k is not in the [1 .. Self::count()] range.
-    pub fn sample<F>(&self, n: usize, mut f: F)
+    pub fn sample<F>(&self, n: usize, k: usize, mut f: F)
     where
         F: FnMut(&[Card]),
     {
@@ -231,7 +236,7 @@ impl Deck {
 
         for _ in 0..n {
             for (pos, c) in self.cards.choose_multiple(&mut rng, k).enumerate() {
-                h[pos] ^= *c;
+                h[pos] = *c;
             }
             f(&h);
         }

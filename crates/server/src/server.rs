@@ -26,7 +26,7 @@ use tokio_rustls::{
     server::TlsStream,
 };
 
-use zkpoker_core::{
+use poker_core::{
     connection::{self, EncryptedConnection},
     crypto::{PeerId, SigningKey},
     message::{Message, SignedMessage},
