@@ -41,7 +41,7 @@ pub struct Player {
     pub is_dealer: bool,
 
     /// Indicates whether the player is still participating in the current hand.
-    pub in_hand: bool,
+    pub participating_in_hand: bool,
 }
 
 impl Player {
@@ -63,7 +63,7 @@ impl Player {
             last_action_timer: None,
             hole_cards: PlayerCards::None,
             is_dealer: false,
-            in_hand: true,
+            participating_in_hand: true,
         }
     }
 }
@@ -242,7 +242,7 @@ impl ClientGameState {
                 pot,
             } => {
                 self.update_players(players);
-                self.board = board.clone();
+                self.board= board.clone();
                 self.pot = *pot;
             }
             Message::ActionRequest {
@@ -261,6 +261,36 @@ impl ClientGameState {
                 }
             }
             _ => {}
+        }
+    }
+
+    fn update_players(&mut self, updates: &[PlayerUpdate]) {
+        for update in updates {
+            if let Some(pos) = self
+                .players
+                .iter_mut()
+                .position(|p| p.peer_id.digits() == update.clone().player_id.digits())
+            {
+                let player = &mut self.players[pos];
+                player.total_chips = update.chips;
+                player.current_bet = update.bet;
+                player.last_action = update.action;
+                player.last_action_timer = update.action_timer;
+                player.is_dealer= update.has_button;
+                player.participating_in_hand= update.is_active;
+
+                // Do not override cards for the local player as they are updated
+                // when we get a DealCards message.
+                if pos != 0 {
+                    player.cards = update.cards;
+                }
+
+                // If local player has folded remove its cards.
+                if pos == 0 && !player. {
+                    player.cards = PlayerCards::None;
+                    self.action_request = None;
+                }
+            }
         }
     }
 }
