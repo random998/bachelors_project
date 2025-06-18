@@ -24,7 +24,7 @@ pub enum Message {
     },
 
     /// Sent when no available tables remain for the player to join.
-    NoTablesLeftNotication,
+    NoTablesLeftNotification,
 
     /// Indicates that the player does not have enough chips to join a game.
     NotEnoughChips,
@@ -100,7 +100,7 @@ pub enum Message {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerUpdate {
     pub player_id: PeerId,
     pub chips: Chips,
@@ -109,6 +109,7 @@ pub struct PlayerUpdate {
     pub action_timer: Option<u16>,
     pub is_dealer: bool,
     pub is_active: bool,
+    pub hole_cards: PlayerCards
 }
 
 /// A Player action.

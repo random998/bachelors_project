@@ -263,34 +263,34 @@ impl ClientGameState {
             _ => {}
         }
     }
-
     fn update_players(&mut self, updates: &[PlayerUpdate]) {
+        let updates = updates.clone();
         for update in updates {
-            let update = update.clone();
-            let update2 = update.clone();
+            let update = update.clone(); // Clone once
+
             if let Some(pos) = self
                 .players
                 .iter_mut()
-                .position(|p| p.peer_id.digits() == update2.player_id.digits())
+                .position(|p| p.peer_id.digits() == update.player_id.digits())
             {
                 let player = &mut self.players[pos];
-                player.total_chips = update.clone().chips;
+                player.total_chips = update.chips;
                 player.current_bet = update.bet;
                 player.last_action = update.action;
                 player.last_action_timer = update.action_timer;
-                player.is_dealer= update.has_button;
-                player.participating_in_hand= update.is_active;
+                player.is_dealer = update.is_dealer;
+                player.participating_in_hand = update.is_active;
 
                 // Do not override cards for the local player as they are updated
                 // when we get a DealCards message.
                 if pos != 0 {
-                    player.cards = update.cards;
+                    player.hole_cards= update.hole_cards;
                 }
 
-                // If local player has folded remove its cards.
-                if pos == 0 && !player. {
-                    player.cards = PlayerCards::None;
-                    self.action_request = None;
+                // If local player has folded, remove its cards.
+                if pos == 0 && !player.participating_in_hand {
+                    player.hole_cards= PlayerCards::None;
+                    self.current_action_request = None;
                 }
             }
         }
