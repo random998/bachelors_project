@@ -1,6 +1,4 @@
-// Copyright (C) 2025 Vince Vasta
-// SPDX-License-Identifier: Apache-2.0
-
+// code copied from https://github.com/vincev/freezeout
 //! Freezeout Poker hand evaluator.
 //!
 //! Poker hand evaluator for 5, 6 and 7 cards hands. This evaluator is a port of
@@ -27,5 +25,5 @@ pub mod eval;
 pub use eval::{HandRank, HandValue};
 
 // Reexport cards types.
-pub use freezeout_cards::{Card, Deck, Rank, Suit};
+pub use poker_cards::{Card, Deck, Rank, Suit};
 

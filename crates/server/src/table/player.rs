@@ -221,7 +221,7 @@ impl PlayersState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use freezeout_core::crypto::SigningKey;
+    use poker_core::crypto::SigningKey;
 
     fn new_player(chips: Chips) -> Player {
         let peer_id = SigningKey::default().verifying_key().peer_id();

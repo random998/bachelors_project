@@ -276,7 +276,7 @@ mod tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use freezeout_core::poker::TableId;
+    use poker_core::poker::TableId;
 
     struct TestTablesPool {
         pool: TablesPool,

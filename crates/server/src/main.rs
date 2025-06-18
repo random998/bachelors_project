@@ -33,7 +33,7 @@ async fn main() {
         .init();
 
     let cli = Cli::parse();
-    let config = freezeout_server::Config {
+    let config = poker_server::Config {
         address: cli.address,
         port: cli.port,
         tables: cli.tables as usize,
