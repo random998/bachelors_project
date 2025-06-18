@@ -196,10 +196,61 @@ impl InternalTableState {
             let msg = Message::PlayerLeft(player_id.clone());
             self.broadcast_message(msg).await;
 
-            // Notify the handler that this player has left the table. //TODO: handler??
+            // Notify the handler that this player has left the table.
             player.send_player_left().await;
 
+            if self.players.count_active() < 2 {
+                self.enter_end_hand().await();
+                return;
+            }
 
+            if active_player_is_leaving {
+                self.request_action().await;
+            }
+        }
+    }
+
+    /// handle incoming message from a player.
+    pub async fn message(&mut self, msg: SignedMessage) {
+        if let Message::ActionResponse {action, amount} = msg.message() {
+            if let Some(player) = self.players.active_player() { // only process actionResponses incoming from the active player
+                if player.player_id == msg.sender() {
+                    player.action = *action;
+                    player.action_timer = None;
+
+                    match action {
+                        PlayerAction::Fold => {
+                            player.fold();
+                        }
+                        PlayerAction::Call => {
+                            player.bet(*action, self.last_bet)
+                        }
+                        PlayerAction::Check => {}
+                        PlayerAction::Bet | PlayerAction::Raise => {
+                            let amount = *amount.min(&(player.bet + player.chips));
+                            self.min_raise = (amount - self.last_bet).max(self.min_raise);
+                            self.last_bet = amount.max(self.last_bet);
+                        }
+                        _ => {}
+                    }
+                    self.action_update().await;
+                }
+            }
+        }
+    }
+    pub async fn tick(&mut self) {
+        // check if there is any player with an active timer.
+        if self.players.iter().any(|p| &p.action_timer.is_some()) {
+            let player = self.players.iter_mut().find(|p| &p.action_timer.is_some()).unwrap(); //TODO: I think this right here can be done more elegantly.
+
+            // if timer has expired fold, otherwise broadcast a timer update.
+            if player.action_timer.unwrap().elapsed() > Self::ACTION_TIMEOUT {
+                player.fold();
+                self.action_update().await;
+            } else {
+                self.broadcast_game_update().await;
+            }
         }
     }
 }
+
