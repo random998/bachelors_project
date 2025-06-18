@@ -1,5 +1,4 @@
-// Copyright (C) 2025 Vince Vasta
-// SPDX-License-Identifier: Apache-2.0
+// code inspired by https://github.com/vincev/freezeout
 
 //! Poker hand evaluator.
 //!
@@ -17,7 +16,7 @@
 //! [kevcode]: http://suffe.cool/poker/code/
 use std::cmp::Ordering;
 
-use freezeout_cards::Card;
+use poker_cards::Card;
 
 mod eval7;
 
@@ -1450,7 +1449,7 @@ static PERM6: [[usize; 5]; 6] = [
 #[cfg(test)]
 mod tests {
     use ahash::AHashMap;
-    use freezeout_cards::{Card, Deck, Rank, Suit};
+    use poker_cards::{Card, Deck, Rank, Suit};
 
     use super::*;
 
@@ -1534,7 +1533,7 @@ mod tests {
     /// In release mode this takes around 3.7 secs for 133M hands (~36M hands/s) to run it:
     ///
     /// ```bash
-    /// cargo t -p freezeout-eval --features=eval --release -- --ignored
+    /// cargo t -p poker-eval --features=eval --release -- --ignored
     /// ```
     ///
     /// This is test is marked as disable as it takes a long time to run in debug mode.

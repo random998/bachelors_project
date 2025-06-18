@@ -1,13 +1,12 @@
-// Copyright (C) 2025 Vince Vasta
-// SPDX-License-Identifier: Apache-2.0
+// code copied from https://github.com/vincev/freezeout
 
 //! Freezeout Poker egui app implementation.
 use anyhow::Result;
 use eframe::egui::*;
 use serde::{Deserialize, Serialize};
 
-use freezeout_cards::egui::Textures;
-use freezeout_core::{
+use poker_cards::egui::Textures;
+use poker_core::{
     crypto::{PeerId, SigningKey},
     message::{Message, SignedMessage},
 };
