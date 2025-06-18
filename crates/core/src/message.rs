@@ -61,7 +61,7 @@ pub enum Message {
     /// Ends the current poker hand, providing final results.
     EndHand {
         /// Final payoffs for each player.
-        payoffs: Vec<Payoff>,
+        payoffs: Vec<HandPayoff>,
 
         /// Community cards on the board at showdown.
         board: Vec<Card>,
@@ -211,7 +211,7 @@ impl SignedMessage {
     }
 
     /// Serializes this message.
-    pub fn serialize(&self) -> [u8] {
+    pub fn serialize(&self) -> Vec<u8> {
         bincode::serialize(self.payload.as_ref()).expect("Failed to serialize signed message")
     }
 
@@ -233,16 +233,19 @@ impl SignedMessage {
         #[test]
         fn signed_message() {
             let sk = SigningKey::default();
-            let message = Message::JoinServer {
+            let vk = sk.verifying_key();
+            let peer_id = vk.peer_id();
+            let message = Message::JoinTable{
+                player_id: peer_id,
                 nickname: "Alice".to_string(),
             };
 
-            let smsg = SignedMessage::new(&sk, message);
-            let bytes = smsg.serialize();
+            let signed_message = SignedMessage::new(&sk, message);
+            let bytes = signed_message.serialize();
 
-            let deser_msg = SignedMessage::deserialize_and_verify(&bytes).unwrap();
+            let deserialized_msg = SignedMessage::deserialize_and_verify(&bytes).unwrap();
             assert!(
-                matches!(deser_msg.message(), Message::JoinServer{ nickname } if nickname == "Alice")
+                matches!(deserialized_msg.message(), Message::JoinTable{ player_id, nickname } if nickname == "Alice" && *player_id == peer_id)
             );
         }
     }

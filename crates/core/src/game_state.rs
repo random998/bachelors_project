@@ -159,9 +159,112 @@ impl GameState {
     }
 
     /// Handle an incoming server (legacy, wanted: peer) message.
+    /// Handle an incoming server message.
     pub fn handle_message(&mut self, msg: SignedMessage) {
         match msg.message() {
+            Message::TableJoined {
+                table_id,
+                chips,
+                seats,
+            } => {
+                self.table_id = *table_id;
+                self.seats = *seats as usize;
+                self.server_key = msg.sender().digits();
+
+                // Add this player as the first player in the players list.
+                self.players.push(Player::new(
+                    self.player_id.clone(),
+                    self.nickname.clone(),
+                    *chips,
+                ));
+            }
+            Message::PlayerJoined {
+                player_id,
+                nickname,
+                chips,
+            } => {
+                self.players
+                    .push(Player::new(player_id.clone(), nickname.clone(), *chips));
+            }
+            Message::PlayerLeft(player_id) => {
+                self.players.retain(|p| &p.player_id != player_id);
+            }
+            Message::StartGame(seats) => {
+                // Reorder seats according to the new order.
+                for (idx, seat_id) in seats.iter().enumerate() {
+                    let pos = self
+                        .players
+                        .iter()
+                        .position(|p| &p.player_id == seat_id)
+                        .expect("Player not found");
+                    self.players.swap(idx, pos);
+                }
+
+                // Move local player in first position.
+                let pos = self
+                    .players
+                    .iter()
+                    .position(|p| p.player_id == self.player_id)
+                    .expect("Local player not found");
+                self.players.rotate_left(pos);
+
+                self.game_started = true;
+            }
+            Message::StartHand => {
+                // Prepare for a new hand.
+                for player in &mut self.players {
+                    player.cards = PlayerCards::None;
+                    player.action = PlayerAction::None;
+                    player.payoff = None;
+                }
+            }
+            Message::EndHand { payoffs, .. } => {
+                self.action_request = None;
+                self.pot = Chips::ZERO;
+
+                // Update winnings for each winning player.
+                for payoff in payoffs {
+                    if let Some(p) = self
+                        .players
+                        .iter_mut()
+                        .find(|p| p.player_id == payoff.player_id)
+                    {
+                        p.payoff = Some(payoff.clone());
+                    }
+                }
+            }
+            Message::DealCards(c1, c2) => {
+                // This client player should be in first position.
+                assert!(!self.players.is_empty());
+                assert_eq!(self.players[0].player_id, self.player_id);
+
+                self.players[0].cards = PlayerCards::Cards(*c1, *c2);
+            }
+            Message::GameUpdate {
+                players,
+                board,
+                pot,
+            } => {
+                self.update_players(players);
+                self.board = board.clone();
+                self.pot = *pot;
+            }
+            Message::ActionRequest {
+                player_id,
+                min_raise,
+                big_blind,
+                actions,
+            } => {
+                // Check if the action has been requested for this player.
+                if &self.player_id == player_id {
+                    self.action_request = Some(ActionRequest {
+                        actions: actions.clone(),
+                        min_raise: *min_raise,
+                        big_blind: *big_blind,
+                    });
+                }
+            }
+            _ => {}
         }
     }
 }
-
