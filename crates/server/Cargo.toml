@@ -1,6 +1,7 @@
 [package]
 name = "zkpoker-server"
 description = "zkpoker server"
+version = {workspace = true}
 
 [dependencies]
 ahash = { workspace = true }
