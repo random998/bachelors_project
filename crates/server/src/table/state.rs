@@ -11,7 +11,7 @@ use std::{
 use thiserror::Error;
 use tokio::sync::mpsc;
 
-use freezeout_core::{
+use poker_core::{
     crypto::{PeerId, SigningKey},
     message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage},
     poker::{Card, Chips, Deck, HandValue, PlayerCards, TableId},

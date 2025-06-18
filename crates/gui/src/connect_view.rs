@@ -5,7 +5,7 @@
 use eframe::egui::*;
 use log::error;
 
-use freezeout_core::{crypto::SigningKey, message::Message, poker::Chips};
+use poker_core::{crypto::SigningKey, message::Message, poker::Chips};
 
 use crate::{AccountView, App, AppData, ConnectionEvent, View};
 

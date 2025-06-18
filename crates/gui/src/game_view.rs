@@ -1,12 +1,10 @@
-// Copyright (C) 2025 Vince Vasta
-// SPDX-License-Identifier: Apache-2.0
-
+// code based on https://github.com/vincev/freezeout
 //! Game view.
 use eframe::egui::*;
 use log::error;
 
-use freezeout_cards::egui::Textures;
-use freezeout_core::{
+use poker_cards::egui::Textures;
+use poker_core::{
     game_state::{GameState, Player},
     message::{Message, PlayerAction},
     poker::{Chips, PlayerCards},
@@ -61,7 +59,7 @@ impl View for GameView {
             }
         }
 
-        Window::new("Freezeout Poker")
+        Window::new("zk poker")
             .collapsible(false)
             .resizable(false)
             .anchor(Align2::CENTER_CENTER, Vec2::ZERO)

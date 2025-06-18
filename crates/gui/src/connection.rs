@@ -1,6 +1,3 @@
-// Copyright (C) 2025  Vince Vasta.
-// SPDX-License-Identifier: Apache-2.0
-
 //! Noise protocol encrypted WebSocket connection.
 use anyhow::{Result, bail};
 use eframe::egui;
@@ -8,7 +5,7 @@ use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use snow::{HandshakeState, TransportState, params::NoiseParams};
 use std::sync::LazyLock;
 
-use freezeout_core::message::SignedMessage;
+use poker_core::message::SignedMessage;
 
 static NOISE_PARAMS: LazyLock<NoiseParams> =
     LazyLock::new(|| "Noise_NN_25519_ChaChaPoly_BLAKE2s".parse().unwrap());

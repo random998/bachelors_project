@@ -1,23 +1,21 @@
 [package]
-name = "freezeout-eval"
-description = "Freezeout Poker hand evaluator."
-authors = { workspace = true }
+name = "poker-eval"
+description = "poker hand evaluator."
 edition = { workspace = true }
 license = { workspace = true }
-repository = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
 ahash = { workspace = true }
 anyhow = { workspace = true }
-freezeout-cards = { workspace = true }
+poker-cards = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
 
 [dev-dependencies]
 clap = { workspace = true }
-freezeout-cards = { workspace = true, features = ["egui"] }
+poker-cards = { workspace = true, features = ["egui"] }
 
 [target.'cfg(not(target_os = "linux"))'.dev-dependencies]
 eframe = { workspace = true, features = ["default_fonts", "glow"]}
@@ -26,7 +24,7 @@ eframe = { workspace = true, features = ["default_fonts", "glow"]}
 eframe = { workspace = true, features = ["default_fonts", "glow", "x11"]}
 
 [features]
-parallel = ["freezeout-cards/parallel"]
+parallel = ["poker-cards/parallel"]
 
 [[example]]
 name = "eval_all7"
