@@ -100,7 +100,7 @@ impl Player {
 #[derive(Debug, Default)]
 pub struct PlayersState {
     players: Vec<Player>,
-    active_index: Option<usize>,
+    active_player_idx: Option<usize>,
 }
 
 impl PlayersState {
@@ -110,19 +110,19 @@ impl PlayersState {
 
     pub fn clear(&mut self) {
         self.players.clear();
-        self.active_index = None;
+        self.active_player_idx = None;
     }
 
     pub fn remove(&mut self, id: &PeerId) -> Option<Player> {
         if let Some(pos) = self.players.iter().position(|p| &p.id == id) {
             let removed = self.players.remove(pos);
 
-            match self.active_index {
+            match self.active_player_idx {
                 Some(idx) if idx == pos => {
-                    self.active_index = self.players.iter().position(|p| p.active);
+                    self.active_player_idx = self.players.iter().position(|p| p.active);
                 }
                 Some(idx) if pos < idx => {
-                    self.active_index = Some(idx - 1);
+                    self.active_player_idx = Some(idx - 1);
                 }
                 _ => {}
             }
@@ -154,11 +154,11 @@ impl PlayersState {
     }
 
     pub fn active_player(&mut self) -> Option<&mut Player> {
-        self.active_index.and_then(|i| self.players.get_mut(i)).filter(|p| p.active)
+        self.active_player_idx.and_then(move |i| self.players.get_mut(i)).filter(|p| p.active)
     }
 
     pub fn is_active(&self, id: &PeerId) -> bool {
-        self.active_index
+        self.active_player_idx
             .and_then(|i| self.players.get(i))
             .map(|p| &p.id == id)
             .unwrap_or(false)
@@ -173,14 +173,14 @@ impl PlayersState {
     }
 
     pub fn advance_turn(&mut self) {
-        if self.count_active_with_chips() <= 1 || self.active_index.is_none() {
+        if self.count_active_with_chips() <= 1 || self.active_player_idx.is_none() {
             return;
         }
 
-        let current = self.active_index.unwrap();
+        let current = self.active_player_idx.unwrap();
         for (i, player) in self.players.iter().enumerate().cycle().skip(current + 1).take(self.players.len()) {
             if player.active && player.has_chips() {
-                self.active_index = Some(i);
+                self.active_player_idx = Some(i);
                 break;
             }
         }
@@ -193,21 +193,21 @@ impl PlayersState {
 
         if self.count_active() > 1 {
             self.players.iter_mut().rev().find(|p| p.active).map(|p| p.dealer = true);
-            self.active_index = self.players.iter().position(|p| p.active);
+            self.active_player_idx = self.players.iter().position(|p| p.active);
         } else {
-            self.active_index = None;
+            self.active_player_idx = None;
         }
     }
 
     pub fn start_round(&mut self) {
-        self.active_index = None;
+        self.active_player_idx = None;
         if self.count_active_with_chips() > 1 {
-            self.active_index = self.players.iter().position(|p| p.active && p.has_chips());
+            self.active_player_idx = self.players.iter().position(|p| p.active && p.has_chips());
         }
     }
 
     pub fn end_hand(&mut self) {
-        self.active_index = None;
+        self.active_player_idx = None;
         for p in &mut self.players {
             p.finalize_hand();
         }
@@ -237,33 +237,33 @@ mod tests {
     #[test]
     fn test_player_bet() {
         let init_chips = Chips::new(100_000);
-        let mut player = new_player(init_chips);
+        let mut player = new_player(init_chips.clone());
 
         // Simple bet.
         let bet_size = Chips::new(60_000);
-        player.bet(PlayerAction::Bet, bet_size);
-        assert_eq!(player.bet, bet_size);
-        assert_eq!(player.chips, init_chips - bet_size);
-        assert!(matches!(player.action, PlayerAction::Bet));
+        player.place_bet(PlayerAction::Bet, bet_size.clone());
+        assert_eq!(player.current_bet, bet_size.clone());
+        assert_eq!(player.chips, init_chips.clone() - bet_size.clone());
+        assert!(matches!(player.last_action, PlayerAction::Bet));
 
         // The bet amount is the total bet check chips paid are the new bet minus the
         // previous bet.
         let bet_size = bet_size + Chips::new(20_000);
-        player.bet(PlayerAction::Bet, bet_size);
-        assert_eq!(player.bet, bet_size);
-        assert_eq!(player.chips, init_chips - bet_size);
+        player.place_bet(PlayerAction::Bet, bet_size.clone());
+        assert_eq!(player.current_bet, bet_size.clone());
+        assert_eq!(player.chips, init_chips.clone() - bet_size.clone());
 
         // Start new hand reset bet chips and action.
-        player.start_hand();
-        assert!(matches!(player.action, PlayerAction::None));
-        assert!(player.is_active);
-        assert_eq!(player.bet, Chips::ZERO);
+        player.reset_for_new_hand();
+        assert!(matches!(player.last_action, PlayerAction::None));
+        assert!(player.active);
+        assert_eq!(player.current_bet, Chips::ZERO);
         assert_eq!(player.chips, init_chips - bet_size);
 
         // Bet more than remaining chips goes all in.
-        let remaining_chips = player.chips;
-        player.bet(PlayerAction::Bet, Chips::new(1_000_000));
-        assert_eq!(player.bet, remaining_chips);
+        let remaining_chips = player.chips.clone();
+        player.place_bet(PlayerAction::Bet, Chips::new(1_000_000));
+        assert_eq!(player.current_bet, remaining_chips);
         assert_eq!(player.chips, Chips::ZERO);
     }
 
@@ -272,12 +272,12 @@ mod tests {
         let init_chips = Chips::new(100_000);
         let mut player = new_player(init_chips);
 
-        player.bet(PlayerAction::Bet, Chips::new(20_000));
+        player.place_bet(PlayerAction::Bet, Chips::new(20_000));
         player.action_timer = Some(Instant::now());
 
         player.fold();
-        assert!(matches!(player.action, PlayerAction::Fold));
-        assert!(!player.is_active);
+        assert!(matches!(player.last_action, PlayerAction::Fold));
+        assert!(!player.active);
         assert!(player.action_timer.is_none());
     }
 
@@ -297,13 +297,13 @@ mod tests {
 
         // Make player at index 1 active.
         players.start_hand();
-        players.activate_next_player();
-        assert_eq!(players.active_player.unwrap(), 1);
+        players.advance_turn();
+        assert_eq!(players.active_player_idx.unwrap(), 1);
 
         // Player before active leaves, the active player moved to position 0.
-        let player_id = players.player(0).player_id.clone();
-        assert!(players.leave(&player_id).is_some());
-        assert_eq!(players.active_player.unwrap(), 0);
+        let player_id = players.players[0].id.clone();
+        assert!(players.remove(&player_id).is_some());
+        assert_eq!(players.active_player_idx.unwrap(), 0);
         assert_eq!(players.count_active(), SEATS - 1);
     }
 
@@ -317,13 +317,13 @@ mod tests {
 
         // Make player at index 1 active.
         players.start_hand();
-        players.activate_next_player();
-        assert_eq!(players.active_player.unwrap(), 1);
+        players.advance_turn();
+        assert_eq!(players.active_player_idx.unwrap(), 1);
 
         // Player after active leaves, the active player should be the same.
-        let player_id = players.player(2).player_id.clone();
-        assert!(players.leave(&player_id).is_some());
-        assert_eq!(players.active_player.unwrap(), 1);
+        let player_id = players.players[2].id.clone();
+        assert!(players.remove(&player_id).is_some());
+        assert_eq!(players.active_player_idx.unwrap(), 1);
         assert_eq!(players.count_active(), SEATS - 1);
     }
 
@@ -337,15 +337,15 @@ mod tests {
 
         // Make player at index 1 active.
         players.start_hand();
-        players.activate_next_player();
-        assert_eq!(players.active_player.unwrap(), 1);
+        players.advance_turn();
+        assert_eq!(players.active_player_idx.unwrap(), 1);
 
         // Active leaves the next player should become active.
-        let active_id = players.player(1).player_id.clone();
-        let next_id = players.player(2).player_id.clone();
-        assert!(players.leave(&active_id).is_some());
-        assert_eq!(players.active_player.unwrap(), 1);
-        assert_eq!(players.active_player().unwrap().player_id, next_id);
+        let active_id = players.players[1].id.clone();
+        let next_id = players.players[2].id.clone();
+        assert!(players.remove(&active_id).is_some());
+        assert_eq!(players.active_player_idx.unwrap(), 1);
+        assert_eq!(players.active_player().unwrap().id, next_id);
         assert_eq!(players.count_active(), SEATS - 1);
     }
 
@@ -359,8 +359,8 @@ mod tests {
 
         // Make player at index 1 active.
         players.start_hand();
-        players.activate_next_player();
-        assert_eq!(players.active_player.unwrap(), 1);
+        players.advance_turn();
+        assert_eq!(players.active_player_idx.unwrap(), 1);
 
         // Deactivate player at index 2
         players.iter_mut().nth(2).unwrap().fold();
@@ -368,11 +368,11 @@ mod tests {
 
         // Active leaves but the player after that has folded so the next player at
         // index 3, that will move to index 2, should become active.
-        let active_id = players.player(1).player_id.clone();
-        let next_id = players.player(3).player_id.clone();
-        assert!(players.leave(&active_id).is_some());
-        assert_eq!(players.active_player.unwrap(), 2);
-        assert_eq!(players.active_player().unwrap().player_id, next_id);
+        let active_id = players.players[1].id.clone();
+        let next_id = players.players[3].id.clone();
+        assert!(players.remove(&active_id).is_some());
+        assert_eq!(players.active_player_idx.unwrap(), 2);
+        assert_eq!(players.active_player().unwrap().id, next_id);
         assert_eq!(players.count_active(), SEATS - 2);
     }
 }
