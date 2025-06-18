@@ -1,13 +1,41 @@
 [package]
-name = "zkpoker_gui"
-version = "0.1.0"
-edition = "2024"
+name = "poker_gui"
+description = "gui for poker client"
+edition = { workspace = true }
+version = { workspace = true }
 
 [dependencies]
-eframe = "0.31.1"
-log = "0.4.27"
+ahash = { workspace = true }
+anyhow = { workspace = true }
+ewebsock = { version = "0.8.0", features = ["tls"] }
+poker-cards = { workspace = true, features = ["egui"] }
+poker-core = { workspace = true }
+indoc = "2"
+log = { workspace = true }
+serde = { workspace = true }
+snow = { workspace = true }
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+eframe = { workspace = true, features = [
+    "default_fonts",
+    "glow",
+    "persistence",
+] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+eframe = { workspace = true, features = [
+    "default_fonts",
+    "glow",
+    "x11",
+    "persistence",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+clap = { workspace = true }
+tokio-rustls = { workspace = true }
+env_logger = { workspace = true }

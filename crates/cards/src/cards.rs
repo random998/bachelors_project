@@ -6,8 +6,7 @@ use std::sync::LazyLock;
 
 use crate::{Card, Deck, Rank, Suit};
 
-/// The clubs.
-// Clubs
+// clubs.
 const BYTES_2_OF_CLUBS: &[u8] = include_bytes!("assets/2_of_clubs.png");
 const BYTES_3_OF_CLUBS: &[u8] = include_bytes!("assets/3_of_clubs.png");
 const BYTES_4_OF_CLUBS: &[u8] = include_bytes!("assets/4_of_clubs.png");
