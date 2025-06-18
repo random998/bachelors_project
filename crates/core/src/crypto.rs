@@ -101,7 +101,7 @@ pub struct VerifyingKey(ed25519_dalek::VerifyingKey);
 
 impl VerifyingKey {
     /// Verify that a message was signed by the corresponding private key.
-    pub fn verify<T>(&self, message: &T, signature: &Signature) -> bool 
+    pub fn verify<T>(&self, message: &T, signature: &Signature) -> bool
     where
         T: Serialize,
     {
@@ -125,7 +125,7 @@ impl fmt::Debug for VerifyingKey {
 }
 
 /// A peer identifier derived from a public key.
-#[derive(Clone, Serialize, Deserialize, Hash, Eq, PartialEq)]
+#[derive(Clone, Copy, Serialize, Deserialize, Hash, Eq, PartialEq)]
 pub struct PeerId([u8; digest::consts::U16::INT]);
 
 impl PeerId {

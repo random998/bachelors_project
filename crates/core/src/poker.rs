@@ -33,6 +33,7 @@ impl fmt::Display for TableId {
 
 // data structure for storing the amount of chips for a given table.
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Chips(u32);
 
 impl Chips {
