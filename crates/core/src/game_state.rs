@@ -25,8 +25,8 @@ pub struct Player {
     /// Amount the player has bet in the current round.
     pub current_bet: Chips,
 
-    /// Outcome of the hand for this player (e.g., win/loss amount).
-    pub hand_result: Option<HandPayoff>,
+    /// the chips the player wins or loses in the current hand.
+    pub hand_payoff: Option<HandPayoff>,
 
     /// Most recent action taken by the player (e.g., fold, call, raise).
     pub last_action: PlayerAction,
@@ -58,7 +58,7 @@ impl Player {
             nickname,
             total_chips: chips,
             current_bet: Chips::ZERO,
-            hand_result: None,
+            hand_payoff: None,
             last_action: PlayerAction::None,
             last_action_timer: None,
             hole_cards: PlayerCards::None,
@@ -118,9 +118,9 @@ impl ActionRequest {
 /// This struct holds everything the local peer needs to know about the table,
 /// including player info, the board, and betting context.
 #[derive(Debug)]
-pub struct GameState {
-    /// ID of this local peer.
-    peer_id: PeerId,
+pub struct ClientGameState {
+    /// ID of this local player.
+    player_id: PeerId,
     /// Nickname associated with this peer.
     nickname: String,
     /// Identifier of the host key or session authorithy (may be removed in P2P mode).
@@ -129,65 +129,61 @@ pub struct GameState {
     table_id: TableId,
     /// Number of player seats at the table.
     max_seats: usize,
+    /// Number taken player seats at the table.
+    num_taken_seats: usize,
     /// Whether the game has started.
     has_game_started: bool,
     /// List of all players currently seated at the table.
     players: Vec<Player>,
     /// Action request currently directed to this player, if any.
-    current_action_requests: Option<ActionRequest>,
+    current_action_request: Option<ActionRequest>,
     /// Community cards on the board (flop, turn, river).
     community_cards: Vec<Card>,
     /// Total amount of chips currently in the pot.
-    total_pot: Chips,
+    pot: Chips,
 }
 
-impl GameState {
+impl ClientGameState {
     /// Initializes a new GameState instance for the local player
     pub fn new(player_id: PeerId, nickname: String) -> Self {
-        Self {
-            peer_id: player_id,
+        ClientGameState {
+            player_id: player_id,
             nickname,
             table_id: TableId::NO_TABLE,
             legacy_server_key: String::default(),
-            max_seats: 0,
+            max_seats: 0, // maximum number of seats at the table
             has_game_started: false,
             players: Vec::default(),
-            current_action_requests: None,
+            num_taken_seats: 0,
+            current_action_request: None,
             community_cards: Vec::default(),
-            total_pot: Chips::ZERO,
+            pot: Chips::ZERO,
         }
     }
 
     /// Handle an incoming server (legacy, wanted: peer) message.
-    /// Handle an incoming server message.
     pub fn handle_message(&mut self, msg: SignedMessage) {
         match msg.message() {
-            Message::TableJoined {
-                table_id,
+            Message::PlayerJoined{
+                player_id,
                 chips,
-                seats,
+                table_id,
             } => {
                 self.table_id = *table_id;
-                self.seats = *seats as usize;
-                self.server_key = msg.sender().digits();
+                self.num_taken_seats += 1usize;
+                self.legacy_server_key = msg.sender().digits();
 
                 // Add this player as the first player in the players list.
                 self.players.push(Player::new(
                     self.player_id.clone(),
                     self.nickname.clone(),
-                    *chips,
+                    chips.clone(),
                 ));
             }
-            Message::PlayerJoined {
+            Message::PlayerLeftNotification{
                 player_id,
-                nickname,
-                chips,
             } => {
-                self.players
-                    .push(Player::new(player_id.clone(), nickname.clone(), *chips));
-            }
-            Message::PlayerLeft(player_id) => {
-                self.players.retain(|p| &p.player_id != player_id);
+                self.players.retain(|p| &p.peer_id!= player_id);
             }
             Message::StartGame(seats) => {
                 // Reorder seats according to the new order.
@@ -195,7 +191,7 @@ impl GameState {
                     let pos = self
                         .players
                         .iter()
-                        .position(|p| &p.player_id == seat_id)
+                        .position(|p| &p.peer_id == seat_id)
                         .expect("Player not found");
                     self.players.swap(idx, pos);
                 }
@@ -204,22 +200,22 @@ impl GameState {
                 let pos = self
                     .players
                     .iter()
-                    .position(|p| p.player_id == self.player_id)
+                    .position(|p| p.peer_id == self.player_id)
                     .expect("Local player not found");
                 self.players.rotate_left(pos);
 
-                self.game_started = true;
+                self.has_game_started= true;
             }
             Message::StartHand => {
                 // Prepare for a new hand.
                 for player in &mut self.players {
-                    player.cards = PlayerCards::None;
-                    player.action = PlayerAction::None;
-                    player.payoff = None;
+                    player.hole_cards = PlayerCards::None;
+                    player.last_action = PlayerAction::None;
+                    player.hand_payoff = None;
                 }
             }
             Message::EndHand { payoffs, .. } => {
-                self.action_request = None;
+                self.current_action_request = None;
                 self.pot = Chips::ZERO;
 
                 // Update winnings for each winning player.
@@ -227,20 +223,20 @@ impl GameState {
                     if let Some(p) = self
                         .players
                         .iter_mut()
-                        .find(|p| p.player_id == payoff.player_id)
+                        .find(|p| p.peer_id.digits() == payoff.player_id.digits())
                     {
-                        p.payoff = Some(payoff.clone());
+                        p.hand_payoff= Some(payoff.clone());
                     }
                 }
             }
             Message::DealCards(c1, c2) => {
                 // This client player should be in first position.
                 assert!(!self.players.is_empty());
-                assert_eq!(self.players[0].player_id, self.player_id);
+                assert_eq!(self.players[0].peer_id.digits(), self.player_id.digits());
 
-                self.players[0].cards = PlayerCards::Cards(*c1, *c2);
+                self.players[0].hole_cards = PlayerCards::Cards(*c1, *c2);
             }
-            Message::GameUpdate {
+            Message::GameStateUpdate{
                 players,
                 board,
                 pot,

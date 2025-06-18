@@ -158,7 +158,7 @@ impl InternalTableState {
 
         let new_player = Player::new(player_id.clone(), nickname.clone(), starting_chips, channel);
 
-        let confirmation = Message::TableJoined {
+        let confirmation = Message::PlayerJoinedTableConfirmation {
             table_id: self.table_id,
             chips: starting_chips,
             seats: self.max_seats,

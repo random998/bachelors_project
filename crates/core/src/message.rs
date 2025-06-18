@@ -13,25 +13,18 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
     /// Request to join a table with the given nickname.
-    JoinTable {
+    JoinTableRequest {
         player_id: PeerId,
         nickname: String,
     },
 
-    /// Confirmation that the player has joined a table.
-    TableJoined {
-        player_id: PeerId,
-        chips: Chips,
-        table_id: TableId,
-    },
-
     /// Notification that a player has left their current table.
-    LeaveTable {
+    PlayerLeftNotification {
         player_id: PeerId,
     },
 
     /// Sent when no available tables remain for the player to join.
-    NoTablesLeft,
+    NoTablesLeftNotication,
 
     /// Indicates that the player does not have enough chips to join a game.
     NotEnoughChips,
@@ -43,7 +36,6 @@ pub enum Message {
     PlayerJoined {
         table_id: TableId,
         player_id: PeerId,
-        nickname: String,
         chips: Chips,
     },
 
@@ -235,7 +227,7 @@ impl SignedMessage {
             let sk = SigningKey::default();
             let vk = sk.verifying_key();
             let peer_id = vk.peer_id();
-            let message = Message::JoinTable{
+            let message = Message::JoinTableRequest {
                 player_id: peer_id,
                 nickname: "Alice".to_string(),
             };
@@ -245,7 +237,7 @@ impl SignedMessage {
 
             let deserialized_msg = SignedMessage::deserialize_and_verify(&bytes).unwrap();
             assert!(
-                matches!(deserialized_msg.message(), Message::JoinTable{ player_id, nickname } if nickname == "Alice" && *player_id == peer_id)
+                matches!(deserialized_msg.message(), Message::JoinTableRequest{ player_id, nickname } if nickname == "Alice" && *player_id == peer_id)
             );
         }
     }

@@ -265,7 +265,7 @@ impl ConnectionHandler {
                         conn.send(&SignedMessage::new(&self.signing_key, msg)).await?;
                     }
                     Err(TablesPoolError::NoTablesLeft) => {
-                        let msg = Message::NoTablesLeft;
+                        let msg = Message::NoTablesLeftNotication;
                         conn.send(&SignedMessage::new(&self.signing_key, msg)).await?;
                     }
                 }

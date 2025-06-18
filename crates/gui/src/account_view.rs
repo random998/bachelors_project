@@ -4,7 +4,7 @@
 //! Connection dialog view.
 use eframe::egui::*;
 
-use poker_core::{game_state::GameState, message::Message, poker::Chips};
+use poker_core::{game_state::ClientGameState, message::Message, poker::Chips};
 
 use crate::{App, ConnectView, ConnectionEvent, GameView, View};
 
@@ -14,7 +14,7 @@ const TEXT_FONT: FontId = FontId::new(16.0, FontFamily::Monospace);
 pub struct AccountView {
     player_id: String,
     nickname: String,
-    game_state: GameState,
+    game_state: ClientGameState,
     chips: Chips,
     error: String,
     connection_closed: bool,
@@ -28,7 +28,7 @@ impl AccountView {
         Self {
             player_id: app.player_id().digits(),
             nickname: app.nickname().to_string(),
-            game_state: GameState::new(app.player_id().clone(), app.nickname().to_string()),
+            game_state: ClientGameState::new(app.player_id().clone(), app.nickname().to_string()),
             chips,
             error: String::default(),
             connection_closed: false,
@@ -52,13 +52,13 @@ impl View for AccountView {
                 }
                 ConnectionEvent::Message(msg) => {
                     match msg.message() {
-                        Message::TableJoined { .. } => {
+                        Message::PlayerJoinedTableConfirmation { .. } => {
                             self.table_joined = true;
                         }
                         Message::NotEnoughChips => {
                             self.message = "Not enough chips to play, reconnect later".to_string();
                         }
-                        Message::NoTablesLeft => {
+                        Message::NoTablesLeftNotication => {
                             self.message = "All tables are busy, reconnect later".to_string();
                         }
                         Message::PlayerAlreadyJoined => {
@@ -127,7 +127,7 @@ impl View for AccountView {
         if self.connection_closed {
             Some(Box::new(ConnectView::new(frame.storage(), app)))
         } else if self.table_joined {
-            let empty_state = GameState::new(app.player_id().clone(), app.nickname().to_string());
+            let empty_state = ClientGameState::new(app.player_id().clone(), app.nickname().to_string());
             Some(Box::new(GameView::new(
                 ctx,
                 std::mem::replace(&mut self.game_state, empty_state),
@@ -137,4 +137,3 @@ impl View for AccountView {
         }
     }
 }
-
