@@ -38,6 +38,7 @@ Roadmap:
         Game state is preserved by the others.
         If a turn is missed, timeout and default action (fold/check).
     Each peer should buffer recent state transitions and have a retry/rejoin protocol.
+12. look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
 
 Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
 1. Improved secure shuffling protocol.
