@@ -51,9 +51,9 @@ impl Player {
     /// * `peer_id` - Unique cryptographic identifier for the player.
     /// * `nickname` - Player's chosen display name.
     /// * `initial_chips` - Number of chips the player starts with.
-    fn new(peer_id: PeerID, nickname: String, chips: Chips) -> Player {
+    fn new(peer_id: PeerId, nickname: String, chips: Chips) -> Player {
         Player {
-            peer_id,
+            peer_id: peer_id.clone(),
             peer_id_digits: peer_id.digits(),
             nickname,
             total_chips: chips,
@@ -74,7 +74,6 @@ impl Player {
 /// This replaces a traditional client-server model with decentralized peer coordination.
 /// Each player is asked to choose one of the permitted actions (e.g., Fold, Call, Raise).
 #[derive(Debug)]
-#[derive(Debug)]
 pub struct ActionRequest {
     /// Set of valid actions the player may choose from at this point.
     pub available_actions: Vec<PlayerAction>,
@@ -90,24 +89,23 @@ impl ActionRequest {
 
     /// Returns `true` if the player is allowed to call.
     pub fn can_call(&self) -> bool {
-        self.action(PlayerAction::Call)
+        self.is_action_allowed(PlayerAction::Call)
     }
 
     /// Returns `true` if the player is allowed to check.
     pub fn can_check(&self) -> bool {
-        self.action(PlayerAction::Check)
+        self.is_action_allowed(PlayerAction::Check)
     }
 
     /// Returns `true` if the player is allowed to bet.
     pub fn can_bet(&self) -> bool {
-        self.action(PlayerAction::Bet)
+        self.is_action_allowed(PlayerAction::Bet)
     }
 
     /// Returns `true` if the player is allowed to raise.
     pub fn can_raise(&self) -> bool {
-        self.action(PlayerAction::Raise)
+        self.is_action_allowed(PlayerAction::Raise)
     }
-
 
     /// Checks whether a specific action is in the set of allowed actions.
     fn is_action_allowed(&self, action: PlayerAction) -> bool {
@@ -122,7 +120,7 @@ impl ActionRequest {
 #[derive(Debug)]
 pub struct GameState {
     /// ID of this local peer.
-    peer_id: PeerID,
+    peer_id: PeerId,
     /// Nickname associated with this peer.
     nickname: String,
     /// Identifier of the host key or session authorithy (may be removed in P2P mode).
@@ -145,11 +143,11 @@ pub struct GameState {
 
 impl GameState {
     /// Initializes a new GameState instance for the local player
-    pub fn new(player_id: PeerID, nickname: String) -> Self {
+    pub fn new(player_id: PeerId, nickname: String) -> Self {
         Self {
             peer_id: player_id,
             nickname,
-            table_id: TableId::default(),
+            table_id: TableId::NO_TABLE,
             legacy_server_key: String::default(),
             max_seats: 0,
             has_game_started: false,
@@ -163,7 +161,6 @@ impl GameState {
     /// Handle an incoming server (legacy, wanted: peer) message.
     pub fn handle_message(&mut self, msg: SignedMessage) {
         match msg.message() {
-
         }
     }
 }
