@@ -17,8 +17,8 @@ ed25519-dalek = { version = "2.1.1", default-features = false, features = [
     "serde",
 ] }
 
-cards = { workspace = true }
-eval = { workspace = true, optional = true }
+poker-cards = { workspace = true }
+poker-eval = { workspace = true, optional = true }
 futures-util = { version = "0.3.31", optional = true, features = ["sink"] }
 rand = { workspace = true }
 serde = { workspace = true }
