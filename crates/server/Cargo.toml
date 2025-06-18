@@ -1,7 +1,8 @@
 [package]
 name = "zkpoker-server"
 description = "zkpoker server"
-version = {workspace = true}
+version = "0.0.1"
+rust-version = "1.87.0"
 
 [dependencies]
 ahash = { workspace = true }

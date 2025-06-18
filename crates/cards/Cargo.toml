@@ -2,7 +2,6 @@
 name = "poker-cards"
 description = "zkpoker cards types."
 edition = { workspace = true }
-license = { workspace = true }
 version = { workspace = true }
 
 [dependencies]

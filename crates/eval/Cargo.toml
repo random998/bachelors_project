@@ -2,7 +2,6 @@
 name = "poker-eval"
 description = "poker hand evaluator."
 edition = { workspace = true }
-license = { workspace = true }
 version = { workspace = true }
 
 [dependencies]
