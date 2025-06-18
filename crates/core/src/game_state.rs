@@ -147,7 +147,7 @@ impl ClientGameState {
     /// Initializes a new GameState instance for the local player
     pub fn new(player_id: PeerId, nickname: String) -> Self {
         ClientGameState {
-            player_id: player_id,
+            player_id,
             nickname,
             table_id: TableId::NO_TABLE,
             legacy_server_key: String::default(),
@@ -238,12 +238,12 @@ impl ClientGameState {
             }
             Message::GameStateUpdate{
                 players,
-                board,
+                community_cards: community_cards,
                 pot,
             } => {
                 self.update_players(players);
-                self.board= board.clone();
-                self.pot = *pot;
+                self.community_cards = community_cards.clone();
+                self.pot = pot.clone();
             }
             Message::ActionRequest {
                 player_id,
@@ -253,10 +253,10 @@ impl ClientGameState {
             } => {
                 // Check if the action has been requested for this player.
                 if &self.player_id == player_id {
-                    self.action_request = Some(ActionRequest {
-                        actions: actions.clone(),
-                        min_raise: *min_raise,
-                        big_blind: *big_blind,
+                    self.current_action_request= Some(ActionRequest {
+                        available_actions: actions.clone(),
+                        minimum_raise: min_raise.clone(),
+                        big_blind_amount: big_blind.clone(),
                     });
                 }
             }
