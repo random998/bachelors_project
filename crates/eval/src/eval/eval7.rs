@@ -1,9 +1,7 @@
-// Copyright (C) 2025 Vince Vasta
-// SPDX-License-Identifier: Apache-2.0
-
+// code copied from https://github.com/vincev/freezeout
 use xxhash_rust::xxh3::xxh3_64_with_seed;
 
-use freezeout_cards::Card;
+use poker_cards::Card;
 
 #[rustfmt::skip]
 static HASH_ADJS: [u16; 16384] = [

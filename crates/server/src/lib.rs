@@ -1,5 +1,5 @@
 // code inspired by https://github.com/vincev/freezeout
-//! Freezeout Poker server.
+//! poker server.
 #![warn(clippy::all, rust_2018_idioms, missing_docs)]
 
 pub mod db;

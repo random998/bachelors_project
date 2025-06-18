@@ -8,7 +8,7 @@ use tokio::{
     time,
 };
 
-use freezeout_core::{
+use poker_core::{
     crypto::{PeerId, SigningKey},
     message::SignedMessage,
     poker::{Chips, TableId},

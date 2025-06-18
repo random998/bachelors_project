@@ -7,7 +7,7 @@ use std::{collections::VecDeque, sync::Arc};
 use thiserror::Error;
 use tokio::sync::{Mutex, broadcast, mpsc};
 
-use freezeout_core::{
+use poker_core::{
     crypto::{PeerId, SigningKey},
     poker::Chips,
 };
@@ -112,7 +112,7 @@ impl TablesPool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use freezeout_core::poker::TableId;
+    use poker_core::poker::TableId;
 
     struct TestPool {
         pool: TablesPool,

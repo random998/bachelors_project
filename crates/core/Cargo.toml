@@ -42,5 +42,3 @@ connection = [
     "tokio-rustls",
     "tokio-tungstenite",
 ]
-eval = ["eval"]
-

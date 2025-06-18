@@ -4,7 +4,7 @@
 //! Connection dialog view.
 use eframe::egui::*;
 
-use freezeout_core::{game_state::GameState, message::Message, poker::Chips};
+use poker_core::{game_state::GameState, message::Message, poker::Chips};
 
 use crate::{App, ConnectView, ConnectionEvent, GameView, View};
 
