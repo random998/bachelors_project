@@ -1,10 +1,8 @@
 // code copied from github.com/vincev/freezeout
-// SPDX-License-Identifier: Apache-2.0
 
 use serde::{ Deserialize, Serialize};
 use std::{fmt, ops, sync::atomic};
-
-pub use cards::{Card, Deck, Rank, Suit};
+pub use poker_cards::{Card, Deck, Rank, Suit};
 #[cfg(feature = "eval")]
 pub use eval::{HandRank, HandValue};
 
@@ -16,18 +14,14 @@ impl TableId {
     // unassigned tables receive id 0.
     pub const NO_TABLE: TableId = TableId(0);
 
-    fn get_random_u4096() -> Result<[u128; 32], getrandom::Error> {
-        let mut buf = [0u128; 32];
+    fn get_random_u32() -> Result<u32, getrandom::Error> {
+        let mut buf = [0u8; 4];
         getrandom::fill(&mut buf)?;
-        for i in 0..32 {
-            Ok(u128::from_ne_bytes(buf[i]))
-        }
+        Ok(u32::from_ne_bytes(buf))
     }
-
     // create new unique (with high probability) table id.
     pub fn new_id() -> TableId {
-        //TODO peers send table id's to each other, such that we can avoid collisions.
-        TableId(Self::get_random_u4096().unwrap())
+        TableId(Self::get_random_u32().unwrap())
     }
 }
 
