@@ -266,13 +266,15 @@ impl ClientGameState {
 
     fn update_players(&mut self, updates: &[PlayerUpdate]) {
         for update in updates {
+            let update = update.clone();
+            let update2 = update.clone();
             if let Some(pos) = self
                 .players
                 .iter_mut()
-                .position(|p| p.peer_id.digits() == update.clone().player_id.digits())
+                .position(|p| p.peer_id.digits() == update2.player_id.digits())
             {
                 let player = &mut self.players[pos];
-                player.total_chips = update.chips;
+                player.total_chips = update.clone().chips;
                 player.current_bet = update.bet;
                 player.last_action = update.action;
                 player.last_action_timer = update.action_timer;
