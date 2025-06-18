@@ -1,21 +1,3 @@
-error[E0432]: unresolved import `crate::poker::PlayerCards`
- --> crates/core/src/game_state.rs:7:26
-  |
-7 |     poker::{Card, Chips, PlayerCards, TableId},
-  |                          ^^^^^^^^^^^
-  |                          |
-  |                          no `PlayerCards` in `poker`
-  |                          help: a similar name exists in the module: `PlayersCards`
-
-error[E0432]: unresolved import `crate::poker::PlayerCards`
-  --> crates/core/src/message.rs:10:26
-   |
-10 |     poker::{Card, Chips, PlayerCards, TableId},
-   |                          ^^^^^^^^^^^
-   |                          |
-   |                          no `PlayerCards` in `poker`
-   |                          help: a similar name exists in the module: `PlayersCards`
-
 error[E0433]: failed to resolve: use of unresolved module or unlinked crate `digest`
   --> crates/core/src/crypto.rs:21:32
    |
@@ -50,6 +32,17 @@ error[E0412]: cannot find type `PeerID` in this scope
     |
 54  |     fn new(peer_id: PeerID, nickname: String, chips: Chips) -> Player {
     |                     ^^^^^^ help: a struct with a similar name exists: `PeerId`
+    |
+   ::: crates/core/src/crypto.rs:129:1
+    |
+129 | pub struct PeerId([u8; digest::consts::U16::INT]);
+    | -------------------------------------------------- similarly named struct `PeerId` defined here
+
+error[E0412]: cannot find type `PeerID` in this scope
+   --> crates/core/src/game_state.rs:125:14
+    |
+125 |     peer_id: PeerID,
+    |              ^^^^^^ help: a struct with a similar name exists: `PeerId`
     |
    ::: crates/core/src/crypto.rs:129:1
     |

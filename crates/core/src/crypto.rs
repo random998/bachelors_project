@@ -1,7 +1,7 @@
 /// Cryptographic types and utilities for signing and verifying messages.
 use anyhow::{Result, bail};
 use bip39::Mnemonic;
-use blake2::{Blake2s, Digest, digest::typenum::ToInt};
+use blake2::{Blake2s, Digest, digest::typenum::ToInt, digest};
 use ed25519_dalek::{Signer, Verifier};
 use rand::{CryptoRng, RngCore, SeedableRng, rngs::StdRng};
 use serde::{Deserialize, Serialize};
@@ -22,7 +22,7 @@ type SignatureHasher = Blake2s<digest::consts::U32>;
 
 impl Default for SigningKey {
     fn default() -> SigningKey {
-        let mut rng = StdRng::from_entropy();
+        let mut rng = StdRng::from_os_rng();
         Self::generate_from_rng(&mut rng)
     }
 }
@@ -101,13 +101,13 @@ pub struct VerifyingKey(ed25519_dalek::VerifyingKey);
 
 impl VerifyingKey {
     /// Verify that a message was signed by the corresponding private key.
-    pub fn verify<T>(&self, message: &T, signature: &Signature) -> Result<()>
+    pub fn verify<T>(&self, message: &T, signature: &Signature) -> bool 
     where
         T: Serialize,
     {
         let mut hasher = SignatureHasher::new();
         bincode::serialize_into(&mut hasher, message).expect("Failed to serialize message for verification");
-        self.0.verify(&hasher.finalize(), &signature.0).map_err(Into::into)
+        self.0.verify(&hasher.finalize(), &signature.0).is_ok()
     }
 
     /// Derive a `PeerId` from the verifying key.
@@ -173,6 +173,6 @@ mod tests {
         let sk = SigningKey::default();
         let signature = sk.sign(&msg);
         let vk = sk.verifying_key();
-        assert!(vk.verify(&msg, &signature).is_ok(), "Signature verification failed");
+        assert!(vk.verify(&msg, &signature), "Signature verification failed");
     }
 }
