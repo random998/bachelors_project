@@ -123,7 +123,7 @@ pub struct ClientGameState {
     player_id: PeerId,
     /// Nickname associated with this peer.
     nickname: String,
-    /// Identifier of the host key or session authorithy (may be removed in P2P mode).
+    /// Identifier of the host key or session authority (may be removed in P2P mode).
     legacy_server_key: String, //TODO: remove when switching fully to p2p.
     /// Unique identifier for the poker table instance.
     table_id: TableId,
@@ -165,7 +165,7 @@ impl ClientGameState {
     pub fn handle_message(&mut self, msg: SignedMessage) {
         match msg.message() {
             Message::PlayerJoined{
-                player_id,
+                player_id: _player_id,
                 chips,
                 table_id,
             } => {
@@ -238,7 +238,7 @@ impl ClientGameState {
             }
             Message::GameStateUpdate{
                 players,
-                community_cards: community_cards,
+                community_cards,
                 pot,
             } => {
                 self.update_players(players);
