@@ -334,13 +334,15 @@ impl InternalTableState {
     }
 
     async fn start_betting_round(&mut self) {
-        self.pots.push(Pot::default());
+        self.update_pots();
         self.players.reset_bets();
         self.last_bet = Chips::ZERO;
         self.min_raise = self.big_blind.clone();
 
-        self.players.advance_to_first_actor();
-        self.broadcast(Message::NextToAct(self.players.current_actor_id().cloned())).await;
+        self.broadcast_throttle(Duration::from_millis(1000)).await; //TODO: remove hardcoded number.
+
+        self.players.start_round();
+        self.request_action().await;
     }
 
     async fn enter_preflop_betting(&mut self) {
