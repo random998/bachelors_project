@@ -31,11 +31,10 @@ eframe = { workspace = true, features = [
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.3.3", features = ["wasm_js"] }
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-clap = { workspace = true }
-tokio-rustls = { workspace = true }
-env_logger = { workspace = true }
+tokio = { version = "1", default-features = false, features = ["net", "rt"] }
+aws-lc-sys = { version = "0.29.0", features = ["bindgen"] }

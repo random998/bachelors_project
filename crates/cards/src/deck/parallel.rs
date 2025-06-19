@@ -1,5 +1,5 @@
 // code inspired by https://github.com/vincev/freezeout
-//! parallel hand iteraition //TODO: ??? what does this mean exactly?
+//! parallel hand iteration //TODO: ??? what does this mean exactly?
 use rand::prelude::*;
 use std::thread;
 
@@ -43,7 +43,7 @@ fn n_choose_k(n: usize, k: usize) -> usize {
 
 /// Uses the combinatorial number system to convert n to a
 /// k-combination (See Theorem L pg. 260 4a). TODO: look at the referenced thm.
-fn nth_ksubset(mut n: usize, k: usize) -> [usize; 7] {
+fn nth_k_subset(mut n: usize, k: usize) -> [usize; 7] {
     assert!(k <= 7);
 
     let mut out = [0; 7];
@@ -62,15 +62,15 @@ fn nth_ksubset(mut n: usize, k: usize) -> [usize; 7] {
     out
 }
 
-// Calls the given closure for count k-subsets starting from the nth ksubset.
-fn for_each_ksubset<F>(n: usize, k: usize, nth: usize, count: usize, mut f: F)
+// Calls the given closure for count k-subsets starting from the nth k-subset.
+fn for_each_k_subset<F>(n: usize, k: usize, nth: usize, count: usize, mut f: F)
 where
     F: FnMut(&[usize]),
 {
     // Algorithm L from TAOCP 4a
     let mut c = vec![0usize; k + 3];
 
-    let ks = nth_ksubset(nth, k);
+    let ks = nth_k_subset(nth, k);
     for i in 0..k {
         c[i + 1] = ks[i];
     }
@@ -103,7 +103,7 @@ where
 impl Deck {
     /// Parallel for each, calls the `f` closure for each k-cards hand.
     ///
-    /// The clousure takes an usize that is the task identifier (0..num_task)
+    /// The closure takes an usize that is the task identifier (0..num_task)
     /// and a slice of cards of length k.
     ///
     /// Panics if k is not 2 <= k <= 7.
@@ -128,7 +128,7 @@ impl Deck {
                 let f = &f;
                 s.spawn(move || {
                     let mut h = vec![Card::new(Rank::Ace, Suit::Diamonds); k];
-                    for_each_ksubset(n, k, start, hands_per_task, |p| {
+                    for_each_k_subset(n, k, start, hands_per_task, |p| {
                         for (idx, &pos) in p.iter().enumerate() {
                             h[idx] = self.cards[pos];
                         }
@@ -214,7 +214,7 @@ mod tests {
     // This takes a while to run in debug mode as it goes through 200M subsets.
     #[test]
     #[ignore]
-    fn test_nth_ksubset() {
+    fn test_nth_k_subset() {
         let mut counter = 0;
         let count = nck(52, 7);
         for_each_ksubset(52, 7, 0, count, |s| {

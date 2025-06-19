@@ -1301,10 +1301,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "335ff9f135e4384c8150d6f27c6daed433577f86b4750418338c01a1a2528592"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2560,18 +2558,17 @@ version = "0.0.1"
 dependencies = [
  "ahash",
  "anyhow",
- "clap",
+ "aws-lc-sys",
  "eframe",
- "env_logger",
  "ewebsock",
- "getrandom 0.2.16",
+ "getrandom 0.3.3",
  "indoc",
  "log",
  "poker-cards",
  "poker-core",
  "serde",
  "snow",
- "tokio-rustls",
+ "tokio",
  "wasm-bindgen-futures",
  "web-sys",
 ]
