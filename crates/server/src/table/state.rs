@@ -364,7 +364,7 @@ impl InternalTableState {
 
     async fn enter_deal_river(&mut self) {
         self.board_push(self.deck.deal());
-        self.phase = HandState::RiverBetting;
+        self.phase = HandPhase::RiverBetting;
         self.start_round().await;
     }
 
@@ -530,20 +530,23 @@ impl InternalTableState {
         }
     }
     fn pay_multiple_winners(&mut self, payoffs: &mut Vec<HandPayoff>) {
-        for pot in self.pots.drain(..) {
-            
+        let pots = self.pots.drain(..);
+        let community_cards = &self.community_cards;
+        
+        for pot in pots {
             // Gather all active players in this pot. //TODO: refactor
             let mut contenders = self
                 .players
                 .iter_mut()
-                .filter(|p| p.() && pot.participants.contains(&p.id))
+                .filter(|p| p.active && pot.participants.contains(&p.id))
                 .filter_map(|player| match player.private_cards {
                     PlayerCards::Cards(c1, c2) => Some((player, c1, c2)),
                     _ => None,
                 })
+                
                 .map(|(p, c1, c2)| {
                     let mut cards = vec![c1, c2];
-                    cards.extend_from_slice(&self.community_cards);
+                    cards.extend_from_slice(&community_cards);
                     let (value, best_hand) = HandValue::eval_with_best_hand(&cards);
                     (p, value, best_hand)
                 })
