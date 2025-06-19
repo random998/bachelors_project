@@ -53,7 +53,7 @@ impl Player {
     /// * `initial_chips` - Number of chips the player starts with.
     fn new(peer_id: PeerId, nickname: String, chips: Chips) -> Player {
         Player {
-            peer_id: peer_id.clone(),
+            peer_id: peer_id,
             peer_id_digits: peer_id.digits(),
             nickname,
             total_chips: chips,
@@ -175,9 +175,9 @@ impl ClientGameState {
 
                 // Add this player as the first player in the players list.
                 self.players.push(Player::new(
-                    self.player_id.clone(),
+                    self.player_id,
                     self.nickname.clone(),
-                    chips.clone(),
+                    *chips,
                 ));
             }
             Message::PlayerLeftNotification{
@@ -243,7 +243,7 @@ impl ClientGameState {
             } => {
                 self.update_players(players);
                 self.community_cards = community_cards.clone();
-                self.pot = pot.clone();
+                self.pot = *pot;
             }
             Message::ActionRequest {
                 player_id,
@@ -255,8 +255,8 @@ impl ClientGameState {
                 if &self.player_id == player_id {
                     self.current_action_request= Some(ActionRequest {
                         available_actions: actions.clone(),
-                        minimum_raise: min_raise.clone(),
-                        big_blind_amount: big_blind.clone(),
+                        minimum_raise: *min_raise,
+                        big_blind_amount: *big_blind,
                     });
                 }
             }
@@ -264,7 +264,7 @@ impl ClientGameState {
         }
     }
     fn update_players(&mut self, updates: &[PlayerUpdate]) {
-        let updates = updates.clone();
+        let updates = updates;
         for update in updates {
             let update = update.clone(); // Clone once
 
