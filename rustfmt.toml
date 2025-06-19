@@ -1,0 +1,40 @@
+edition = "2021"
+
+# General strictness
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Unix"
+use_small_heuristics = "Off"
+
+# Enforce consistent formatting
+format_code_in_doc_comments = true
+normalize_comments = true
+normalize_doc_attributes = true
+format_macro_matchers = true
+format_macro_bodies = true
+format_strings = true
+
+# Group imports strictly
+group_imports = "StdExternalCrate"
+imports_granularity = "Module"
+reorder_imports = true
+reorder_modules = true
+
+# Force control brace style and match arms
+control_brace_style = "AlwaysSameLine"
+match_block_trailing_comma = true
+match_arm_leading_pipes = "Always"
+
+# Misc strictness
+blank_lines_lower_bound = 0
+blank_lines_upper_bound = 1
+wrap_comments = true
+comment_width = 80
+condense_wildcard_suffixes = true
+fn_params_layout = "Compressed"
+where_single_line = true
+struct_field_align_threshold = 0
+trailing_semicolon = true
+trailing_comma = "Always"
+

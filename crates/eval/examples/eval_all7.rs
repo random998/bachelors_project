@@ -13,9 +13,9 @@ fn main() {
 
     // Evaluate all 133M hands.
     Deck::default().for_each(7, |hand| {
-        let rank = HandValue::eval(hand).rank();
+        let rank = HandValue::eval(hand,).rank();
         agg[rank as usize] += 1;
-    });
+    },);
 
     let elapsed = now.elapsed().as_secs_f64();
     let total = agg.iter().sum::<usize>();
