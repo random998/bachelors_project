@@ -62,40 +62,40 @@ impl ConnectView {
 }
 
 impl View for ConnectView {
-    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame, app: &mut App,) {
-        while let Some(event,) = app.poll_network() {
+    fn update(&mut self, context: &Context, frame: &mut eframe::Frame, app: &mut App,) {
+        while let Some(event, ) = app.poll_network() {
             match event {
-                | ConnectionEvent::Open => {
-                    app.send_message(Message::JoinServer {
+                ConnectionEvent::Open => {
+                    app.send_message(Message::JoinTableRequest {
                         nickname: self.nickname.to_string(),
-                    },);
-                },
-                | ConnectionEvent::Close => {
+                    });
+                }
+                ConnectionEvent::Close => {
                     self.error = "Connection closed".to_string();
-                },
-                | ConnectionEvent::Error(e,) => {
+                }
+                ConnectionEvent::Error(e, ) => {
                     self.error = format!("Connection error {e}");
-                },
-                | ConnectionEvent::Message(msg,) => {
-                    if let Message::ServerJoined {
+                }
+                ConnectionEvent::Message(msg) => {
+                    if let Message::PlayerJoined {
                         nickname,
                         chips,
                     } = msg.message()
                     {
                         self.nickname = nickname.to_string();
-                        self.chips = *chips;
+                        self.chips = chips.clone();
                         self.server_joined = true;
                     }
-                },
+                }
             }
         }
 
-        Window::new("Login",)
+    Window::new("Login",)
             .collapsible(false,)
             .resizable(false,)
             .anchor(Align2::CENTER_TOP, vec2(0.0, 150.0,),)
             .max_width(400.0,)
-            .show(ctx, |ui| {
+            .show(context, |ui| {
                 ui.group(|ui| {
                     ui.horizontal(|ui| {
                         ui.label(RichText::new("Nickname",).font(LABEL_FONT,),);
@@ -150,8 +150,8 @@ impl View for ConnectView {
 
                     ui.label(RichText::new("Public Identifier",).font(LABEL_FONT,),);
                     let mut player_id = self.player_id.clone();
-                    TextEdit::singleline(&mut player_id,)
-                        .desired_width(400.0,)
+                    TextEdit::singleline(&mut player_id)
+                        .desired_width(400.0)
                         .font(TEXT_FONT,)
                         .show(ui,);
                 },);
@@ -188,7 +188,7 @@ impl View for ConnectView {
                             return;
                         };
 
-                        if let Err(e,) = app.connect(sk, self.nickname.trim(), ctx,) {
+                        if let Err(e,) = app.connect(sk, self.nickname.trim(), context,) {
                             self.error = "Connect error".to_string();
                             error!("Connect error: {e}");
                         }
