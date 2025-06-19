@@ -1,18 +1,18 @@
 // code inspired by https://github.com/vincev/freezeout
 // Improved version of EncryptedConnection module from https://github.com/vincev/freezeout
 /// TLS and Noise protocol encrypted WebSocket connection types.
-use anyhow::{Result, anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
-use snow::{TransportState, params::NoiseParams};
+use snow::{params::NoiseParams, TransportState};
 use std::sync::LazyLock;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpStream,
 };
 use tokio_tungstenite::{
-    self as websocket, MaybeTlsStream, WebSocketStream,
-    tungstenite::{Message as WsMessage, protocol::WebSocketConfig},
+    self as websocket, tungstenite::{protocol::WebSocketConfig, Message as WsMessage}, MaybeTlsStream,
+    WebSocketStream,
 };
 
 use crate::message::SignedMessage;
@@ -142,7 +142,7 @@ where
 mod tests {
     use super::*;
     use crate::{crypto::SigningKey, message::Message};
-    use tokio::net::{TcpListener, TcpStream};
+    use tokio::net::TcpListener;
 
     #[tokio::test]
     async fn test_secure_websocket_communication() {
@@ -150,7 +150,7 @@ mod tests {
         let (notify_tx, notify_rx) = tokio::sync::oneshot::channel();
 
         let listener = TcpListener::bind(addr).await.unwrap();
-        spawn(async move {
+        tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
             let mut connection = SecureWebSocket::accept_connection(stream).await.unwrap();
 
