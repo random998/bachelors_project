@@ -6,9 +6,9 @@ use std::sync::Arc;
 
 use anyhow::{bail, Result};
 use parking_lot::Mutex;
-use rusqlite::{params, Connection};
 use poker_core::crypto::PeerId;
 use poker_core::poker::Chips;
+use rusqlite::{params, Connection};
 
 /// A single row in the `players` table.
 #[derive(Debug,)]
@@ -73,7 +73,7 @@ impl Database {
                 Ok(Player {
                     player_id: player_id.clone(),
                     nickname: row.get(1,)?,
-                    chips: Chips::new(row.get::<usize, i32>(0,)? as u32)
+                    chips: Chips::new(row.get::<usize, i32>(0,)? as u32,),
                 },)
             },);
 
