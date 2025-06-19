@@ -11,9 +11,8 @@ use crate::poker::{Card, Chips, PlayerCards, TableId};
 /// Represents a message exchanged between peers in the P2P poker protocol.
 #[derive(Debug, Serialize, Deserialize,)]
 pub enum Message {
-    /// Request to join a table with the given nickname.
+    /// Request (by a player) to join a table with the given nickname.
     JoinTableRequest {
-        player_id: PeerId,
         nickname: String,
     },
 
@@ -64,8 +63,8 @@ pub enum Message {
     /// Deals two hole cards to the player.
     DealCards(Card, Card,),
 
-    /// Notifies peers that a player has left the table.
-    PlayerLeftTable(PeerId,),
+    /// Notifies peers that this player has left the table.
+    PlayerLeftTable,
 
     /// Updated game state including players, board, and pot.
     GameStateUpdate {
@@ -233,7 +232,6 @@ mod tests {
         let vk = sk.verifying_key();
         let peer_id = vk.peer_id();
         let message = Message::JoinTableRequest {
-            player_id: peer_id,
             nickname: "Alice".to_string(),
         };
 
@@ -242,7 +240,7 @@ mod tests {
 
         let deserialized_msg = SignedMessage::deserialize_and_verify(&bytes,).unwrap();
         assert!(
-            matches!(deserialized_msg.message(), Message::JoinTableRequest{ player_id, nickname } if nickname == "Alice" && *player_id == peer_id)
+            matches!(deserialized_msg.message(), Message::JoinTableRequest{nickname } if nickname == "Alice")
         );
     }
 }

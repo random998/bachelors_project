@@ -541,16 +541,17 @@ impl GameView {
     fn paint_action_controls(&mut self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
         let mut send_action = None;
 
-        if let Some(req,) = self.game_state.action_request() {
+        if let Some(actionRequest,) = self.game_state.action_request() {
             let rect = player_rect(rect, &Align2::CENTER_BOTTOM,);
 
-            let mut btn_rect = Rect::from_min_size(
+            let mut button_rectangle = Rect::from_min_size(
                 rect.left_top() + vec2(0.0, 130.0,),
                 vec2(Self::ACTION_BUTTON_LX, Self::ACTION_BUTTON_LY,),
             );
 
-            for action in &req.actions {
-                paint_border(ui, &btn_rect,);
+            let actions = actionRequest.available_actions.clone();
+            for action in actions {
+                paint_border(ui, &button_rectangle,);
 
                 let label = match action {
                     | PlayerAction::Bet | PlayerAction::Raise if self.bet_params.is_some() => {
@@ -561,23 +562,23 @@ impl GameView {
                     | _ => action.label(),
                 };
 
-                let btn = Button::new(
+                let button = Button::new(
                     RichText::new(label,).font(Self::TEXT_FONT,).color(Self::TEXT_COLOR,),
                 )
                 .fill(Self::BG_COLOR,);
 
-                let clicked = ui.put(btn_rect.shrink(2.0,), btn,).clicked();
+                let clicked = ui.put(button_rectangle.shrink(2.0,), button,).clicked();
                 match action {
                     | PlayerAction::Call | PlayerAction::Check => {
                         if ui.input(|i| i.key_pressed(Key::C,),) || clicked {
-                            send_action = Some((*action, Chips::ZERO,),);
+                            send_action = Some((action, Chips::ZERO,),);
                             self.bet_params = None;
                             break;
                         }
                     },
                     | PlayerAction::Fold => {
                         if ui.input(|i| i.key_pressed(Key::F,),) || clicked {
-                            send_action = Some((*action, Chips::ZERO,),);
+                            send_action = Some((action, Chips::ZERO,),);
                             self.bet_params = None;
                             break;
                         }
@@ -585,7 +586,7 @@ impl GameView {
                     | PlayerAction::Bet | PlayerAction::Raise => {
                         if ui.input(|i| i.key_pressed(Key::Enter,),) || clicked {
                             if let Some(params,) = &self.bet_params {
-                                send_action = Some((*action, params.raise_value.into(),),);
+                                send_action = Some((action, Chips::new(params.raise_value),),);
                                 self.bet_params = None;
                                 break;
                             }
@@ -597,16 +598,16 @@ impl GameView {
                             && self.bet_params.is_none()
                         {
                             self.bet_params = Some(BetParams {
-                                min_raise: req.min_raise,
-                                big_blind: req.big_blind,
-                                raise_value: req.min_raise,
+                                min_raise: actionRequest.minimum_raise.amount(),
+                                big_blind: actionRequest.big_blind_amount.amount(),
+                                raise_value: actionRequest.minimum_raise.amount(),
                             },);
                         }
                     },
                     | _ => {},
                 }
 
-                btn_rect = btn_rect.translate(vec2(Self::ACTION_BUTTON_LX + 10.0, 0.0,),);
+                button_rectangle = button_rectangle.translate(vec2(Self::ACTION_BUTTON_LX + 10.0, 0.0,),);
             }
 
             self.paint_betting_controls(ui, &rect,);
@@ -645,7 +646,7 @@ impl GameView {
             );
 
             let galley = ui.painter().layout_no_wrap(
-                Chips::from(params.raise_value,).to_string(),
+                Chips::new(params.raise_value,).to_string(),
                 FontId::new(14.0, FontFamily::Monospace,),
                 Self::TEXT_COLOR,
             );
@@ -661,7 +662,7 @@ impl GameView {
 
             // Maximum bet is the local player chips.
             let max_bet =
-                self.game_state.players().first().map(|p| (p.chips + p.bet).into(),).unwrap();
+                self.game_state.players().first().map(|p| (p.chips + p.current_bet).into(),).unwrap();
 
             // Handle case when minimum raise is greater than this player chips, so
             // that the player can go all in.
@@ -733,8 +734,9 @@ impl GameView {
             .fill(Self::BG_COLOR,);
 
         let rect = Rect::from_min_size(rect.left_top(), Self::SMALL_BUTTON_SZ,);
+        
         if ui.put(rect, btn,).clicked() {
-            app.send_message(Message::LeaveTable,);
+            app.send_message(Message::PlayerLeftTable);
         }
     }
 
