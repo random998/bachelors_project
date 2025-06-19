@@ -347,7 +347,7 @@ impl eframe::App for App {
             self.win_prob = Some(win_prob);
         }
 
-        egui::CentralPanel::default().show(&ctx, |ui| {
+        egui::CentralPanel::default().show(ctx, |ui| {
             let (rect, _) = ui.allocate_exact_size(Self::FRAME_SIZE, egui::Sense::hover());
 
             let start_x = (rect.width() - App::DECK_ROW_LX) / 2.0;
