@@ -9,16 +9,16 @@ use crate::poker::{Card, Chips, PlayerCards, TableId};
 #[derive(Debug,)]
 pub struct Player {
     /// Unique ID assigned to this player (network peer ID).
-    pub peer_id: PeerId,
+    pub id: PeerId,
 
     /// Cached string representation of the player ID digits for rendering.
-    pub peer_id_digits: String,
+    pub id_digits: String,
 
     /// Player's visible name or alias.
     pub nickname: String,
 
     /// Total number of chips this player currently holds.
-    pub total_chips: Chips,
+    pub chips: Chips,
 
     /// Amount the player has bet in the current round.
     pub current_bet: Chips,
@@ -52,10 +52,10 @@ impl Player {
     /// * `initial_chips` - Number of chips the player starts with.
     fn new(peer_id: PeerId, nickname: String, chips: Chips,) -> Self {
         Self {
-            peer_id,
-            peer_id_digits: peer_id.digits(),
+            id: peer_id,
+            id_digits: peer_id.digits(),
             nickname,
-            total_chips: chips,
+            chips: chips,
             current_bet: Chips::ZERO,
             hand_payoff: None,
             last_action: PlayerAction::None,
@@ -133,11 +133,11 @@ pub struct ClientGameState {
     /// Unique identifier for the poker table instance.
     table_id: TableId,
     /// Number of player seats at the table.
-    max_seats: usize,
+    num_seats: usize,
     /// Number taken player seats at the table.
     num_taken_seats: usize,
     /// Whether the game has started.
-    has_game_started: bool,
+    game_started: bool,
     /// List of all players currently seated at the table.
     players: Vec<Player,>,
     /// Action request currently directed to this player, if any.
@@ -157,8 +157,8 @@ impl ClientGameState {
             nickname,
             table_id: TableId::NO_TABLE,
             legacy_server_key: String::default(),
-            max_seats: 0, // maximum number of seats at the table
-            has_game_started: false,
+            num_seats: 0, // maximum number of seats at the table
+            game_started: false,
             players: Vec::default(),
             num_taken_seats: 0,
             current_action_request: None,
@@ -185,7 +185,7 @@ impl ClientGameState {
             | Message::PlayerLeftNotification {
                 player_id,
             } => {
-                self.players.retain(|p| &p.peer_id != player_id,);
+                self.players.retain(|p| &p.id != player_id,);
             },
             | Message::StartGame(seats,) => {
                 // Reorder seats according to the new order.
@@ -193,7 +193,7 @@ impl ClientGameState {
                     let pos = self
                         .players
                         .iter()
-                        .position(|p| &p.peer_id == seat_id,)
+                        .position(|p| &p.id == seat_id,)
                         .expect("Player not found",);
                     self.players.swap(idx, pos,);
                 }
@@ -202,11 +202,11 @@ impl ClientGameState {
                 let pos = self
                     .players
                     .iter()
-                    .position(|p| p.peer_id == self.player_id,)
+                    .position(|p| p.id == self.player_id,)
                     .expect("Local player not found",);
                 self.players.rotate_left(pos,);
 
-                self.has_game_started = true;
+                self.game_started = true;
             },
             | Message::StartHand => {
                 // Prepare for a new hand.
@@ -228,7 +228,7 @@ impl ClientGameState {
                     if let Some(p,) = self
                         .players
                         .iter_mut()
-                        .find(|p| p.peer_id.digits() == payoff.player_id.digits(),)
+                        .find(|p| p.id.digits() == payoff.player_id.digits(),)
                     {
                         p.hand_payoff = Some(payoff.clone(),);
                     }
@@ -237,7 +237,7 @@ impl ClientGameState {
             | Message::DealCards(c1, c2,) => {
                 // This client player should be in first position.
                 assert!(!self.players.is_empty());
-                assert_eq!(self.players[0].peer_id.digits(), self.player_id.digits());
+                assert_eq!(self.players[0].id.digits(), self.player_id.digits());
 
                 self.players[0].hole_cards = PlayerCards::Cards(*c1, *c2,);
             },
@@ -276,10 +276,10 @@ impl ClientGameState {
             if let Some(pos,) = self
                 .players
                 .iter_mut()
-                .position(|p| p.peer_id.digits() == update.player_id.digits(),)
+                .position(|p| p.id.digits() == update.player_id.digits(),)
             {
                 let player = &mut self.players[pos];
-                player.total_chips = update.chips;
+                player.chips = update.chips;
                 player.current_bet = update.bet;
                 player.last_action = update.action;
                 player.last_action_timer = update.action_timer;
@@ -299,5 +299,40 @@ impl ClientGameState {
                 }
             }
         }
+    }
+
+    /// Returns the server key.
+    pub fn server_key(&self) -> &str {
+        &self.legacy_server_key
+    }
+
+    /// Returns a reference to the players.
+    pub fn players(&self) -> &[Player] {
+        &self.players
+    }
+
+    /// The current pot.
+    pub fn pot(&self) -> Chips {
+        self.pot
+    }
+
+    /// The board cards.
+    pub fn community_cards(&self) -> &[Card] {
+        &self.community_cards
+    }
+
+    /// The number of seats at this table.
+    pub fn num_seats(&self) -> usize {
+        self.num_seats
+    }
+
+    /// Checks if the game has started.
+    pub fn game_started(&self) -> bool {
+        self.game_started
+    }
+
+    /// Checks if the local player is active.
+    pub fn is_active(&self) -> bool {
+        !self.players.is_empty() && self.players[0].participating_in_hand
     }
 }

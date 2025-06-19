@@ -171,7 +171,7 @@ impl GameView {
 
         if !self.game_state.game_started() {
             let players = self.game_state.players().len();
-            let seats = self.game_state.seats();
+            let seats = self.game_state.num_seats();
             let missing = seats.saturating_sub(players,);
 
             let msg = if missing > 1 {
@@ -194,7 +194,7 @@ impl GameView {
         const CARD_SIZE: Vec2 = vec2(38.0, 72.0,);
         const BORDER: f32 = 5.0;
 
-        if self.game_state.board().is_empty() {
+        if self.game_state.community_cards().is_empty() {
             return;
         }
 
@@ -203,7 +203,7 @@ impl GameView {
             CARD_SIZE,
         );
 
-        for card in self.game_state.board() {
+        for card in self.game_state.community_cards() {
             let tx = app.textures.card(*card,);
             Image::new(&tx,).corner_radius(5.0,).paint_at(ui, card_rect,);
 
@@ -287,7 +287,7 @@ impl GameView {
         let layout_job = text::LayoutJob {
             wrap: text::TextWrapping::wrap_at_width(75.0,),
             ..text::LayoutJob::single_section(
-                player.player_id_digits.clone(),
+                player.id_digits.clone(),
                 TextFormat {
                     font_id: FontId::new(13.0, FontFamily::Monospace,),
                     extra_letter_spacing: 1.0,
@@ -311,7 +311,7 @@ impl GameView {
         let bg_rect = rect.expand(5.0,);
         paint_border(ui, &bg_rect,);
 
-        if let Some(timer,) = player.action_timer {
+        if let Some(timer,) = player.last_action_timer{
             ui.painter().text(
                 rect.center(),
                 Align2::CENTER_CENTER,
@@ -324,7 +324,7 @@ impl GameView {
             ui.painter().galley(text_pos, galley, Color32::DARK_GRAY,);
         }
 
-        if !player.is_active {
+        if !player.participating_in_hand {
             fill_inactive(ui, &bg_rect,);
         }
 
@@ -355,12 +355,12 @@ impl GameView {
 
         painter.galley(chips_pos + vec2(5.0, 7.0,), galley.clone(), Self::TEXT_COLOR,);
 
-        if player.has_button {
+        if player.is_dealer{
             let btn_pos = bg_rect.right_top() + vec2(-10.0, 10.0,);
             painter.circle(btn_pos, 6.0, Self::TEXT_COLOR, Stroke::NONE,);
         }
 
-        if !player.is_active {
+        if !player.participating_in_hand{
             fill_inactive(ui, &bg_rect,);
         }
     }
@@ -368,11 +368,11 @@ impl GameView {
     fn paint_player_cards(
         &self, player: &Player, ui: &mut Ui, rect: &Rect, align: &Align2, textures: &Textures,
     ) {
-        if !player.is_active {
+        if !player.participating_in_hand{
             return;
         }
 
-        let (tx1, tx2,) = match player.cards {
+        let (tx1, tx2,) = match player.hole_cards {
             | PlayerCards::None => return,
             | PlayerCards::Covered => (textures.back(), textures.back(),),
             | PlayerCards::Cards(c1, c2,) => (textures.card(c1,), textures.card(c2,),),
@@ -469,7 +469,7 @@ impl GameView {
     }
 
     fn paint_player_action(&self, player: &Player, ui: &mut Ui, rect: &Rect, align: &Align2,) {
-        if matches!(player.cards, PlayerCards::None) {
+        if matches!(player.hole_cards, PlayerCards::None) {
             return;
         }
 
@@ -486,7 +486,7 @@ impl GameView {
 
         paint_border(ui, &rect,);
 
-        if !matches!(player.action, PlayerAction::None) || player.payoff.is_some() {
+        if !matches!(player.last_action, PlayerAction::None) || player.hand_payoff.is_some() {
             let mut action_rect = rect.shrink(1.0,);
             action_rect.set_height(rect.height() / 2.0,);
 
@@ -504,10 +504,10 @@ impl GameView {
                 StrokeKind::Inside,
             );
 
-            let label = if player.payoff.is_some() {
+            let label = if player.hand_payoff.is_some() {
                 "WINNER"
             } else {
-                player.action.label()
+                player.last_action.label()
             };
 
             ui.painter().text(
@@ -518,13 +518,13 @@ impl GameView {
                 Self::BG_COLOR,
             );
 
-            if player.bet > Chips::ZERO || player.payoff.is_some() {
+            if player.current_bet > Chips::ZERO || player.hand_payoff.is_some() {
                 let amount_rect = action_rect.translate(vec2(3.0, action_rect.height() + 2.0,),);
 
-                let amount = if player.bet > Chips::ZERO {
-                    player.bet.to_string()
+                let amount = if player.current_bet > Chips::ZERO {
+                    player.current_bet.to_string()
                 } else {
-                    player.payoff.as_ref().map(|p| p.chips.to_string(),).unwrap_or_default()
+                    player.hand_payoff.as_ref().map(|p| p.chips.to_string(),).unwrap_or_default()
                 };
 
                 let galley = ui.painter().layout_no_wrap(
