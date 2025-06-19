@@ -212,4 +212,3 @@ impl View for ConnectView {
         }
     }
 }
-

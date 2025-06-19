@@ -68,7 +68,6 @@ impl Player {
     }
 }
 
-
 /// Represents a request for player action made by the consensus (majority) of peers.
 ///
 /// This replaces a traditional client-server model with decentralized peer coordination.
@@ -86,24 +85,27 @@ pub struct ActionRequest {
 }
 
 impl ActionRequest {
-
     /// Returns `true` if the player is allowed to call.
-    #[must_use] pub fn can_call(&self) -> bool {
+    #[must_use]
+    pub fn can_call(&self) -> bool {
         self.is_action_allowed(PlayerAction::Call)
     }
 
     /// Returns `true` if the player is allowed to check.
-    #[must_use] pub fn can_check(&self) -> bool {
+    #[must_use]
+    pub fn can_check(&self) -> bool {
         self.is_action_allowed(PlayerAction::Check)
     }
 
     /// Returns `true` if the player is allowed to bet.
-    #[must_use] pub fn can_bet(&self) -> bool {
+    #[must_use]
+    pub fn can_bet(&self) -> bool {
         self.is_action_allowed(PlayerAction::Bet)
     }
 
     /// Returns `true` if the player is allowed to raise.
-    #[must_use] pub fn can_raise(&self) -> bool {
+    #[must_use]
+    pub fn can_raise(&self) -> bool {
         self.is_action_allowed(PlayerAction::Raise)
     }
 
@@ -145,7 +147,8 @@ pub struct ClientGameState {
 
 impl ClientGameState {
     /// Initializes a new `GameState` instance for the local player
-    #[must_use] pub fn new(player_id: PeerId, nickname: String) -> Self {
+    #[must_use]
+    pub fn new(player_id: PeerId, nickname: String) -> Self {
         Self {
             player_id,
             nickname,
@@ -164,7 +167,7 @@ impl ClientGameState {
     /// Handle an incoming server (legacy, wanted: peer) message.
     pub fn handle_message(&mut self, msg: SignedMessage) {
         match msg.message() {
-            Message::PlayerJoined{
+            Message::PlayerJoined {
                 player_id: _player_id,
                 chips,
                 table_id,
@@ -174,16 +177,11 @@ impl ClientGameState {
                 self.legacy_server_key = msg.sender().digits();
 
                 // Add this player as the first player in the players list.
-                self.players.push(Player::new(
-                    self.player_id,
-                    self.nickname.clone(),
-                    *chips,
-                ));
+                self.players
+                    .push(Player::new(self.player_id, self.nickname.clone(), *chips));
             }
-            Message::PlayerLeftNotification{
-                player_id,
-            } => {
-                self.players.retain(|p| &p.peer_id!= player_id);
+            Message::PlayerLeftNotification { player_id } => {
+                self.players.retain(|p| &p.peer_id != player_id);
             }
             Message::StartGame(seats) => {
                 // Reorder seats according to the new order.
@@ -204,7 +202,7 @@ impl ClientGameState {
                     .expect("Local player not found");
                 self.players.rotate_left(pos);
 
-                self.has_game_started= true;
+                self.has_game_started = true;
             }
             Message::StartHand => {
                 // Prepare for a new hand.
@@ -225,7 +223,7 @@ impl ClientGameState {
                         .iter_mut()
                         .find(|p| p.peer_id.digits() == payoff.player_id.digits())
                     {
-                        p.hand_payoff= Some(payoff.clone());
+                        p.hand_payoff = Some(payoff.clone());
                     }
                 }
             }
@@ -236,7 +234,7 @@ impl ClientGameState {
 
                 self.players[0].hole_cards = PlayerCards::Cards(*c1, *c2);
             }
-            Message::GameStateUpdate{
+            Message::GameStateUpdate {
                 players,
                 community_cards,
                 pot,
@@ -253,7 +251,7 @@ impl ClientGameState {
             } => {
                 // Check if the action has been requested for this player.
                 if &self.player_id == player_id {
-                    self.current_action_request= Some(ActionRequest {
+                    self.current_action_request = Some(ActionRequest {
                         available_actions: actions.clone(),
                         minimum_raise: *min_raise,
                         big_blind_amount: *big_blind,
@@ -284,12 +282,12 @@ impl ClientGameState {
                 // Do not override cards for the local player as they are updated
                 // when we get a DealCards message.
                 if pos != 0 {
-                    player.hole_cards= update.hole_cards;
+                    player.hole_cards = update.hole_cards;
                 }
 
                 // If local player has folded, remove its cards.
                 if pos == 0 && !player.participating_in_hand {
-                    player.hole_cards= PlayerCards::None;
+                    player.hole_cards = PlayerCards::None;
                     self.current_action_request = None;
                 }
             }

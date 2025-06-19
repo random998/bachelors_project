@@ -1,8 +1,8 @@
 // code copied from github.com/vincev/freezeout
 
+pub use poker_cards::{Card, Deck, Rank, Suit};
 #[cfg(feature = "eval")]
 pub use poker_eval::eval::{HandRank, HandValue};
-pub use poker_cards::{Card, Deck, Rank, Suit};
 use serde::{Deserialize, Serialize};
 use std::{fmt, ops};
 
@@ -22,7 +22,8 @@ impl TableId {
         Ok(u32::from_ne_bytes(buf))
     }
     /// create new unique (with high probability) table id.
-    #[must_use] pub fn new_id() -> Self {
+    #[must_use]
+    pub fn new_id() -> Self {
         Self(Self::get_random_u32().unwrap())
     }
 }
@@ -34,8 +35,7 @@ impl fmt::Display for TableId {
 }
 
 /// data structure for storing the amount of chips for a given table.
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Copy)]
-#[derive(Clone)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Copy, Clone)]
 pub struct Chips(u32);
 
 impl Chips {
@@ -43,18 +43,22 @@ impl Chips {
     pub const ZERO: Self = Self(0);
 
     /// create chips struct with the given amount of chips.
-    #[must_use] pub const fn new(value: u32) -> Self {
+    #[must_use]
+    pub const fn new(value: u32) -> Self {
         Self(value)
     }
 
     /// retrieve the integer amount of chips of a given table.
-    #[must_use] pub const fn amount(&self) -> u32 {
+    #[must_use]
+    pub const fn amount(&self) -> u32 {
         self.0
     }
 }
 
 impl From<Chips> for u32 {
-    fn from(val: Chips) -> Self { val.0}
+    fn from(val: Chips) -> Self {
+        val.0
+    }
 }
 
 impl ops::Add for Chips {
@@ -114,14 +118,15 @@ impl fmt::Display for Chips {
         if amount >= 10_000_000 {
             write!(f, "{:.1}M", f64::from(amount) / 1e6)
         } else if amount >= 1_000_000 {
-            write!(f,
-                   "{},{:03},{:03}K",
-                   amount / 1_000_000,
-                   (amount %  1_000_000) / 1000,
-                   amount /  1000
+            write!(
+                f,
+                "{},{:03},{:03}K",
+                amount / 1_000_000,
+                (amount % 1_000_000) / 1000,
+                amount / 1000
             )
         } else if amount >= 1_000 {
-                   write!(f, "{},{:03}", amount / 1000, amount % 1000)
+            write!(f, "{},{:03}", amount / 1000, amount % 1000)
         } else {
             write!(f, "{amount}")
         }
@@ -137,7 +142,7 @@ pub enum PlayerCards {
     /// the player has cards, but they are covered (only visible to the player himself).
     Covered,
     /// the player has two cards, which are not covered (only visible to the player himself).
-    Cards(Card, Card)
+    Cards(Card, Card),
 }
 
 #[cfg(test)]

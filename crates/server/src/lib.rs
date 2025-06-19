@@ -3,16 +3,16 @@
 #![warn(clippy::all, rust_2018_idioms, missing_docs)]
 
 extern crate ahash;
-extern crate thiserror;
 extern crate anyhow;
 extern crate log;
-extern crate tokio;
-extern crate rand;
 extern crate poker_core;
+extern crate rand;
+extern crate thiserror;
+extern crate tokio;
 pub mod db;
 
 pub mod server;
-pub use server::{Config, run};
+pub use server::{run, Config};
 
 pub mod table;
 pub mod tables_pool;

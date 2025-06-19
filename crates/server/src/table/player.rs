@@ -84,7 +84,7 @@ impl Player {
         self.public_cards = PlayerCards::None;
         self.private_cards = PlayerCards::None;
     }
-    
+
     pub fn reset_bet(&mut self) {
         self.current_bet = Chips::ZERO;
     }
@@ -134,7 +134,7 @@ impl PlayersState {
             None
         }
     }
-    
+
     pub fn get(&self, id: &PeerId) -> Option<&Player> {
         self.players.iter().find(|p| &p.id == id)
     }
@@ -157,11 +157,16 @@ impl PlayersState {
     }
 
     pub fn count_active_with_chips(&self) -> usize {
-        self.players.iter().filter(|p| p.active && p.has_chips()).count()
+        self.players
+            .iter()
+            .filter(|p| p.active && p.has_chips())
+            .count()
     }
 
     pub fn active_player(&mut self) -> Option<&mut Player> {
-        self.active_player_idx.and_then(move |i| self.players.get_mut(i)).filter(|p| p.active)
+        self.active_player_idx
+            .and_then(move |i| self.players.get_mut(i))
+            .filter(|p| p.active)
     }
 
     pub fn is_active(&self, id: &PeerId) -> bool {
@@ -185,7 +190,14 @@ impl PlayersState {
         }
 
         let current = self.active_player_idx.unwrap();
-        for (i, player) in self.players.iter().enumerate().cycle().skip(current + 1).take(self.players.len()) {
+        for (i, player) in self
+            .players
+            .iter()
+            .enumerate()
+            .cycle()
+            .skip(current + 1)
+            .take(self.players.len())
+        {
             if player.active && player.has_chips() {
                 self.active_player_idx = Some(i);
                 break;
@@ -199,7 +211,11 @@ impl PlayersState {
         }
 
         if self.count_active() > 1 {
-            self.players.iter_mut().rev().find(|p| p.active).map(|p| p.dealer = true);
+            self.players
+                .iter_mut()
+                .rev()
+                .find(|p| p.active)
+                .map(|p| p.dealer = true);
             self.active_player_idx = self.players.iter().position(|p| p.active);
         } else {
             self.active_player_idx = None;
@@ -222,7 +238,7 @@ impl PlayersState {
     pub fn remove_bankrupt_players(&mut self) {
         self.players.retain(|p| p.has_chips());
     }
-    
+
     pub fn reset_bets(&mut self) {
         for player in &mut self.players {
             player.reset_for_new_hand();

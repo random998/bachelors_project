@@ -3,7 +3,7 @@
 //! poker server entry point
 // "In computer programming, an entry point is the place in a program where the execution of a program begins, and where the program has access to command line arguments." - wikipedia
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 use log::{error, info, warn};
 use std::{
     net::SocketAddr,
@@ -18,12 +18,12 @@ use tokio::{
     time::{self, Duration},
 };
 use tokio_rustls::{
-    TlsAcceptor,
     rustls::{
+        pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
         ServerConfig as TlsServerConfig,
-        pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
     },
     server::TlsStream,
+    TlsAcceptor,
 };
 
 use poker_core::{
@@ -52,7 +52,10 @@ pub struct ServerConfig {
 
 pub async fn start_server(config: ServerConfig) -> Result<()> {
     let bind_addr = format!("{}:{}", config.address, config.port);
-    info!("Starting server on {bind_addr} with {} tables, {} seats/table", config.table_count, config.seats_per_table);
+    info!(
+        "Starting server on {bind_addr} with {} tables, {} seats/table",
+        config.table_count, config.seats_per_table
+    );
 
     let listener = TcpListener::bind(&bind_addr).await?;
     let signing_key = load_signing_key(&config.data_path)?;
@@ -98,7 +101,11 @@ pub async fn start_server(config: ServerConfig) -> Result<()> {
         }
     }
 
-    let PokerServer { shutdown_tx, shutdown_done_tx, .. } = server;
+    let PokerServer {
+        shutdown_tx,
+        shutdown_done_tx,
+        ..
+    } = server;
     drop(shutdown_tx);
     drop(shutdown_done_tx);
     let _ = shutdown_done_rx.recv().await;
@@ -106,13 +113,13 @@ pub async fn start_server(config: ServerConfig) -> Result<()> {
     Ok(())
 }
 pub struct PokerServer {
-listener: TcpListener,
-signing_key: SigningKey,
-database: Database,
-tls_acceptor: Option<TlsAcceptor>,
-tables: TablesPool,
-shutdown_tx: broadcast::Sender<()>,
-shutdown_done_tx: mpsc::Sender<()>,
+    listener: TcpListener,
+    signing_key: SigningKey,
+    database: Database,
+    tls_acceptor: Option<TlsAcceptor>,
+    tables: TablesPool,
+    shutdown_tx: broadcast::Sender<()>,
+    shutdown_done_tx: mpsc::Sender<()>,
 }
 
 impl PokerServer {
@@ -133,7 +140,10 @@ impl PokerServer {
 
             tokio::spawn(async move {
                 let result = match tls_acceptor {
-                    Some(acceptor) => acceptor.accept(stream).await.map_err(|e| anyhow!("TLS accept error: {e}"))
+                    Some(acceptor) => acceptor
+                        .accept(stream)
+                        .await
+                        .map_err(|e| anyhow!("TLS accept error: {e}"))
                         .and_then(|s| handler.handle_tls(s).await),
                     None => handler.handle_tcp(stream).await,
                 };
@@ -155,7 +165,7 @@ impl PokerServer {
                     let wait = Duration::from_secs(1 << retries);
                     time::sleep(wait).await;
                     retries += 1;
-                },
+                }
                 Err(e) => return Err(e.into()),
             }
         }
@@ -169,10 +179,14 @@ impl ConnectionHandler {
     {
         let (nickname, player_id) = self.receive_initial_join(conn).await?;
         let (table_msg_tx, mut table_msg_rx) = mpsc::channel::<TableMessage>(128);
-        self.connection_loop(conn, player_id, nickname, table_msg_tx, &mut table_msg_rx).await
+        self.connection_loop(conn, player_id, nickname, table_msg_tx, &mut table_msg_rx)
+            .await
     }
 
-    async fn receive_initial_join<S>(&self, conn: &mut EncryptedConnection<S>) -> Result<(String, PeerId)>
+    async fn receive_initial_join<S>(
+        &self,
+        conn: &mut EncryptedConnection<S>,
+    ) -> Result<(String, PeerId)>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
@@ -187,15 +201,22 @@ impl ConnectionHandler {
 
         match message.message() {
             Message::JoinServer { nickname } => {
-                let player = self.database.upsert_player(message.sender(), nickname, Chips::new(1_000_000)).await?;
+                let player = self
+                    .database
+                    .upsert_player(message.sender(), nickname, Chips::new(1_000_000))
+                    .await?;
                 let response = Message::ServerJoined {
                     nickname: player.nickname.clone(),
                     chips: player.chips.clone(),
                 };
-                conn.send(&SignedMessage::new(&self.signing_key, response)).await?;
+                conn.send(&SignedMessage::new(&self.signing_key, response))
+                    .await?;
                 Ok((nickname.to_string(), message.sender()))
             }
-            _ => bail!("Invalid initial message from {}: expected JoinServer", message.sender()),
+            _ => bail!(
+                "Invalid initial message from {}: expected JoinServer",
+                message.sender()
+            ),
         }
     }
 
@@ -231,8 +252,13 @@ impl ConnectionHandler {
             };
 
             match next {
-                Incoming::FromClient(msg) => self.handle_client_message(conn, &player_id, &nickname, msg, &table_msg_tx).await?,
-                Incoming::FromTable(msg) => self.handle_table_message(conn, &player_id, msg).await?,
+                Incoming::FromClient(msg) => {
+                    self.handle_client_message(conn, &player_id, &nickname, msg, &table_msg_tx)
+                        .await?
+                }
+                Incoming::FromTable(msg) => {
+                    self.handle_table_message(conn, &player_id, msg).await?
+                }
                 Incoming::Shutdown => return Ok(()),
             }
         }
@@ -251,22 +277,37 @@ impl ConnectionHandler {
     {
         match msg.message() {
             Message::JoinTable => {
-                let sufficient = self.database.deduct_chips(player_id, Chips::new(1_000_000)).await?;
+                let sufficient = self
+                    .database
+                    .deduct_chips(player_id, Chips::new(1_000_000))
+                    .await?;
                 if !sufficient {
                     let notice = Message::NotEnoughChips;
-                    conn.send(&SignedMessage::new(&self.signing_key, notice)).await?;
+                    conn.send(&SignedMessage::new(&self.signing_key, notice))
+                        .await?;
                     return Ok(());
                 }
 
-                match self.tables.join(player_id, nickname, Chips::new(1_000_000), table_msg_tx.clone()).await {
+                match self
+                    .tables
+                    .join(
+                        player_id,
+                        nickname,
+                        Chips::new(1_000_000),
+                        table_msg_tx.clone(),
+                    )
+                    .await
+                {
                     Ok(_) => {}
                     Err(TablesPoolError::AlreadyJoined) => {
                         let msg = Message::PlayerAlreadyJoined;
-                        conn.send(&SignedMessage::new(&self.signing_key, msg)).await?;
+                        conn.send(&SignedMessage::new(&self.signing_key, msg))
+                            .await?;
                     }
                     Err(TablesPoolError::NoTablesLeft) => {
                         let msg = Message::NoTablesLeftNotication;
-                        conn.send(&SignedMessage::new(&self.signing_key, msg)).await?;
+                        conn.send(&SignedMessage::new(&self.signing_key, msg))
+                            .await?;
                     }
                 }
             }
@@ -296,7 +337,8 @@ impl ConnectionHandler {
             TableMessage::PlayerLeft => {
                 let chips = self.database.get_or_refill_chips(player_id).await?;
                 let msg = Message::ShowAccount { chips };
-                conn.send(&SignedMessage::new(&self.signing_key, msg)).await?;
+                conn.send(&SignedMessage::new(&self.signing_key, msg))
+                    .await?;
             }
             TableMessage::Throttle(duration) => {
                 time::sleep(duration).await;

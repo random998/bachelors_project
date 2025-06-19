@@ -928,4 +928,3 @@ fn player_rect(rect: &Rect, align: &Align2) -> Rect {
 
     Rect::from_min_size(pos2(x, y), PLAYER_SIZE)
 }
-

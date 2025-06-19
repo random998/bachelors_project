@@ -7,7 +7,7 @@ use super::{Card, Deck, Rank, Suit};
 
 /// Creates table for n_choose_k(n, k) for n <= 52 and k <= 7.
 const fn make_n_choose_k() -> [[u32; 8]; 52] {
-    let mut table  = [[0u32; 8]; 52];
+    let mut table = [[0u32; 8]; 52];
     let mut n = 0;
 
     while n < 52 {
@@ -24,9 +24,10 @@ const fn make_n_choose_k() -> [[u32; 8]; 52] {
         }
         n += 1;
     }
+    table
 }
 
-const N_CHOOSE_KS: [[u32; 8]; 52] = make_nck();
+const N_CHOOSE_KS: [[u32; 8]; 52] = make_n_choose_k();
 
 /// Returns the binomial coefficient for n choose k.
 #[inline]
@@ -37,7 +38,7 @@ fn n_choose_k(n: usize, k: usize) -> usize {
     if n < k || n == 0 {
         0
     } else {
-        N_CHOOSE_KS[n.saturating_sub(1)][k]  as usize
+        N_CHOOSE_KS[n.saturating_sub(1)][k] as usize
     }
 }
 
@@ -49,14 +50,14 @@ fn nth_k_subset(mut n: usize, k: usize) -> [usize; 7] {
     let mut out = [0; 7];
     for k in (0..k).rev() {
         let mut c = k;
-        while nck(c, k + 1) <= n {
+        while n_choose_k(c, k + 1) <= n {
             c += 1;
         }
 
         c = c.saturating_sub(1);
         out[k] = c;
 
-        n = n.saturating_sub(nck(c, k + 1) as usize);
+        n = n.saturating_sub(n_choose_k(c, k + 1) as usize);
     }
 
     out
@@ -119,7 +120,7 @@ impl Deck {
         }
 
         let n = self.cards.len();
-        let num_hands = nck(n, k);
+        let num_hands = n_choose_k(n, k);
         let hands_per_task = (num_hands + num_tasks - 1) / num_tasks;
 
         thread::scope(|s| {
@@ -183,7 +184,7 @@ mod tests {
     #[test]
     fn test_nck() {
         // For n < k = 0
-        assert_eq!(nck(2, 3), 0);
+        assert_eq!(n_choose_k(2, 3), 0);
 
         [1, 52, 1326, 22100, 270725, 2598960, 20358520, 133784560]
             .into_iter()

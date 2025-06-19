@@ -57,7 +57,12 @@ impl Database {
     }
 
     /// Insert or update a player joining the server.
-    pub async fn upsert_player(&self, player_id: PeerId, nickname: &str, initial_chips: Chips) -> Result<Player> {
+    pub async fn upsert_player(
+        &self,
+        player_id: PeerId,
+        nickname: &str,
+        initial_chips: Chips,
+    ) -> Result<Player> {
         let db = self.connection.clone();
         let nickname = nickname.to_string();
 
@@ -178,9 +183,10 @@ impl Database {
                     nickname: row.get(1)?,
                     chips: Chips::from(row.get::<usize, i32>(2)? as u32),
                 })
-            }).map_err(anyhow::Error::from)
+            })
+            .map_err(anyhow::Error::from)
         })
-            .await?
+        .await?
     }
 }
 
@@ -195,29 +201,46 @@ mod tests {
         let player_id = SigningKey::default().verifying_key().peer_id();
         let chips = Chips::new(1_000);
 
-        let player = db.upsert_player(player_id, "Alice", chips).await.expect("Join failed");
+        let player = db
+            .upsert_player(player_id, "Alice", chips)
+            .await
+            .expect("Join failed");
         assert_eq!(player.nickname, "Alice");
         assert_eq!(player.chips, chips);
 
-        let updated_player = db.upsert_player(player_id, "Bob", chips * 2).await.expect("Update failed");
+        let updated_player = db
+            .upsert_player(player_id, "Bob", chips * 2)
+            .await
+            .expect("Update failed");
         assert_eq!(updated_player.nickname, "Bob");
         assert_eq!(updated_player.chips, chips * 2);
 
-        db.credit_chips(player_id, chips).await.expect("Credit failed");
+        db.credit_chips(player_id, chips)
+            .await
+            .expect("Credit failed");
         let post_credit = db.get_player_by_id(player_id).await.expect("Fetch failed");
         assert_eq!(post_credit.chips, chips * 3);
 
-        let can_deduct = db.deduct_chips(player_id, chips).await.expect("Deduct failed");
+        let can_deduct = db
+            .deduct_chips(player_id, chips)
+            .await
+            .expect("Deduct failed");
         assert!(can_deduct);
         let post_deduct = db.get_player_by_id(player_id).await.expect("Fetch failed");
         assert_eq!(post_deduct.chips, chips * 2);
 
-        let can_deduct = db.deduct_chips(player_id, chips * 2).await.expect("Deduct failed");
+        let can_deduct = db
+            .deduct_chips(player_id, chips * 2)
+            .await
+            .expect("Deduct failed");
         assert!(can_deduct);
         let zero_balance = db.get_player_by_id(player_id).await.expect("Fetch failed");
         assert_eq!(zero_balance.chips, Chips::new(0));
 
-        let cannot_deduct = db.deduct_chips(player_id, chips).await.expect("Deduct failed");
+        let cannot_deduct = db
+            .deduct_chips(player_id, chips)
+            .await
+            .expect("Deduct failed");
         assert!(!cannot_deduct);
     }
 }

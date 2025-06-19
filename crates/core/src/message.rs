@@ -13,15 +13,10 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
     /// Request to join a table with the given nickname.
-    JoinTableRequest {
-        player_id: PeerId,
-        nickname: String,
-    },
+    JoinTableRequest { player_id: PeerId, nickname: String },
 
     /// Notification that a player has left their current table.
-    PlayerLeftNotification {
-        player_id: PeerId,
-    },
+    PlayerLeftNotification { player_id: PeerId },
 
     /// Sent when no available tables remain for the player to join.
     NoTablesLeftNotification,
@@ -40,9 +35,7 @@ pub enum Message {
     },
 
     /// Request to show the player’s current chip balance/account summary.
-    ShowAccount {
-        chips: Chips,
-    },
+    ShowAccount { chips: Chips },
 
     /// Starts the game and notifies all players of seat order.
     StartGame(Vec<PeerId>),
@@ -109,7 +102,7 @@ pub struct PlayerUpdate {
     pub action_timer: Option<u16>,
     pub is_dealer: bool,
     pub is_active: bool,
-    pub hole_cards: PlayerCards
+    pub hole_cards: PlayerCards,
 }
 
 /// A Player action.
@@ -135,7 +128,8 @@ pub enum PlayerAction {
 
 impl PlayerAction {
     /// The action label.
-    #[must_use] pub const fn label(&self) -> &'static str {
+    #[must_use]
+    pub const fn label(&self) -> &'static str {
         match self {
             Self::SmallBlind => "SB",
             Self::BigBlind => "BB",
@@ -179,7 +173,8 @@ struct Payload {
 
 impl SignedMessage {
     /// Creates a new signed message.
-    #[must_use] pub fn new(sk: &SigningKey, msg: Message) -> Self {
+    #[must_use]
+    pub fn new(sk: &SigningKey, msg: Message) -> Self {
         let sig = sk.sign(&msg);
         Self {
             payload: Arc::new(Payload {
@@ -204,41 +199,44 @@ impl SignedMessage {
     }
 
     /// Serializes this message.
-    #[must_use] pub fn serialize(&self) -> Vec<u8> {
+    #[must_use]
+    pub fn serialize(&self) -> Vec<u8> {
         bincode::serialize(self.payload.as_ref()).expect("Failed to serialize signed message")
     }
 
     /// Returns the identifier of the player who sent this message.
-    #[must_use] pub fn sender(&self) -> PeerId {
+    #[must_use]
+    pub fn sender(&self) -> PeerId {
         self.payload.vk.peer_id()
     }
 
     /// Extracts the signed message (payload).
-    #[must_use] pub fn message(&self) -> &Message {
+    #[must_use]
+    pub fn message(&self) -> &Message {
         &self.payload.msg
     }
 }
 
 #[cfg(test)]
-    mod tests {
-        use super::*;
+mod tests {
+    use super::*;
 
-        #[test]
-        fn signed_message() {
-            let sk = SigningKey::default();
-            let vk = sk.verifying_key();
-            let peer_id = vk.peer_id();
-            let message = Message::JoinTableRequest {
-                player_id: peer_id,
-                nickname: "Alice".to_string(),
-            };
+    #[test]
+    fn signed_message() {
+        let sk = SigningKey::default();
+        let vk = sk.verifying_key();
+        let peer_id = vk.peer_id();
+        let message = Message::JoinTableRequest {
+            player_id: peer_id,
+            nickname: "Alice".to_string(),
+        };
 
-            let signed_message = SignedMessage::new(&sk, message);
-            let bytes = signed_message.serialize();
+        let signed_message = SignedMessage::new(&sk, message);
+        let bytes = signed_message.serialize();
 
-            let deserialized_msg = SignedMessage::deserialize_and_verify(&bytes).unwrap();
-            assert!(
-                matches!(deserialized_msg.message(), Message::JoinTableRequest{ player_id, nickname } if nickname == "Alice" && *player_id == peer_id)
-            );
-        }
+        let deserialized_msg = SignedMessage::deserialize_and_verify(&bytes).unwrap();
+        assert!(
+            matches!(deserialized_msg.message(), Message::JoinTableRequest{ player_id, nickname } if nickname == "Alice" && *player_id == peer_id)
+        );
     }
+}

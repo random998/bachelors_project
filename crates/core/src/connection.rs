@@ -1,20 +1,18 @@
 // code inspired by https://github.com/vincev/freezeout
 // Improved version of EncryptedConnection module from https://github.com/vincev/freezeout
 /// TLS and Noise protocol encrypted WebSocket connection types.
-
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
-use snow::{params::NoiseParams, TransportState};
+use snow::{TransportState, params::NoiseParams};
 use std::sync::LazyLock;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpStream,
 };
 use tokio_tungstenite::{
-    self as websocket,
-    tungstenite::{protocol::WebSocketConfig, Message as WsMessage},
-    MaybeTlsStream, WebSocketStream,
+    self as websocket, MaybeTlsStream, WebSocketStream,
+    tungstenite::{Message as WsMessage, protocol::WebSocketConfig},
 };
 
 use crate::message::SignedMessage;
@@ -61,9 +59,7 @@ where
                         self.noise_transport
                             .read_message(&payload, &mut buffer)
                             .map_err(anyhow::Error::from)
-                            .and_then(|len| {
-                                SignedMessage::deserialize_and_verify(&buffer[..len])
-                            }),
+                            .and_then(|len| SignedMessage::deserialize_and_verify(&buffer[..len])),
                     );
                 }
                 Ok(_) => continue, // Ignore non-binary messages
@@ -112,7 +108,8 @@ where
     /// Establish an outbound encrypted WebSocket connection.
     pub async fn connect_to(url: &str) -> Result<ClientConnection> {
         let config = WebSocketConfig::default().max_message_size(Some(MAX_MESSAGE_SIZE));
-        let (mut stream, _) = websocket::connect_async_with_config(url, Some(config), false).await?;
+        let (mut stream, _) =
+            websocket::connect_async_with_config(url, Some(config), false).await?;
 
         let mut initiator = snow::Builder::new(NOISE_PARAMETERS.clone()).build_initiator()?;
         let mut buffer = BytesMut::zeroed(MAX_MESSAGE_SIZE);
@@ -158,7 +155,9 @@ mod tests {
             let mut connection = SecureWebSocket::accept_connection(stream).await.unwrap();
 
             let msg1 = connection.receive().await.unwrap().unwrap();
-            assert!(matches!(msg1.message(), Message::JoinServer { nickname } if nickname == "Bob"));
+            assert!(
+                matches!(msg1.message(), Message::JoinServer { nickname } if nickname == "Bob")
+            );
 
             let msg2 = connection.receive().await.unwrap().unwrap();
             assert!(matches!(msg2.message(), Message::JoinTable));

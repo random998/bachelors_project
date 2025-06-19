@@ -45,13 +45,15 @@ impl TablesPool {
         shutdown_complete_tx: &mpsc::Sender<()>,
     ) -> Self {
         let available = (0..table_count)
-            .map(|_| Arc::new(Table::new(
-                seats_per_table,
-                signing_key.clone(),
-                database.clone(),
-                shutdown_tx.subscribe(),
-                shutdown_complete_tx.clone(),
-            )))
+            .map(|_| {
+                Arc::new(Table::new(
+                    seats_per_table,
+                    signing_key.clone(),
+                    database.clone(),
+                    shutdown_tx.subscribe(),
+                    shutdown_complete_tx.clone(),
+                ))
+            })
             .collect();
 
         Self(Arc::new(Mutex::new(SharedTables {
@@ -144,7 +146,12 @@ mod tests {
 
         async fn join(&self, test_player: &TestPlayer) -> Option<Arc<Table>> {
             self.pool
-                .join(&test_player.id, "nn", Chips::new(1_000_000), test_player.tx.clone())
+                .join(
+                    &test_player.id,
+                    "nn",
+                    Chips::new(1_000_000),
+                    test_player.tx.clone(),
+                )
                 .await
                 .ok()
         }
@@ -205,7 +212,7 @@ mod tests {
         assert_eq!(table1.id(), tids[0]);
 
         // As the table is full it should move to the full queue.
-        let table_ids= tp.full_ids().await;
+        let table_ids = tp.full_ids().await;
         assert_eq!(table1.id(), tids[0]);
 
         // Player 1 join table 2, table 2 should be at front of the queue.
