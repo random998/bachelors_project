@@ -172,7 +172,6 @@ mod tests {
         let msg = SignedMessage::new(
             &keypair,
             Message::JoinTableRequest {
-                player_id: peer_id,
                 nickname: "Bob".to_string(),
             },
         );
