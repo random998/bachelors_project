@@ -59,10 +59,10 @@ impl Player {
     }
 
     pub fn place_bet(&mut self, action: PlayerAction, total_bet: Chips) {
-        let required = total_bet - self.current_bet;
-        let actual_bet = required.min(self.chips);
+        let required = total_bet - self.current_bet.clone();
+        let actual_bet = required.min(self.chips.clone());
 
-        self.chips -= actual_bet;
+        self.chips -= actual_bet.clone();
         self.current_bet += actual_bet;
         self.last_action = action;
     }
@@ -280,7 +280,7 @@ mod tests {
 
     fn new_players_state(n: usize) -> PlayersState {
         let mut players = PlayersState::default();
-        (0..n).for_each(|_| players.join(new_player(Chips::new(100_000))));
+        (0..n).for_each(|_| players.add(new_player(Chips::new(100_000))));
         players
     }
 
