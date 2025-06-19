@@ -39,6 +39,7 @@ Roadmap:
         If a turn is missed, timeout and default action (fold/check).
     Each peer should buffer recent state transitions and have a retry/rejoin protocol.
 12. look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
+13. look at source code of dark forest zk game, note how they "did things".
 
 Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
 1. Improved secure shuffling protocol.
