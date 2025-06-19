@@ -137,7 +137,7 @@ struct TableTask {
 
 impl TableTask {
     async fn run(&mut self,) -> Result<(),> {
-        let mut state = state::State::new(
+        let mut state = state::InternalTableState::new(
             self.table_id,
             self.seats,
             self.signing_key.clone(),
@@ -156,14 +156,14 @@ impl TableTask {
                             let _ = response_tx.send(result);
                         }
                         Some(TableCommand::CanPlayerJoin { response_tx }) => {
-                            let can_join = state.player_can_join();
+                            let can_join = state.can_join();
                             let _ = response_tx.send(can_join);
                         }
                         Some(TableCommand::Leave(pid)) => {
                             state.leave(&pid).await;
                         }
                         Some(TableCommand::HandleMessage(msg)) => {
-                            state.message(&msg).await;
+                            state.message(msg).await;
                         }
                         None => break Ok(()),
                     }
