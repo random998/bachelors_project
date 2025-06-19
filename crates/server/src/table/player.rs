@@ -25,6 +25,7 @@ pub struct Player {
     pub action_timer: Option<Instant>,
     pub public_cards: PlayerCards,
     pub private_cards: PlayerCards,
+    /// this player is active in the hand
     pub active: bool,
     pub dealer: bool,
 }

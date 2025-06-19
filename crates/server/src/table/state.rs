@@ -10,7 +10,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::mpsc;
-
+use tokio_rustls::rustls::InvalidMessage::HandshakePayloadTooLarge;
 use poker_core::{
     crypto::{PeerId, SigningKey},
     message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage},
@@ -251,7 +251,7 @@ impl InternalTableState {
         if self.is_round_complete() {
             self.start_hand().await;
         } else {
-            self.().await;
+            self.request_action().await;
         }
     }
 
@@ -264,7 +264,7 @@ impl InternalTableState {
         while self.is_round_complete() {
             match self.phase {
                 HandPhase::PreflopBetting => self.enter_deal_flop().await,
-                HandPhase::=> self.enter_deal_turn().await,
+                HandPhase::FlopBetting => self.enter_deal_turn().await,
                 HandPhase::TurnBetting => self.enter_deal_river().await,
                 HandPhase::RiverBetting => {
                     self.enter_showdown().await;
@@ -358,7 +358,7 @@ impl InternalTableState {
 
     async fn enter_deal_turn(&mut self) {
         self.board_push(self.deck.deal());
-        self.phase= HandState::TurnBetting;
+        self.phase= HandPhase::TurnBetting;
         self.start_round().await;
     }
 
@@ -468,6 +468,82 @@ impl InternalTableState {
             player.send(signed_message.clone()).await;
         }
     }
+    /// Request action to the active player.
+    async fn request_action(&mut self) {
+        if let Some(player) = self.players.active_player() {
+            let mut actions = vec![PlayerAction::Fold];
+
+            if player.current_bet == self.last_bet {
+                actions.push(PlayerAction::Check);
+            }
+
+            if player.current_bet < self.last_bet {
+                actions.push(PlayerAction::Call);
+            }
+
+            if self.last_bet == Chips::ZERO && player.chips > Chips::ZERO {
+                actions.push(PlayerAction::Bet);
+            }
+
+            if player.chips + player.current_bet > self.last_bet
+                && self.last_bet > Chips::ZERO
+                && player.chips > Chips::ZERO
+            {
+                actions.push(PlayerAction::Raise);
+            }
+
+            player.action_timer = Some(Instant::now());
+
+            let msg = Message::ActionRequest {
+                player_id: player.id.clone(),
+                min_raise: self.min_raise + self.last_bet,
+                big_blind: self.big_blind,
+                actions,
+            };
+
+            self.broadcast(msg).await;
+        }
+    }
+
+    fn update_pots(&mut self) {
+        // Updates pots if there is a bet.
+        if self.last_bet > Chips::ZERO {
+            // Move bets to pots.
+            loop {
+                // Find minimum bet in case a player went all in.
+                let min_bet = self
+                    .players
+                    .iter()
+                    .filter(|p| p.current_bet > Chips::ZERO)
+                    .map(|p| p.current_bet)
+                    .min()
+                    .unwrap_or_default();
+
+                if min_bet == Chips::ZERO {
+                    break;
+                }
+
+                let mut went_all_in = false;
+                for player in self.players.iter_mut() {
+                    let pot = self.pots.last_mut().unwrap();
+                    if player.current_bet> Chips::ZERO {
+                        player.current_bet-= min_bet;
+                        pot.total_chips += min_bet;
+
+                        if !pot.participants.contains(&player.id) {
+                            pot.participants.insert(player.id);
+                        }
+
+                        went_all_in = player.chips == Chips::ZERO;
+                    }
+                }
+
+                if went_all_in {
+                    self.pots.push(Pot::default());
+                }
+            }
+        }
+    }
 
     /// Remove and notify players who have lost all their chips.
     async fn remove_broke_players(&mut self) {
@@ -532,7 +608,7 @@ impl InternalTableState {
     fn pay_multiple_winners(&mut self, payoffs: &mut Vec<HandPayoff>) {
         let pots = self.pots.drain(..);
         let community_cards = &self.community_cards;
-        
+
         for pot in pots {
             // Gather all active players in this pot. //TODO: refactor
             let mut contenders = self
@@ -543,7 +619,7 @@ impl InternalTableState {
                     PlayerCards::Cards(c1, c2) => Some((player, c1, c2)),
                     _ => None,
                 })
-                
+
                 .map(|(p, c1, c2)| {
                     let mut cards = vec![c1, c2];
                     cards.extend_from_slice(&community_cards);
