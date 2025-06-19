@@ -5,7 +5,7 @@ use std::thread;
 
 use super::{Card, Deck, Rank, Suit};
 
-/// Creates table for n_choose_k(n, k) for n <= 52 and k <= 7.
+/// Creates table for `n_choose_k(n`, k) for n <= 52 and k <= 7.
 const fn make_n_choose_k() -> [[u32; 8]; 52] {
     let mut table = [[0u32; 8]; 52];
     let mut n = 0;
@@ -57,7 +57,7 @@ fn nth_k_subset(mut n: usize, k: usize) -> [usize; 7] {
         c = c.saturating_sub(1);
         out[k] = c;
 
-        n = n.saturating_sub(n_choose_k(c, k + 1) as usize);
+        n = n.saturating_sub(n_choose_k(c, k + 1));
     }
 
     out
@@ -90,7 +90,7 @@ where
         let mut j = 1;
         while c[j] + 1 == c[j + 1] {
             c[j] = j - 1;
-            j = j + 1;
+            j += 1;
         }
 
         if j > k {
@@ -104,7 +104,7 @@ where
 impl Deck {
     /// Parallel for each, calls the `f` closure for each k-cards hand.
     ///
-    /// The closure takes an usize that is the task identifier (0..num_task)
+    /// The closure takes an usize that is the task identifier (`0..num_task`)
     /// and a slice of cards of length k.
     ///
     /// Panics if k is not 2 <= k <= 7.
@@ -112,7 +112,7 @@ impl Deck {
     where
         F: Fn(usize, &[Card]) + Send + Sync,
     {
-        assert!(2 <= k && k <= 7, "2 <= k <= 7");
+        assert!((2..=7).contains(&k), "2 <= k <= 7");
         assert!(num_tasks > 0);
 
         if k > self.cards.len() {
@@ -121,7 +121,7 @@ impl Deck {
 
         let n = self.cards.len();
         let num_hands = n_choose_k(n, k);
-        let hands_per_task = (num_hands + num_tasks - 1) / num_tasks;
+        let hands_per_task = num_hands.div_ceil(num_tasks);
 
         thread::scope(|s| {
             for task_id in 0..num_tasks {
@@ -178,8 +178,10 @@ impl Deck {
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
-
-    use super::*;
+    use crate::Deck;
+    use super::n_choose_k;
+    use super::nth_k_subset;
+    use super::for_each_k_subset;
 
     #[test]
     fn test_nck() {
@@ -189,27 +191,27 @@ mod tests {
         [1, 52, 1326, 22100, 270725, 2598960, 20358520, 133784560]
             .into_iter()
             .enumerate()
-            .for_each(|(k, v)| assert_eq!(nck(52, k), v));
+            .for_each(|(k, v)| assert_eq!(n_choose_k(52, k), v));
 
         [1, 51, 1275, 20825, 249900, 2349060, 18009460, 115775100]
             .into_iter()
             .enumerate()
-            .for_each(|(k, v)| assert_eq!(nck(51, k), v));
+            .for_each(|(k, v)| assert_eq!(n_choose_k(51, k), v));
 
         [1, 23, 253, 1771, 8855, 33649, 100947, 245157]
             .into_iter()
             .enumerate()
-            .for_each(|(k, v)| assert_eq!(nck(23, k), v));
+            .for_each(|(k, v)| assert_eq!(n_choose_k(23, k), v));
 
         [1, 5, 10, 10, 5, 1, 0, 0]
             .into_iter()
             .enumerate()
-            .for_each(|(k, v)| assert_eq!(nck(5, k), v));
+            .for_each(|(k, v)| assert_eq!(n_choose_k(5, k), v));
 
         [1, 1, 0, 0, 0, 0, 0, 0]
             .into_iter()
             .enumerate()
-            .for_each(|(k, v)| assert_eq!(nck(1, k), v));
+            .for_each(|(k, v)| assert_eq!(n_choose_k(1, k), v));
     }
 
     // This takes a while to run in debug mode as it goes through 200M subsets.
@@ -217,9 +219,9 @@ mod tests {
     #[ignore]
     fn test_nth_k_subset() {
         let mut counter = 0;
-        let count = nck(52, 7);
-        for_each_ksubset(52, 7, 0, count, |s| {
-            let ks = nth_ksubset(counter, 7);
+        let count = n_choose_k(52, 7);
+        for_each_k_subset(52, 7, 0, count, |s| {
+            let ks = nth_k_subset(counter, 7);
             s.iter().zip(ks).for_each(|(&l, r)| assert_eq!(l, r));
             counter += 1;
         });
@@ -228,9 +230,9 @@ mod tests {
 
         // Start from half way.
         counter = 0;
-        let nth = nck(52, 7) / 2;
-        for_each_ksubset(52, 7, nth, nth, |s| {
-            let ks = nth_ksubset(nth + counter, 7);
+        let nth = n_choose_k(52, 7) / 2;
+        for_each_k_subset(52, 7, nth, nth, |s| {
+            let ks = nth_k_subset(nth + counter, 7);
             s.iter().zip(ks).for_each(|(&l, r)| assert_eq!(l, r));
             counter += 1;
         });
@@ -249,7 +251,7 @@ mod tests {
             tasks.fetch_or(1 << task_id, Ordering::Relaxed);
         });
 
-        let count = nck(52, 5) as u64;
+        let count = n_choose_k(52, 5) as u64;
         assert_eq!(counter.load(Ordering::Relaxed), count);
         assert_eq!(tasks.load(Ordering::Relaxed), 0b1111);
     }

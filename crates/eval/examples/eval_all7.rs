@@ -5,7 +5,7 @@
 // ```
 use std::time::Instant;
 
-use poker_eval::*;
+use poker_eval::{Deck, HandRank, HandValue};
 
 fn main() {
     let now = Instant::now();
@@ -20,7 +20,7 @@ fn main() {
     let elapsed = now.elapsed().as_secs_f64();
     let total = agg.iter().sum::<usize>();
     println!("Total hands      {total}");
-    println!("Elapsed:         {:.3}s", elapsed);
+    println!("Elapsed:         {elapsed:.3}s");
     println!("Hands/sec:       {:.0}\n", total as f64 / elapsed);
 
     println!("High Card:       {}", agg[HandRank::HighCard as usize]);

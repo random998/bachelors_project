@@ -9,7 +9,7 @@ use std::{
     time::Instant,
 };
 
-use poker_eval::*;
+use poker_eval::{Deck, HandRank, HandValue};
 
 fn main() {
     // Evaluate all 133M hands with 4 parallel tasks.
@@ -28,7 +28,7 @@ fn main() {
     let now = Instant::now();
 
     Deck::default().par_for_each(NUM_TASKS, 7, |task_id, hand| {
-        let rank = HandValue::eval(&hand).rank();
+        let rank = HandValue::eval(hand).rank();
         let counters = &task_counters[task_id];
         counters[rank as usize].fetch_add(1, Ordering::Relaxed);
     });
@@ -47,7 +47,7 @@ fn main() {
 
     let total = agg.iter().sum::<u64>();
     println!("Total hands      {total}");
-    println!("Elapsed:         {:.3}s", elapsed);
+    println!("Elapsed:         {elapsed:.3}s");
     println!("Hands/sec:       {:.0}\n", total as f64 / elapsed);
 
     println!("High Card:       {}", agg[HandRank::HighCard as usize]);

@@ -142,7 +142,7 @@ where
 mod tests {
     use super::*;
     use crate::{crypto::SigningKey, message::Message};
-    use tokio::net::TcpListener;
+    use tokio::net::{TcpListener, TcpStream};
 
     #[tokio::test]
     async fn test_secure_websocket_communication() {
@@ -150,17 +150,17 @@ mod tests {
         let (notify_tx, notify_rx) = tokio::sync::oneshot::channel();
 
         let listener = TcpListener::bind(addr).await.unwrap();
-        tokio::spawn(async move {
+        spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
             let mut connection = SecureWebSocket::accept_connection(stream).await.unwrap();
 
             let msg1 = connection.receive().await.unwrap().unwrap();
             assert!(
-                matches!(msg1.message(), Message::JoinServer { nickname } if nickname == "Bob")
+                matches!(msg1.message(), Message::JoinTableRequest{ player_id, nickname} if nickname == "Bob")
             );
 
             let msg2 = connection.receive().await.unwrap().unwrap();
-            assert!(matches!(msg2.message(), Message::JoinTable));
+            assert!(matches!(msg2.message(), Message::JoinTableRequest {player_id, nickname} if nickname == "Alice"));
 
             notify_tx.send(()).unwrap();
         });
@@ -171,13 +171,14 @@ mod tests {
 
         let join_msg = SignedMessage::new(
             &signing_key,
-            Message::JoinServer {
+            Message::JoinTableRequest{
+                player_id: ,
                 nickname: "Bob".to_string(),
             },
         );
         connection.send(&join_msg).await.unwrap();
 
-        let table_msg = SignedMessage::new(&signing_key, Message::JoinTable);
+         let table_msg = SignedMessage::new(&signing_key, Message::PlayerJoined {player_id, chips});
         connection.send(&table_msg).await.unwrap();
 
         notify_rx.await.unwrap();

@@ -16,8 +16,8 @@ const PRIMES: [u32; 13] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41];
 pub struct Card(u32);
 impl Card {
     /// Create a poker card from a suit & a rank using Cactus Kev's encoding.
-    ///  see http://suffe.cool/poker/evaluator.html
-    pub fn new(rank: Rank, suit: Suit) -> Card {
+    ///  see <http://suffe.cool/poker/evaluator.html>
+    #[must_use] pub const fn new(rank: Rank, suit: Suit) -> Self {
         let rank_index = rank as usize;
         let suit_val = suit as u32;
         let rank_val = rank as u32;
@@ -32,16 +32,16 @@ impl Card {
         let bit_flag = 1 << (rank_val + 16);
         // concat the bits.
         let encoded = prime | rank_bits | suit_bits | bit_flag;
-        Card(encoded)
+        Self(encoded)
     }
 
     /// unique ID of this card.
-    pub fn id(&self) -> u32 {
+    #[must_use] pub const fn id(&self) -> u32 {
         self.0
     }
 
     /// Returns the card's suit.
-    pub fn suit(&self) -> Suit {
+    #[must_use] pub fn suit(&self) -> Suit {
         let suit_bits = self.suit_bits();
         match suit_bits {
             0x8 => Suit::Clubs,
@@ -53,7 +53,7 @@ impl Card {
     }
 
     /// Returns the card's rank.
-    pub fn rank(&self) -> Rank {
+    #[must_use] pub fn rank(&self) -> Rank {
         let rank_bits = self.rank_bits();
         match rank_bits {
             0 => Rank::Deuce,
@@ -77,20 +77,20 @@ impl Card {
     #[inline]
     // tells the compiler it might be worth inlining the function for perfomance (see https://doc.rust-lang.org/nightly/reference/attributes/codegen.html?highlight=inline#the-inline-attribute)
     /// extracts the rank bits of a Card from its encoded u32 representation.
-    pub fn rank_bits(&self) -> u32 {
+    #[must_use] pub const fn rank_bits(&self) -> u32 {
         (self.0 >> 8) & 0xf
     }
 
     /// Returns the suit bits.
     #[inline]
-    pub fn suit_bits(&self) -> u8 {
+    #[must_use] pub const fn suit_bits(&self) -> u8 {
         ((self.0 >> 12) & 0xf) as u8
     }
 }
 
 impl Default for Card {
-    fn default() -> Card {
-        Card::new(Rank::Ace, Suit::Diamonds)
+    fn default() -> Self {
+        Self::new(Rank::Ace, Suit::Diamonds)
     }
 }
 
@@ -125,8 +125,8 @@ pub enum Rank {
 }
 
 impl Rank {
-    pub fn ranks() -> impl DoubleEndedIterator<Item = Rank> {
-        use Rank::*;
+    #[must_use] pub fn ranks() -> impl DoubleEndedIterator<Item = Self> {
+        use Rank::{Ace, Deuce, Eight, Five, Four, Jack, King, Nine, Queen, Seven, Six, Ten, Trey};
         [
             Deuce, Trey, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace,
         ]
@@ -137,21 +137,21 @@ impl Rank {
 impl fmt::Display for Rank {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let rank = match self {
-            Rank::Deuce => "2",
-            Rank::Trey => "3",
-            Rank::Four => "4",
-            Rank::Five => "5",
-            Rank::Six => "6",
-            Rank::Seven => "7",
-            Rank::Eight => "8",
-            Rank::Nine => "9",
-            Rank::Ten => "10",
-            Rank::Jack => "J",
-            Rank::Queen => "Q",
-            Rank::King => "K",
-            Rank::Ace => "A",
+            Self::Deuce => "2",
+            Self::Trey => "3",
+            Self::Four => "4",
+            Self::Five => "5",
+            Self::Six => "6",
+            Self::Seven => "7",
+            Self::Eight => "8",
+            Self::Nine => "9",
+            Self::Ten => "10",
+            Self::Jack => "J",
+            Self::Queen => "Q",
+            Self::King => "K",
+            Self::Ace => "A",
         };
-        write!(f, "{}", rank)
+        write!(f, "{rank}")
     }
 }
 
@@ -166,18 +166,18 @@ pub enum Suit {
 impl fmt::Display for Suit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let suit = match self {
-            Suit::Clubs => 'C',
-            Suit::Diamonds => 'D',
-            Suit::Hearts => 'H',
-            Suit::Spades => 'S',
+            Self::Clubs => 'C',
+            Self::Diamonds => 'D',
+            Self::Hearts => 'H',
+            Self::Spades => 'S',
         };
-        write!(f, "{}", suit)
+        write!(f, "{suit}")
     }
 }
 
 impl Suit {
-    pub fn suits() -> impl DoubleEndedIterator<Item = Suit> {
-        [Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades].into_iter()
+    #[must_use] pub fn suits() -> impl DoubleEndedIterator<Item = Self> {
+        [Self::Clubs, Self::Diamonds, Self::Hearts, Self::Spades].into_iter()
     }
 }
 
@@ -192,7 +192,7 @@ impl Deck {
 
     /// create a new shuffled deck.
     pub fn shuffled<R: Rng>(rng: &mut R) -> Self {
-        let mut deck = Deck::default();
+        let mut deck = Self::default();
         deck.cards.shuffle(rng);
         deck
     }
@@ -203,12 +203,12 @@ impl Deck {
     }
 
     /// checks whether the deck is empty.
-    pub fn is_empty(&self) -> bool {
+    #[must_use] pub const fn is_empty(&self) -> bool {
         self.cards.is_empty()
     }
 
     /// returns the number of cards in the deck.
-    pub fn count(&self) -> usize {
+    #[must_use] pub const fn count(&self) -> usize {
         self.cards.len()
     }
 
@@ -219,7 +219,7 @@ impl Deck {
 
     /// Calls the given closure n times with a sample of k cards.
     ///
-    /// Panics if k is not in the [1 .. Self::count()] range.
+    /// Panics if k is not in the [1 .. `Self::count()`] range.
     pub fn sample<F>(&self, n: usize, k: usize, mut f: F)
     where
         F: FnMut(&[Card]),

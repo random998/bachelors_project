@@ -6,9 +6,9 @@
 //! evaluate 5, 6, and 7 cards poker hands with an additional lookup table for
 //! faster 7 cards evaluation.
 //!
-//! It provides a [HandValue::eval] method that computes a hand rank without
+//! It provides a [`HandValue::eval`] method that computes a hand rank without
 //! extracting the best hand out of a 7 cards hand, useful for computing odds
-//! and other stats, and a slightly slower [HandValue::eval_with_best_hand] that
+//! and other stats, and a slightly slower [`HandValue::eval_with_best_hand`] that
 //! computes the hand rank and returns the five best cards, useful for UIs to
 //! shows a winning hand.
 //!
@@ -44,26 +44,26 @@ pub enum HandRank {
 }
 
 impl HandRank {
-    /// Creates a HandRank instance from a hand value.
-    fn from_eval(val: u16) -> Self {
+    /// Creates a `HandRank` instance from a hand value.
+    const fn from_eval(val: u16) -> Self {
         if val > 6185 {
-            HandRank::HighCard
+            Self::HighCard
         } else if val > 3325 {
-            HandRank::OnePair
+            Self::OnePair
         } else if val > 2467 {
-            HandRank::TwoPair
+            Self::TwoPair
         } else if val > 1609 {
-            HandRank::ThreeOfAKind
+            Self::ThreeOfAKind
         } else if val > 1599 {
-            HandRank::Straight
+            Self::Straight
         } else if val > 322 {
-            HandRank::Flush
+            Self::Flush
         } else if val > 166 {
-            HandRank::FullHouse
+            Self::FullHouse
         } else if val > 10 {
-            HandRank::FourOfAKind
+            Self::FourOfAKind
         } else {
-            HandRank::StraightFlush
+            Self::StraightFlush
         }
     }
 }
@@ -71,15 +71,15 @@ impl HandRank {
 impl std::fmt::Display for HandRank {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let rank = match self {
-            HandRank::HighCard => "HIGH CARD",
-            HandRank::OnePair => "ONE PAIR",
-            HandRank::TwoPair => "TWO PAIRS",
-            HandRank::ThreeOfAKind => "THREE OF A KIND",
-            HandRank::Straight => "STRAIGHT",
-            HandRank::Flush => "FLUSH",
-            HandRank::FullHouse => "FULL HOUSE",
-            HandRank::FourOfAKind => "FOUR OF A KIND",
-            HandRank::StraightFlush => "STRAIGHT FLUSH",
+            Self::HighCard => "HIGH CARD",
+            Self::OnePair => "ONE PAIR",
+            Self::TwoPair => "TWO PAIRS",
+            Self::ThreeOfAKind => "THREE OF A KIND",
+            Self::Straight => "STRAIGHT",
+            Self::Flush => "FLUSH",
+            Self::FullHouse => "FULL HOUSE",
+            Self::FourOfAKind => "FOUR OF A KIND",
+            Self::StraightFlush => "STRAIGHT FLUSH",
         };
         write!(f, "{rank}")
     }
@@ -91,7 +91,7 @@ pub struct HandValue(u16);
 
 impl HandValue {
     /// Evaluates a hand and the best cards for 5, 6 or 7 cards.
-    pub fn eval_with_best_hand(cards: &[Card]) -> (HandValue, [Card; 5]) {
+    #[must_use] pub fn eval_with_best_hand(cards: &[Card]) -> (Self, [Card; 5]) {
         if cards.len() == 7 {
             let (v, best_hand) = eval_seven_cards(cards, true);
             (v, best_hand.unwrap())
@@ -107,7 +107,7 @@ impl HandValue {
     }
 
     /// Evaluates a hand for 5, 6 or 7 cards.
-    pub fn eval(cards: &[Card]) -> HandValue {
+    #[must_use] pub fn eval(cards: &[Card]) -> Self {
         if cards.len() == 7 {
             let (v, _) = eval_seven_cards(cards, false);
             v
@@ -122,12 +122,12 @@ impl HandValue {
     }
 
     /// The hand rank.
-    pub fn rank(&self) -> HandRank {
+    #[must_use] pub const fn rank(&self) -> HandRank {
         HandRank::from_eval(self.0)
     }
 
     /// The hand rank value.
-    pub fn value(&self) -> u16 {
+    #[must_use] pub const fn value(&self) -> u16 {
         self.0
     }
 }
@@ -162,7 +162,7 @@ impl Eq for HandValue {}
 
 /// Evaluate a seven cards hand.
 ///
-/// For higher throughput pass false to compute_best if only the hand value is needed.
+/// For higher throughput pass false to `compute_best` if only the hand value is needed.
 fn eval_seven_cards(cards: &[Card], compute_best: bool) -> (HandValue, Option<[Card; 5]>) {
     let mut suit_counts = [0; 4];
     for c in cards {
@@ -226,7 +226,7 @@ fn extract_hand(hand: &[Card], ranks: &[u8; 3]) -> [Card; 5] {
         cards[idx] = (c.rank_bits() << 4 | (idx as u32)) as u8;
     }
 
-    cards.sort();
+    cards.sort_unstable();
 
     let mut result = [Card::default(); 5];
     let mut rank_idx = 0;

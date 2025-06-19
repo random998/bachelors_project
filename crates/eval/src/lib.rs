@@ -6,7 +6,7 @@
 //! for faster 7 cards evaluation (see examples for measuring single and parallel
 //! performance on you hardware).
 //!
-//! To use the evaluator create a hand and use [HandValue] to evaluate the hand
+//! To use the evaluator create a hand and use [`HandValue`] to evaluate the hand
 //! and get its rank:
 //!
 //! ```
