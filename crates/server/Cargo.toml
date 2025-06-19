@@ -2,7 +2,7 @@
 name = "zkpoker-server"
 description = "zkpoker server"
 version = "0.0.1"
-rust-version = "1.87.0"
+edition = "2018"
 
 [dependencies]
 ahash = { workspace = true }
