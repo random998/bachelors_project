@@ -21,14 +21,18 @@ use crate::db::Database;
 use super::{player::{Player, PlayersState}, TableMessage};
 
 /// Represents the current phase of a hand being played.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 enum HandPhase {
     WaitingForPlayers,
     StartingGame,
     StartingHand,
+    PreflopBetting,
     Preflop,
+    FlopBetting,
     Flop,
+    TurnBetting,
     Turn,
+    RiverBetting,
     River,
     Showdown,
     EndingHand,
@@ -72,7 +76,7 @@ pub struct InternalTableState {
 
     players: PlayersState,
     deck: Deck,
-    board: Vec<Card>,
+    community_cards: Vec<Card>,
 
     last_bet: Chips,
     min_raise: Chips,
@@ -104,7 +108,7 @@ impl InternalTableState {
             big_blind: Self::INITIAL_BIG_BLIND,
             players: PlayersState::default(),
             deck: Deck::shuffled(&mut rng),
-            board: vec![],
+            community_cards: vec![],
             last_bet: Chips::ZERO,
             min_raise: Chips::ZERO,
             pots: vec![Pot::default()],
@@ -223,7 +227,8 @@ impl InternalTableState {
         }
     }
     pub async fn tick(&mut self) {
-        if let Some(player) = self.players.iter_mut().find(|p| p.action_timer.is_some()) {
+        let mut players = self.players.clone();
+        if let Some(player) = players.iter_mut().find(|p| p.action_timer.is_some()) {
             if player.action_timer.unwrap().elapsed() > Self::ACTION_TIMEOUT {
                 player.fold();
                 self.action_update().await;
@@ -240,14 +245,39 @@ impl InternalTableState {
         }
     }
     pub async fn action_update(&mut self) {
-        self.players.activate_next_player();
+        self.players.advance_turn();
         self.broadcast_game_update().await;
 
         if self.is_round_complete() {
-            self.next_round().await;
+            self.start_hand().await;
         } else {
-            self.request_action().await;
+            self.().await;
         }
+    }
+
+    async fn next_round(&mut self) {
+        if self.players.count_active() < 2 {
+            self.enter_end_hand().await;
+            return;
+        }
+
+        while self.is_round_complete() {
+            match self.phase {
+                HandPhase::PreflopBetting => self.enter_deal_flop().await,
+                HandPhase::=> self.enter_deal_turn().await,
+                HandPhase::TurnBetting => self.enter_deal_river().await,
+                HandPhase::RiverBetting => {
+                    self.enter_showdown().await;
+                    return;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub fn is_round_complete(&self) -> bool {
+        //TODO
+        false
     }
 
 
@@ -259,22 +289,36 @@ impl InternalTableState {
 
         self.start_hand().await;
     }
+
+    async fn start_round(&mut self) {
+        self.update_pots();
+
+        // Give some time to watch last action and pots.
+        self.broadcast_throttle(Duration::from_millis(1000)).await;
+
+        for player in self.players.iter_mut() {
+            player.current_bet= Chips::ZERO;
+            player.last_action = PlayerAction::None;
+        }
+
+        self.last_bet = Chips::ZERO;
+        self.min_raise = self.big_blind.clone();
+
+        self.players.start_round();
+
+        self.broadcast_game_update().await;
+        self.request_action().await;
+    }
     async fn start_hand(&mut self) {
         self.phase = HandPhase::StartingHand;
         self.deck = Deck::shuffled(&mut self.rng);
-        self.board.clear();
+        self.community_cards.clear();
         self.pots.clear();
         self.pots.push(Pot::default());
         self.last_bet = Chips::ZERO;
         self.min_raise = Chips::ZERO;
 
-        for player in self.players.iter_mut() {
-            if player.can_play_hand() {
-                player.assign_hole_cards(self.deck.deal(), self.deck.deal());
-            } else {
-                player.reset_for_new_hand();
-            }
-        }
+        self.players.start_hand();
 
         self.broadcast(Message::StartHand).await;
 
@@ -300,27 +344,27 @@ impl InternalTableState {
     }
 
     async fn enter_preflop_betting(&mut self) {
-        self.hand_state = HandState::PreflopBetting;
+        self.phase= HandPhase::PreflopBetting;
         self.action_update().await;
     }
 
-    async fn enter_deal_flop(&mut self, msg: Message) {
+    async fn enter_deal_flop(&mut self) {
         for _ in 1..=3 {
             self.board_push(self.deck.deal());
         }
-        self.hand_state = HandState::FlopBetting;
+        self.phase = HandPhase::Flop;
         self.start_round().await;
     }
 
     async fn enter_deal_turn(&mut self) {
         self.board_push(self.deck.deal());
-        self.hand_state = HandState::TurnBetting;
+        self.phase= HandState::TurnBetting;
         self.start_round().await;
     }
 
     async fn enter_deal_river(&mut self) {
         self.board_push(self.deck.deal());
-        self.hand_state = HandState::RiverBetting;
+        self.phase = HandState::RiverBetting;
         self.start_round().await;
     }
 
@@ -330,9 +374,9 @@ impl InternalTableState {
 
         // Reveal all cards for active players.
         for player in self.players.iter_mut() {
-            player.action = PlayerAction::None;
-            if player.is_active() {
-                player.public_cards = player.hole_cards;
+            player.last_action = PlayerAction::None;
+            if player.active {
+                player.public_cards = player.private_cards;
             }
         }
         self.enter_end_hand().await;
@@ -370,10 +414,59 @@ impl InternalTableState {
     async fn broadcast_end_hand(&self, payoffs: &[HandPayoff]) {
         let msg = Message::EndHand {
             payoffs: payoffs.to_vec(),
-            board: self.board.clone(),
-            cards: self.players.iter().map(|p| (p.player_id.clone(), p.public_cards)).collect(),
+            board: self.community_cards.clone(),
+            cards: self.players.iter().map(|p| (p.id.clone(), p.public_cards)).collect(),
         };
         self.broadcast(msg).await;
+    }
+
+    /// Broadcast a throttle message to all players at the table.
+    async fn broadcast_throttle(&self, dt: Duration) {
+        for player in self.players.iter() {
+            player.send_throttle(dt).await;
+        }
+    }
+
+    /// Broadcast a game state update to all connected players.
+    async fn broadcast_game_update(&self) {
+        let players = self
+            .players
+            .iter()
+            .map(|p| {
+                let action_timer = p.action_timer.map(|t| {
+                    Self::ACTION_TIMEOUT
+                        .saturating_sub(t.elapsed())
+                        .as_secs_f32() as u16
+                });
+
+                PlayerUpdate {
+                    player_id: p.id,
+                    chips: p.chips.clone(),
+                    bet: p.current_bet.clone(),
+                    action: p.last_action,
+                    action_timer,
+                    hole_cards: p.private_cards,
+                    is_dealer: p.dealer,
+                    is_active: p.active,
+                }
+            })
+            .collect();
+
+        let pot = self
+            .pots
+            .iter()
+            .map(|p| p.total_chips.clone())
+            .fold(Chips::ZERO, |acc, c| acc + c);
+
+        let msg = Message::GameStateUpdate {
+            players,
+            community_cards: self.community_cards.clone(),
+            pot,
+        };
+        let signed_message = SignedMessage::new(&self.signing_key, msg);
+        for player in self.players.iter() {
+            player.send(signed_message.clone()).await;
+        }
     }
 
     /// Remove and notify players who have lost all their chips.
@@ -381,15 +474,15 @@ impl InternalTableState {
         let broke: Vec<_> = self.players
             .iter()
             .filter(|p| p.chips == Chips::ZERO)
-            .map(|p| p.player_id.clone())
+            .map(|p| p.id.clone())
             .collect();
 
-        for pid in broke {
-            if let Some(player) = self.players.get(&pid) {
-                let _ = player.table_tx.send(TableMessage::PlayerLeft).await;
-                self.broadcast(Message::PlayerLeft(pid.clone())).await;
+        for player_id in broke {
+            if let Some(player) = self.players.get(&player_id) {
+                let _ = player.tx.send(TableMessage::PlayerLeave).await;
+                self.broadcast(Message::PlayerLeftTable(player_id.clone())).await;
             }
-            self.players.remove(&pid);
+            self.players.remove(&player_id);
         }
     }
     /// Handles the end of the game: pays out winners and resets the table.
@@ -399,10 +492,10 @@ impl InternalTableState {
 
         // Payout remaining chips to each player, notify and remove them.
         for player in self.players.iter() {
-            if let Err(err) = self.database.pay_to_player(player.player_id.clone(), player.chips).await {
-                error!("Failed to pay player {}: {}", player.player_id, err);
+            if let Err(err) = self.database.credit_chips(player.id.clone(), player.chips.clone()).await {
+                error!("Failed to pay player {}: {}", player.id, err);
             }
-            let _ = player.table_tx.send(TableMessage::PlayerLeft).await;
+            let _ = player.tx.send(TableMessage::PlayerLeave).await;
         }
         self.players.clear();
         self.hand_number = 0;
@@ -438,18 +531,19 @@ impl InternalTableState {
     }
     fn pay_multiple_winners(&mut self, payoffs: &mut Vec<HandPayoff>) {
         for pot in self.pots.drain(..) {
-            // Gather all active players in this pot.
+            
+            // Gather all active players in this pot. //TODO: refactor
             let mut contenders = self
                 .players
                 .iter_mut()
-                .filter(|p| p.() && pot.participants.contains(&p.player_id))
-                .filter_map(|player| match player.hole_cards {
+                .filter(|p| p.() && pot.participants.contains(&p.id))
+                .filter_map(|player| match player.private_cards {
                     PlayerCards::Cards(c1, c2) => Some((player, c1, c2)),
                     _ => None,
                 })
                 .map(|(p, c1, c2)| {
                     let mut cards = vec![c1, c2];
-                    cards.extend_from_slice(&self.board);
+                    cards.extend_from_slice(&self.community_cards);
                     let (value, best_hand) = HandValue::eval_with_best_hand(&cards);
                     (p, value, best_hand)
                 })
@@ -463,20 +557,20 @@ impl InternalTableState {
             contenders.sort_by(|a, b| b.1.cmp(&a.1));
             let best_value = &contenders[0].1;
             let winner_count = contenders.iter().filter(|(_, v, _)| v == best_value).count();
-            let chips_per_winner = pot.total_chips / winner_count as u32;
-            let extra_chip = pot.total_chips % winner_count as u32;
+            let chips_per_winner : Chips = pot.total_chips / (winner_count as u32);
+            let extra_chip : Chips = pot.total_chips % winner_count as u32;
 
             for (i, (player, value, best_hand)) in contenders.iter_mut().take(winner_count).enumerate() {
-                let payoff = chips_per_winner + if i == 0 { extra_chip } else { 0 };
+                let payoff = chips_per_winner + if i == 0 { extra_chip } else { Chips::ZERO };
                 player.chips += payoff;
 
                 let mut best_hand_cards = best_hand.to_vec();
                 best_hand_cards.sort_by_key(|c| c.rank());
 
-                match payoffs.iter_mut().find(|p| p.player_id == player.player_id) {
+                match payoffs.iter_mut().find(|p| p.player_id == player.id) {
                     Some(existing) => existing.chips += payoff,
                     None => payoffs.push(HandPayoff {
-                        player_id: player.player_id.clone(),
+                        player_id: player.id.clone(),
                         chips: payoff,
                         cards: best_hand_cards,
                         rank: value.rank().to_string(),
