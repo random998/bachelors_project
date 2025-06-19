@@ -350,20 +350,20 @@ impl InternalTableState {
 
     async fn enter_deal_flop(&mut self) {
         for _ in 1..=3 {
-            self.board_push(self.deck.deal());
+            self.community_cards.push(self.deck.deal());
         }
         self.phase = HandPhase::Flop;
         self.start_round().await;
     }
 
     async fn enter_deal_turn(&mut self) {
-        self.board_push(self.deck.deal());
+        self.community_cards.push(self.deck.deal());
         self.phase= HandPhase::TurnBetting;
         self.start_round().await;
     }
 
     async fn enter_deal_river(&mut self) {
-        self.board_push(self.deck.deal());
+        self.community_cards.push(self.deck.deal());
         self.phase = HandPhase::RiverBetting;
         self.start_round().await;
     }
