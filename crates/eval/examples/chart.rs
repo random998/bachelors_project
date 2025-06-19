@@ -9,7 +9,7 @@ use std::{
     time::Instant,
 };
 
-use poker_eval::*;
+use poker_eval::{Card, Deck, HandValue, Rank, Suit};
 
 #[derive(Default)]
 struct Counter {
@@ -95,8 +95,8 @@ fn run_sim(c1: Card, c2: Card, n_against: usize) -> f64 {
     );
 
     // Aggregate counters.
-    let wins = task_counters.iter().map(|c| c.wins()).sum::<u64>();
-    let total = task_counters.iter().map(|c| c.games()).sum::<u64>();
+    let wins = task_counters.iter().map(Counter::wins).sum::<u64>();
+    let total = task_counters.iter().map(Counter::games).sum::<u64>();
     (wins as f64 / total as f64) * 100.0
 }
 
@@ -128,7 +128,7 @@ fn main() {
         let mut probs = Vec::with_capacity(13);
 
         for r2 in Rank::ranks().rev() {
-            let (c1, c2) = if r1 < r2 || r1 == r2 {
+            let (c1, c2) = if r1 <= r2 {
                 // Offsuit or pair
                 (Card::new(r2, Suit::Hearts), Card::new(r1, Suit::Spades))
             } else {

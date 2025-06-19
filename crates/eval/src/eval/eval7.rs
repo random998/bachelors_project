@@ -18057,11 +18057,11 @@ fn h_0(k: u64) -> usize {
 }
 
 fn h_n(k: u64, adj: u16) -> usize {
-    xxh3_64_with_seed(&k.to_be_bytes(), adj as u64) as usize % 49205
+    xxh3_64_with_seed(&k.to_be_bytes(), u64::from(adj)) as usize % 49205
 }
 
 pub fn hand_rank(hand: &[Card]) -> (u16, [u8; 3]) {
-    let hand_id = hand.iter().map(|c| (c.id() & 0xff) as u64).product::<u64>();
+    let hand_id = hand.iter().map(|c| u64::from(c.id() & 0xff)).product::<u64>();
     let bucket = h_0(hand_id);
     let adj = HASH_ADJS[bucket];
     HAND_VALUES[h_n(hand_id, adj)]
