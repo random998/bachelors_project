@@ -63,20 +63,20 @@ impl ConnectView {
 
 impl View for ConnectView {
     fn update(&mut self, context: &Context, frame: &mut eframe::Frame, app: &mut App,) {
-        while let Some(event, ) = app.poll_network() {
+        while let Some(event,) = app.poll_network() {
             match event {
-                ConnectionEvent::Open => {
+                | ConnectionEvent::Open => {
                     app.send_message(Message::JoinTableRequest {
                         nickname: self.nickname.to_string(),
-                    });
-                }
-                ConnectionEvent::Close => {
+                    },);
+                },
+                | ConnectionEvent::Close => {
                     self.error = "Connection closed".to_string();
-                }
-                ConnectionEvent::Error(e, ) => {
+                },
+                | ConnectionEvent::Error(e,) => {
                     self.error = format!("Connection error {e}");
-                }
-                ConnectionEvent::Message(msg) => {
+                },
+                | ConnectionEvent::Message(msg,) => {
                     if let Message::PlayerJoined {
                         nickname,
                         chips,
@@ -86,11 +86,11 @@ impl View for ConnectView {
                         self.chips = chips.clone();
                         self.server_joined = true;
                     }
-                }
+                },
             }
         }
 
-    Window::new("Login",)
+        Window::new("Login",)
             .collapsible(false,)
             .resizable(false,)
             .anchor(Align2::CENTER_TOP, vec2(0.0, 150.0,),)
@@ -150,8 +150,8 @@ impl View for ConnectView {
 
                     ui.label(RichText::new("Public Identifier",).font(LABEL_FONT,),);
                     let mut player_id = self.player_id.clone();
-                    TextEdit::singleline(&mut player_id)
-                        .desired_width(400.0)
+                    TextEdit::singleline(&mut player_id,)
+                        .desired_width(400.0,)
                         .font(TEXT_FONT,)
                         .show(ui,);
                 },);

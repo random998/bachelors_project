@@ -163,15 +163,15 @@ struct ConnectionHandler {
     /// The tables on this server.
     tables: TablesPool,
     /// The server signing key shared by all connections.
-    sk: Arc<SigningKey>,
+    sk: Arc<SigningKey,>,
     /// The players DB.
     database: Database,
     /// This client table.
-    table: Option<Arc<Table>>,
+    table: Option<Arc<Table,>,>,
     /// Channel for listening shutdown notification.
-    shutdown_broadcast_rx: broadcast::Receiver<()>,
+    shutdown_broadcast_rx: broadcast::Receiver<(),>,
     /// Sender that drops when this connection is done.
-    _shutdown_complete_tx: mpsc::Sender<()>,
+    _shutdown_complete_tx: mpsc::Sender<(),>,
 }
 
 impl ConnectionHandler {
@@ -196,7 +196,7 @@ impl ConnectionHandler {
         };
 
         match message.message() {
-            | Message::JoinTableRequest{
+            | Message::JoinTableRequest {
                 nickname,
             } => {
                 let player = self
@@ -263,7 +263,11 @@ impl ConnectionHandler {
         S: AsyncRead + AsyncWrite + Unpin,
     {
         match msg.message() {
-            | Message::PlayerJoined {player_id, table_id, chips} => {
+            | Message::PlayerJoined {
+                player_id,
+                table_id,
+                chips,
+            } => {
                 let sufficient =
                     self.database.deduct_chips(*player_id, Chips::new(1_000_000,),).await?;
                 if !sufficient {

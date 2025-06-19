@@ -55,7 +55,7 @@ impl Player {
             id: peer_id,
             id_digits: peer_id.digits(),
             nickname,
-            chips: chips,
+            chips,
             current_bet: Chips::ZERO,
             hand_payoff: None,
             last_action: PlayerAction::None,
@@ -273,10 +273,8 @@ impl ClientGameState {
         for update in updates {
             let update = update.clone(); // Clone once
 
-            if let Some(pos,) = self
-                .players
-                .iter_mut()
-                .position(|p| p.id.digits() == update.player_id.digits(),)
+            if let Some(pos,) =
+                self.players.iter_mut().position(|p| p.id.digits() == update.player_id.digits(),)
             {
                 let player = &mut self.players[pos];
                 player.chips = update.chips;
@@ -302,46 +300,54 @@ impl ClientGameState {
     }
 
     /// Returns the server key.
-    pub fn server_key(&self) -> &str {
+    #[must_use]
+    pub fn server_key(&self,) -> &str {
         &self.legacy_server_key
     }
 
     /// Returns a reference to the players.
-    pub fn players(&self) -> &[Player] {
+    #[must_use]
+    pub fn players(&self,) -> &[Player] {
         &self.players
     }
 
     /// The current pot.
-    pub fn pot(&self) -> Chips {
+    #[must_use]
+    pub const fn pot(&self,) -> Chips {
         self.pot
     }
 
     /// The board cards.
-    pub fn community_cards(&self) -> &[Card] {
+    #[must_use]
+    pub fn community_cards(&self,) -> &[Card] {
         &self.community_cards
     }
 
     /// The number of seats at this table.
-    pub fn num_seats(&self) -> usize {
+    #[must_use]
+    pub const fn num_seats(&self,) -> usize {
         self.num_seats
     }
 
     /// Checks if the game has started.
-    pub fn game_started(&self) -> bool {
+    #[must_use]
+    pub const fn game_started(&self,) -> bool {
         self.game_started
     }
 
     /// Checks if the local player is active.
-    pub fn is_active(&self) -> bool {
+    #[must_use]
+    pub fn is_active(&self,) -> bool {
         !self.players.is_empty() && self.players[0].participating_in_hand
     }
     /// Returns the requested player action if any.
-    pub fn action_request(&self) -> Option<&ActionRequest> {
+    #[must_use]
+    pub const fn action_request(&self,) -> Option<&ActionRequest,> {
         self.action_request.as_ref()
     }
 
     /// Reset the action request.
-    pub fn reset_action_request(&mut self) {
+    pub fn reset_action_request(&mut self,) {
         self.action_request = None;
     }
 }
