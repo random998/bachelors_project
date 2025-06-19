@@ -163,7 +163,7 @@ struct ConnectionHandler {
     /// The tables on this server.
     tables: TablesPool,
     /// The server signing key shared by all connections.
-    sk: Arc<SigningKey,>,
+    signing_key: Arc<SigningKey,>,
     /// The players DB.
     database: Database,
     /// This client table.
@@ -175,6 +175,7 @@ struct ConnectionHandler {
 }
 
 impl ConnectionHandler {
+    const JOIN_TABLE_INITIAL_CHIP_BALANCE: Chips = Chips::new(1_000_000,);
     async fn handle_connection<S,>(&self, conn: &mut SecureWebSocket<S,>,) -> Result<(),>
     where S: AsyncRead + AsyncWrite + Unpin {
         let (nickname, player_id,) = self.receive_initial_join(conn,).await?;
@@ -272,7 +273,7 @@ impl ConnectionHandler {
                     self.database.deduct_chips(*player_id, Chips::new(1_000_000,),).await?;
                 if !sufficient {
                     let notice = Message::NotEnoughChips;
-                    conn.send(&SignedMessage::new(&self.sk, notice,),).await?;
+                    conn.send(&SignedMessage::new(&self.signing_key, notice,),).await?;
                     return Ok((),);
                 }
 
@@ -284,11 +285,11 @@ impl ConnectionHandler {
                     | Ok(_,) => {},
                     | Err(TablesPoolError::PlayerAlreadyJoined,) => {
                         let msg = Message::PlayerAlreadyJoined;
-                        conn.send(&SignedMessage::new(&self.sk, msg,),).await?;
+                        conn.send(&SignedMessage::new(&self.signing_key, msg,),).await?;
                     },
                     | Err(TablesPoolError::NoTablesLeft,) => {
                         let msg = Message::NoTablesLeftNotification;
-                        conn.send(&SignedMessage::new(&self.sk, msg,),).await?;
+                        conn.send(&SignedMessage::new(&self.signing_key, msg,),).await?;
                     },
                 }
             },
@@ -303,15 +304,15 @@ impl ConnectionHandler {
     }
 
     async fn handle_table_message<S,>(
-        &self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId, msg: TableMessage,
+        &mut self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId, msg: TableMessage,
     ) -> Result<(),>
     where S: AsyncRead + AsyncWrite + Unpin {
         match msg {
             | TableMessage::Send(signed_msg,) => {
                 conn.send(&signed_msg,).await?;
             },
-            | TableMessage::PlayerLeft => {
-                let chips = self.database.get_or_refill_chips(player_id,).await?;
+            | TableMessage::PlayerLeave => {
+                let chips = self.get_or_refill_chips(player_id,).await?;
                 let msg = Message::ShowAccount {
                     chips,
                 };
@@ -326,5 +327,18 @@ impl ConnectionHandler {
             },
         }
         Ok((),)
+    }
+
+    async fn get_or_refill_chips(&mut self, player_id: &PeerId,) -> Result<Chips,> {
+        let mut player = self.database.get_player_by_id(player_id.clone(),).await?;
+
+        // For now refill player to be able to join a table.
+        if player.chips < Self::JOIN_TABLE_INITIAL_CHIP_BALANCE {
+            let refill = Self::JOIN_TABLE_INITIAL_CHIP_BALANCE - player.chips;
+            self.database.credit_chips(player_id.clone(), refill,).await?;
+            player.chips = Self::JOIN_TABLE_INITIAL_CHIP_BALANCE;
+        }
+
+        Ok(player.chips,)
     }
 }
