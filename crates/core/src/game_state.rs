@@ -141,7 +141,7 @@ pub struct ClientGameState {
     /// List of all players currently seated at the table.
     players: Vec<Player,>,
     /// Action request currently directed to this player, if any.
-    current_action_request: Option<ActionRequest,>,
+    action_request: Option<ActionRequest,>,
     /// Community cards on the board (flop, turn, river).
     community_cards: Vec<Card,>,
     /// Total amount of chips currently in the pot.
@@ -161,7 +161,7 @@ impl ClientGameState {
             game_started: false,
             players: Vec::default(),
             num_taken_seats: 0,
-            current_action_request: None,
+            action_request: None,
             community_cards: Vec::default(),
             pot: Chips::ZERO,
         }
@@ -220,7 +220,7 @@ impl ClientGameState {
                 payoffs,
                 ..
             } => {
-                self.current_action_request = None;
+                self.action_request = None;
                 self.pot = Chips::ZERO;
 
                 // Update winnings for each winning player.
@@ -258,7 +258,7 @@ impl ClientGameState {
             } => {
                 // Check if the action has been requested for this player.
                 if &self.player_id == player_id {
-                    self.current_action_request = Some(ActionRequest {
+                    self.action_request = Some(ActionRequest {
                         available_actions: actions.clone(),
                         minimum_raise: *min_raise,
                         big_blind_amount: *big_blind,
@@ -295,7 +295,7 @@ impl ClientGameState {
                 // If local player has folded, remove its cards.
                 if pos == 0 && !player.participating_in_hand {
                     player.hole_cards = PlayerCards::None;
-                    self.current_action_request = None;
+                    self.action_request = None;
                 }
             }
         }
@@ -334,5 +334,14 @@ impl ClientGameState {
     /// Checks if the local player is active.
     pub fn is_active(&self) -> bool {
         !self.players.is_empty() && self.players[0].participating_in_hand
+    }
+    /// Returns the requested player action if any.
+    pub fn action_request(&self) -> Option<&ActionRequest> {
+        self.action_request.as_ref()
+    }
+
+    /// Reset the action request.
+    pub fn reset_action_request(&mut self) {
+        self.action_request = None;
     }
 }
