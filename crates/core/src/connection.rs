@@ -26,7 +26,7 @@ const MAX_MESSAGE_SIZE: usize = 1 << 12; // 4096 bytes
 
 pub type ClientConnection = SecureWebSocket<MaybeTlsStream<TcpStream>>;
 
-/// A Noise-encrypted WebSocket connection that exchanges SignedMessages.
+/// A Noise-encrypted WebSocket connection that exchanges `SignedMessages`.
 pub struct SecureWebSocket<S> {
     stream: WebSocketStream<S>,
     noise_transport: TransportState,
@@ -80,7 +80,7 @@ where
     }
 
     /// Accept an inbound encrypted WebSocket connection.
-    pub async fn accept_connection(stream: S) -> Result<SecureWebSocket<S>> {
+    pub async fn accept_connection(stream: S) -> Result<Self> {
         let config = WebSocketConfig::default().max_message_size(Some(MAX_MESSAGE_SIZE));
         let mut stream = websocket::accept_async_with_config(stream, Some(config)).await?;
 
@@ -103,7 +103,7 @@ where
             .send(WsMessage::Binary(buffer.freeze().slice(..message_len)))
             .await?;
 
-        Ok(SecureWebSocket {
+        Ok(Self {
             stream,
             noise_transport: responder.into_transport_mode()?,
         })

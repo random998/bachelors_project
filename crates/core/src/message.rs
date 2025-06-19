@@ -135,16 +135,16 @@ pub enum PlayerAction {
 
 impl PlayerAction {
     /// The action label.
-    pub fn label(&self) -> &'static str {
+    #[must_use] pub const fn label(&self) -> &'static str {
         match self {
-            PlayerAction::SmallBlind => "SB",
-            PlayerAction::BigBlind => "BB",
-            PlayerAction::Call => "CALL",
-            PlayerAction::Check => "CHECK",
-            PlayerAction::Bet => "BET",
-            PlayerAction::Raise => "RAISE",
-            PlayerAction::Fold => "FOLD",
-            PlayerAction::None => "",
+            Self::SmallBlind => "SB",
+            Self::BigBlind => "BB",
+            Self::Call => "CALL",
+            Self::Check => "CHECK",
+            Self::Bet => "BET",
+            Self::Raise => "RAISE",
+            Self::Fold => "FOLD",
+            Self::None => "",
         }
     }
 }
@@ -179,9 +179,9 @@ struct Payload {
 
 impl SignedMessage {
     /// Creates a new signed message.
-    pub fn new(sk: &SigningKey, msg: Message) -> Self {
+    #[must_use] pub fn new(sk: &SigningKey, msg: Message) -> Self {
         let sig = sk.sign(&msg);
-        SignedMessage {
+        Self {
             payload: Arc::new(Payload {
                 msg,
                 sig,
@@ -192,7 +192,7 @@ impl SignedMessage {
 
     /// Deserializes this message and verifies its signature.
     pub fn deserialize_and_verify(buf: &[u8]) -> Result<Self> {
-        let sm = SignedMessage {
+        let sm = Self {
             payload: Arc::new(bincode::deserialize::<Payload>(buf)?),
         };
 
@@ -204,17 +204,17 @@ impl SignedMessage {
     }
 
     /// Serializes this message.
-    pub fn serialize(&self) -> Vec<u8> {
+    #[must_use] pub fn serialize(&self) -> Vec<u8> {
         bincode::serialize(self.payload.as_ref()).expect("Failed to serialize signed message")
     }
 
     /// Returns the identifier of the player who sent this message.
-    pub fn sender(&self) -> PeerId {
+    #[must_use] pub fn sender(&self) -> PeerId {
         self.payload.vk.peer_id()
     }
 
     /// Extracts the signed message (payload).
-    pub fn message(&self) -> &Message {
+    #[must_use] pub fn message(&self) -> &Message {
         &self.payload.msg
     }
 }

@@ -51,9 +51,9 @@ impl Player {
     /// * `peer_id` - Unique cryptographic identifier for the player.
     /// * `nickname` - Player's chosen display name.
     /// * `initial_chips` - Number of chips the player starts with.
-    fn new(peer_id: PeerId, nickname: String, chips: Chips) -> Player {
-        Player {
-            peer_id: peer_id,
+    fn new(peer_id: PeerId, nickname: String, chips: Chips) -> Self {
+        Self {
+            peer_id,
             peer_id_digits: peer_id.digits(),
             nickname,
             total_chips: chips,
@@ -88,22 +88,22 @@ pub struct ActionRequest {
 impl ActionRequest {
 
     /// Returns `true` if the player is allowed to call.
-    pub fn can_call(&self) -> bool {
+    #[must_use] pub fn can_call(&self) -> bool {
         self.is_action_allowed(PlayerAction::Call)
     }
 
     /// Returns `true` if the player is allowed to check.
-    pub fn can_check(&self) -> bool {
+    #[must_use] pub fn can_check(&self) -> bool {
         self.is_action_allowed(PlayerAction::Check)
     }
 
     /// Returns `true` if the player is allowed to bet.
-    pub fn can_bet(&self) -> bool {
+    #[must_use] pub fn can_bet(&self) -> bool {
         self.is_action_allowed(PlayerAction::Bet)
     }
 
     /// Returns `true` if the player is allowed to raise.
-    pub fn can_raise(&self) -> bool {
+    #[must_use] pub fn can_raise(&self) -> bool {
         self.is_action_allowed(PlayerAction::Raise)
     }
 
@@ -144,9 +144,9 @@ pub struct ClientGameState {
 }
 
 impl ClientGameState {
-    /// Initializes a new GameState instance for the local player
-    pub fn new(player_id: PeerId, nickname: String) -> Self {
-        ClientGameState {
+    /// Initializes a new `GameState` instance for the local player
+    #[must_use] pub fn new(player_id: PeerId, nickname: String) -> Self {
+        Self {
             player_id,
             nickname,
             table_id: TableId::NO_TABLE,
