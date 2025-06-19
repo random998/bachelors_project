@@ -134,7 +134,8 @@ impl PlayersState {
         self.players.shuffle(rng);
     }
 
-    pub fn len(&self) -> usize {
+    /// returns the total number of players.
+    pub fn count(&self) -> usize {
         self.players.len()
     }
 
