@@ -14,7 +14,7 @@ use poker_core::{
 use super::TableMessage;
 
 /// Represents a single poker player at a table.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Player {
     pub id: PeerId,
     pub tx: mpsc::Sender<TableMessage>,
@@ -54,7 +54,7 @@ impl Player {
         let _ = self.tx.send(TableMessage::PlayerLeave).await;
     }
 
-    pub async fn throttle(&self, duration: Duration) {
+    pub async fn send_throttle(&self, duration: Duration) {
         let _ = self.tx.send(TableMessage::Throttle(duration)).await;
     }
 
@@ -83,6 +83,10 @@ impl Player {
         self.public_cards = PlayerCards::None;
         self.private_cards = PlayerCards::None;
     }
+    
+    pub fn reset_bet(&mut self) {
+        self.current_bet = Chips::ZERO;
+    }
 
     pub fn finalize_hand(&mut self) {
         self.last_action = PlayerAction::None;
@@ -94,7 +98,7 @@ impl Player {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PlayersState {
     players: Vec<Player>,
     active_player_idx: Option<usize>,
@@ -128,6 +132,10 @@ impl PlayersState {
         } else {
             None
         }
+    }
+    
+    pub fn get(&self, id: &PeerId) -> Option<&Player> {
+        self.players.iter().find(|p| &p.id == id)
     }
 
     pub fn shuffle<R: Rng>(&mut self, rng: &mut R) {
@@ -210,9 +218,14 @@ impl PlayersState {
             p.finalize_hand();
         }
     }
-
     pub fn remove_bankrupt_players(&mut self) {
         self.players.retain(|p| p.has_chips());
+    }
+    
+    pub fn reset_bets(&mut self) {
+        for player in &mut self.players {
+            player.reset_for_new_hand();
+        }
     }
 }
 
