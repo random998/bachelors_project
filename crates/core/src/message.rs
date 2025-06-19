@@ -1,22 +1,26 @@
 // based on https://github.com/vincev/freezeout
 
+use std::sync::Arc;
+
 /// Type definitions for p2p messages.
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
-use crate::{
-    crypto::{PeerId, Signature, SigningKey, VerifyingKey},
-    poker::{Card, Chips, PlayerCards, TableId},
-};
+use crate::crypto::{PeerId, Signature, SigningKey, VerifyingKey};
+use crate::poker::{Card, Chips, PlayerCards, TableId};
 /// Represents a message exchanged between peers in the P2P poker protocol.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize,)]
 pub enum Message {
     /// Request to join a table with the given nickname.
-    JoinTableRequest { player_id: PeerId, nickname: String },
+    JoinTableRequest {
+        player_id: PeerId,
+        nickname: String,
+    },
 
     /// Notification that a player has left their current table.
-    PlayerLeftNotification { player_id: PeerId },
+    PlayerLeftNotification {
+        player_id: PeerId,
+    },
 
     /// Sent when no available tables remain for the player to join.
     NoTablesLeftNotification,
@@ -35,10 +39,12 @@ pub enum Message {
     },
 
     /// Request to show the player’s current chip balance/account summary.
-    ShowAccount { chips: Chips },
+    ShowAccount {
+        chips: Chips,
+    },
 
     /// Starts the game and notifies all players of seat order.
-    StartGame(Vec<PeerId>),
+    StartGame(Vec<PeerId,>,),
 
     /// Begins a new poker hand.
     StartHand,
@@ -46,25 +52,25 @@ pub enum Message {
     /// Ends the current poker hand, providing final results.
     EndHand {
         /// Final payoffs for each player.
-        payoffs: Vec<HandPayoff>,
+        payoffs: Vec<HandPayoff,>,
 
         /// Community cards on the board at showdown.
-        board: Vec<Card>,
+        board: Vec<Card,>,
 
         /// Map of each player's ID to their revealed hole cards.
-        cards: Vec<(PeerId, PlayerCards)>,
+        cards: Vec<(PeerId, PlayerCards,),>,
     },
 
     /// Deals two hole cards to the player.
-    DealCards(Card, Card),
+    DealCards(Card, Card,),
 
     /// Notifies peers that a player has left the table.
-    PlayerLeftTable(PeerId),
+    PlayerLeftTable(PeerId,),
 
     /// Updated game state including players, board, and pot.
     GameStateUpdate {
-        players: Vec<PlayerUpdate>,
-        community_cards: Vec<Card>,
+        players: Vec<PlayerUpdate,>,
+        community_cards: Vec<Card,>,
         pot: Chips,
     },
 
@@ -80,7 +86,7 @@ pub enum Message {
         big_blind: Chips,
 
         /// Legal actions the player may choose from.
-        actions: Vec<PlayerAction>,
+        actions: Vec<PlayerAction,>,
     },
 
     /// Response from a player specifying their action and any bet amount.
@@ -93,20 +99,20 @@ pub enum Message {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,)]
 pub struct PlayerUpdate {
     pub player_id: PeerId,
     pub chips: Chips,
     pub bet: Chips,
     pub action: PlayerAction,
-    pub action_timer: Option<u16>,
+    pub action_timer: Option<u16,>,
     pub is_dealer: bool,
     pub is_active: bool,
     pub hole_cards: PlayerCards,
 }
 
 /// A Player action.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq,)]
 pub enum PlayerAction {
     /// No action.
     None,
@@ -129,42 +135,42 @@ pub enum PlayerAction {
 impl PlayerAction {
     /// The action label.
     #[must_use]
-    pub const fn label(&self) -> &'static str {
+    pub const fn label(&self,) -> &'static str {
         match self {
-            Self::SmallBlind => "SB",
-            Self::BigBlind => "BB",
-            Self::Call => "CALL",
-            Self::Check => "CHECK",
-            Self::Bet => "BET",
-            Self::Raise => "RAISE",
-            Self::Fold => "FOLD",
-            Self::None => "",
+            | Self::SmallBlind => "SB",
+            | Self::BigBlind => "BB",
+            | Self::Call => "CALL",
+            | Self::Check => "CHECK",
+            | Self::Bet => "BET",
+            | Self::Raise => "RAISE",
+            | Self::Fold => "FOLD",
+            | Self::None => "",
         }
     }
 }
 
 /// Hand payoff description.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize,)]
 pub struct HandPayoff {
     /// The player receiving the payment.
     pub player_id: PeerId,
     /// The payment amount.
     pub chips: Chips,
     /// The winning cards.
-    pub cards: Vec<Card>,
+    pub cards: Vec<Card,>,
     /// Cards rank description.
     pub rank: String,
 }
 
 /// A signed message.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone,)]
 pub struct SignedMessage {
     /// Clonable payload for broadcasting to multiple connection tasks.
-    payload: Arc<Payload>,
+    payload: Arc<Payload,>,
 }
 
 /// Private signed message payload.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize,)]
 struct Payload {
     msg: Message,
     sig: Signature,
@@ -174,45 +180,45 @@ struct Payload {
 impl SignedMessage {
     /// Creates a new signed message.
     #[must_use]
-    pub fn new(sk: &SigningKey, msg: Message) -> Self {
-        let sig = sk.sign(&msg);
+    pub fn new(sk: &SigningKey, msg: Message,) -> Self {
+        let sig = sk.sign(&msg,);
         Self {
             payload: Arc::new(Payload {
                 msg,
                 sig,
                 vk: sk.verifying_key(),
-            }),
+            },),
         }
     }
 
     /// Deserializes this message and verifies its signature.
-    pub fn deserialize_and_verify(buf: &[u8]) -> Result<Self> {
+    pub fn deserialize_and_verify(buf: &[u8],) -> Result<Self,> {
         let sm = Self {
-            payload: Arc::new(bincode::deserialize::<Payload>(buf)?),
+            payload: Arc::new(bincode::deserialize::<Payload,>(buf,)?,),
         };
 
-        if !sm.payload.vk.verify(&sm.payload.msg, &sm.payload.sig) {
+        if !sm.payload.vk.verify(&sm.payload.msg, &sm.payload.sig,) {
             bail!("Invalid signature");
         }
 
-        Ok(sm)
+        Ok(sm,)
     }
 
     /// Serializes this message.
     #[must_use]
-    pub fn serialize(&self) -> Vec<u8> {
-        bincode::serialize(self.payload.as_ref()).expect("Failed to serialize signed message")
+    pub fn serialize(&self,) -> Vec<u8,> {
+        bincode::serialize(self.payload.as_ref(),).expect("Failed to serialize signed message",)
     }
 
     /// Returns the identifier of the player who sent this message.
     #[must_use]
-    pub fn sender(&self) -> PeerId {
+    pub fn sender(&self,) -> PeerId {
         self.payload.vk.peer_id()
     }
 
     /// Extracts the signed message (payload).
     #[must_use]
-    pub fn message(&self) -> &Message {
+    pub fn message(&self,) -> &Message {
         &self.payload.msg
     }
 }
@@ -231,10 +237,10 @@ mod tests {
             nickname: "Alice".to_string(),
         };
 
-        let signed_message = SignedMessage::new(&sk, message);
+        let signed_message = SignedMessage::new(&sk, message,);
         let bytes = signed_message.serialize();
 
-        let deserialized_msg = SignedMessage::deserialize_and_verify(&bytes).unwrap();
+        let deserialized_msg = SignedMessage::deserialize_and_verify(&bytes,).unwrap();
         assert!(
             matches!(deserialized_msg.message(), Message::JoinTableRequest{ player_id, nickname } if nickname == "Alice" && *player_id == peer_id)
         );

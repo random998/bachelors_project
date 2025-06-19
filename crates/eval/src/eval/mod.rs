@@ -8,9 +8,9 @@
 //!
 //! It provides a [`HandValue::eval`] method that computes a hand rank without
 //! extracting the best hand out of a 7 cards hand, useful for computing odds
-//! and other stats, and a slightly slower [`HandValue::eval_with_best_hand`] that
-//! computes the hand rank and returns the five best cards, useful for UIs to
-//! shows a winning hand.
+//! and other stats, and a slightly slower [`HandValue::eval_with_best_hand`]
+//! that computes the hand rank and returns the five best cards, useful for UIs
+//! to shows a winning hand.
 //!
 //! [kevlink]: http://suffe.cool/poker/evaluator.html
 //! [kevcode]: http://suffe.cool/poker/code/
@@ -21,7 +21,7 @@ use poker_cards::Card;
 mod eval7;
 
 /// An hand rank.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash,)]
 pub enum HandRank {
     /// A high card.
     HighCard,
@@ -45,7 +45,7 @@ pub enum HandRank {
 
 impl HandRank {
     /// Creates a `HandRank` instance from a hand value.
-    const fn from_eval(val: u16) -> Self {
+    const fn from_eval(val: u16,) -> Self {
         if val > 6185 {
             Self::HighCard
         } else if val > 3325 {
@@ -69,65 +69,69 @@ impl HandRank {
 }
 
 impl std::fmt::Display for HandRank {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_,>,) -> std::fmt::Result {
         let rank = match self {
-            Self::HighCard => "HIGH CARD",
-            Self::OnePair => "ONE PAIR",
-            Self::TwoPair => "TWO PAIRS",
-            Self::ThreeOfAKind => "THREE OF A KIND",
-            Self::Straight => "STRAIGHT",
-            Self::Flush => "FLUSH",
-            Self::FullHouse => "FULL HOUSE",
-            Self::FourOfAKind => "FOUR OF A KIND",
-            Self::StraightFlush => "STRAIGHT FLUSH",
+            | Self::HighCard => "HIGH CARD",
+            | Self::OnePair => "ONE PAIR",
+            | Self::TwoPair => "TWO PAIRS",
+            | Self::ThreeOfAKind => "THREE OF A KIND",
+            | Self::Straight => "STRAIGHT",
+            | Self::Flush => "FLUSH",
+            | Self::FullHouse => "FULL HOUSE",
+            | Self::FourOfAKind => "FOUR OF A KIND",
+            | Self::StraightFlush => "STRAIGHT FLUSH",
         };
         write!(f, "{rank}")
     }
 }
 
 /// The value of hand from 5, 6, or 7 cards.
-#[derive(Debug, Clone, Copy)]
-pub struct HandValue(u16);
+#[derive(Debug, Clone, Copy,)]
+pub struct HandValue(u16,);
 
 impl HandValue {
     /// Evaluates a hand and the best cards for 5, 6 or 7 cards.
-    #[must_use] pub fn eval_with_best_hand(cards: &[Card]) -> (Self, [Card; 5]) {
+    #[must_use]
+    pub fn eval_with_best_hand(cards: &[Card],) -> (Self, [Card; 5],) {
         if cards.len() == 7 {
-            let (v, best_hand) = eval_seven_cards(cards, true);
-            (v, best_hand.unwrap())
+            let (v, best_hand,) = eval_seven_cards(cards, true,);
+            (v, best_hand.unwrap(),)
         } else if cards.len() == 6 {
-            eval_six_cards(cards)
+            eval_six_cards(cards,)
         } else if cards.len() == 5 {
-            let value = eval_five_cards(cards);
-            let hand = [cards[0], cards[1], cards[2], cards[3], cards[4]];
-            (value, hand)
+            let value = eval_five_cards(cards,);
+            let hand = [cards[0], cards[1], cards[2], cards[3], cards[4],];
+            (value, hand,)
         } else {
             panic!("Hands size not supported {}", cards.len());
         }
     }
 
     /// Evaluates a hand for 5, 6 or 7 cards.
-    #[must_use] pub fn eval(cards: &[Card]) -> Self {
+    #[must_use]
+    pub fn eval(cards: &[Card],) -> Self {
         if cards.len() == 7 {
-            let (v, _) = eval_seven_cards(cards, false);
+            let (v, _,) = eval_seven_cards(cards, false,);
             v
         } else if cards.len() == 6 {
-            let (v, _) = eval_six_cards(cards);
+            let (v, _,) = eval_six_cards(cards,);
             v
         } else if cards.len() == 5 {
-            eval_five_cards(cards)
+            eval_five_cards(cards,)
         } else {
             panic!("Hands size not supported {}", cards.len());
         }
     }
 
     /// The hand rank.
-    #[must_use] pub const fn rank(&self) -> HandRank {
-        HandRank::from_eval(self.0)
+    #[must_use]
+    pub const fn rank(&self,) -> HandRank {
+        HandRank::from_eval(self.0,)
     }
 
     /// The hand rank value.
-    #[must_use] pub const fn value(&self) -> u16 {
+    #[must_use]
+    pub const fn value(&self,) -> u16 {
         self.0
     }
 }
@@ -135,25 +139,25 @@ impl HandValue {
 impl Default for HandValue {
     fn default() -> Self {
         // The lowest hand value
-        Self(u16::MAX)
+        Self(u16::MAX,)
     }
 }
 
 impl Ord for HandValue {
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn cmp(&self, other: &Self,) -> Ordering {
         // Comparison is inverted as a stronger hand has smaller value.
-        other.0.cmp(&self.0)
+        other.0.cmp(&self.0,)
     }
 }
 
 impl PartialOrd for HandValue {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
+    fn partial_cmp(&self, other: &Self,) -> Option<Ordering,> {
+        Some(self.cmp(other,),)
     }
 }
 
 impl PartialEq for HandValue {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, other: &Self,) -> bool {
         self.0 == other.0
     }
 }
@@ -162,31 +166,32 @@ impl Eq for HandValue {}
 
 /// Evaluate a seven cards hand.
 ///
-/// For higher throughput pass false to `compute_best` if only the hand value is needed.
-fn eval_seven_cards(cards: &[Card], compute_best: bool) -> (HandValue, Option<[Card; 5]>) {
+/// For higher throughput pass false to `compute_best` if only the hand value is
+/// needed.
+fn eval_seven_cards(cards: &[Card], compute_best: bool,) -> (HandValue, Option<[Card; 5],>,) {
     let mut suit_counts = [0; 4];
     for c in cards {
         match c.suit_bits() {
-            0x8 => suit_counts[0] += 1,
-            0x4 => suit_counts[1] += 1,
-            0x2 => suit_counts[2] += 1,
-            0x1 => suit_counts[3] += 1,
-            _ => (),
+            | 0x8 => suit_counts[0] += 1,
+            | 0x4 => suit_counts[1] += 1,
+            | 0x2 => suit_counts[2] += 1,
+            | 0x1 => suit_counts[3] += 1,
+            | _ => (),
         }
     }
 
     // Use lookup table if suits are not significant (~97% of hands)
-    if suit_counts.iter().all(|c| *c < 5) {
-        let (value, best_ranks) = eval7::hand_rank(cards);
+    if suit_counts.iter().all(|c| *c < 5,) {
+        let (value, best_ranks,) = eval7::hand_rank(cards,);
         let best_hand = if compute_best {
-            Some(extract_hand(cards, &best_ranks))
+            Some(extract_hand(cards, &best_ranks,),)
         } else {
             None
         };
 
-        (HandValue(value), best_hand)
+        (HandValue(value,), best_hand,)
     } else {
-        let mut hand = [cards[0], cards[1], cards[2], cards[3], cards[4]];
+        let mut hand = [cards[0], cards[1], cards[2], cards[3], cards[4],];
         let mut best_value = HandValue::default();
         let mut best_hand = None;
 
@@ -196,33 +201,28 @@ fn eval_seven_cards(cards: &[Card], compute_best: bool) -> (HandValue, Option<[C
             hand[2] = cards[perm[2]];
             hand[3] = cards[perm[3]];
             hand[4] = cards[perm[4]];
-            let value = eval_five_cards(&hand);
+            let value = eval_five_cards(&hand,);
             if value > best_value {
                 best_value = value;
                 if compute_best {
-                    best_hand = Some(hand);
+                    best_hand = Some(hand,);
                 }
             }
         }
 
-        (best_value, best_hand)
+        (best_value, best_hand,)
     }
 }
 
 /// Extract the winning 5 cards hands from cached ranks.
 #[inline]
-fn extract_hand(hand: &[Card], ranks: &[u8; 3]) -> [Card; 5] {
+fn extract_hand(hand: &[Card], ranks: &[u8; 3],) -> [Card; 5] {
     // Unpack best hand ranks.
-    let ranks = [
-        ranks[0],
-        (ranks[1] >> 4) & 0xf,
-        ranks[1] & 0xf,
-        (ranks[2] >> 4) & 0xf,
-        ranks[2] & 0xf,
-    ];
+    let ranks =
+        [ranks[0], (ranks[1] >> 4) & 0xf, ranks[1] & 0xf, (ranks[2] >> 4) & 0xf, ranks[2] & 0xf,];
 
     let mut cards = [0u8; 7];
-    for (idx, c) in hand.iter().enumerate() {
+    for (idx, c,) in hand.iter().enumerate() {
         cards[idx] = (c.rank_bits() << 4 | (idx as u32)) as u8;
     }
 
@@ -245,8 +245,8 @@ fn extract_hand(hand: &[Card], ranks: &[u8; 3]) -> [Card; 5] {
 }
 
 /// Evaluate a six cards hand.
-fn eval_six_cards(cards: &[Card]) -> (HandValue, [Card; 5]) {
-    let mut hand = [cards[0], cards[1], cards[2], cards[3], cards[4]];
+fn eval_six_cards(cards: &[Card],) -> (HandValue, [Card; 5],) {
+    let mut hand = [cards[0], cards[1], cards[2], cards[3], cards[4],];
     let mut best_value = HandValue::default();
     let mut best_hand = hand;
 
@@ -256,55 +256,50 @@ fn eval_six_cards(cards: &[Card]) -> (HandValue, [Card; 5]) {
         hand[2] = cards[perm[2]];
         hand[3] = cards[perm[3]];
         hand[4] = cards[perm[4]];
-        let value = eval_five_cards(&hand);
+        let value = eval_five_cards(&hand,);
         if value > best_value {
             best_hand = hand;
             best_value = value;
         }
     }
 
-    (best_value, best_hand)
+    (best_value, best_hand,)
 }
 
 /// Evaluate a five cards hands.
 ///
 /// Hand h1 beats hand h2 if eval(h1) < eval(h2).
-fn eval_five_cards(cards: &[Card]) -> HandValue {
-    fn find_fast(mut u: u32) -> usize {
-        u = u.wrapping_add(0xe91aaa35u32);
+fn eval_five_cards(cards: &[Card],) -> HandValue {
+    fn find_fast(mut u: u32,) -> usize {
+        u = u.wrapping_add(0xe91aaa35u32,);
         u ^= u >> 16;
-        u = u.wrapping_add(u << 8);
+        u = u.wrapping_add(u << 8,);
         u ^= u >> 4;
         let b = (u >> 8) & 0x1ff;
-        let a = u.wrapping_add(u << 2) >> 19;
+        let a = u.wrapping_add(u << 2,) >> 19;
         (a ^ HASH_ADJUST[b as usize]) as usize
     }
 
     assert_eq!(cards.len(), 5);
 
-    let (c1, c2, c3, c4, c5) = (
-        cards[0].id(),
-        cards[1].id(),
-        cards[2].id(),
-        cards[3].id(),
-        cards[4].id(),
-    );
+    let (c1, c2, c3, c4, c5,) =
+        (cards[0].id(), cards[1].id(), cards[2].id(), cards[3].id(), cards[4].id(),);
 
     let q = (c1 | c2 | c3 | c4 | c5) >> 16;
 
     // This checks for Flushes and Straight Flushes
     if (c1 & c2 & c3 & c4 & c5) & 0xf000 != 0 {
-        return HandValue(FLUSHES[q as usize]);
+        return HandValue(FLUSHES[q as usize],);
     }
 
     // This checks for Straights and High Card hands
     let s = UNIQUE5[q as usize];
     if s != 0 {
-        return HandValue(s);
+        return HandValue(s,);
     }
 
     let q = (c1 & 0xff) * (c2 & 0xff) * (c3 & 0xff) * (c4 & 0xff) * (c5 & 0xff);
-    HandValue(HASH_VALUES[find_fast(q)])
+    HandValue(HASH_VALUES[find_fast(q,)],)
 }
 
 /// Table lookup for all "flush" hands.
@@ -1414,36 +1409,36 @@ static HASH_VALUES: [u16; 8192] = [
 ];
 
 static PERM7: [[usize; 5]; 21] = [
-    [0, 1, 2, 3, 4],
-    [0, 1, 2, 3, 5],
-    [0, 1, 2, 3, 6],
-    [0, 1, 2, 4, 5],
-    [0, 1, 2, 4, 6],
-    [0, 1, 2, 5, 6],
-    [0, 1, 3, 4, 5],
-    [0, 1, 3, 4, 6],
-    [0, 1, 3, 5, 6],
-    [0, 1, 4, 5, 6],
-    [0, 2, 3, 4, 5],
-    [0, 2, 3, 4, 6],
-    [0, 2, 3, 5, 6],
-    [0, 2, 4, 5, 6],
-    [0, 3, 4, 5, 6],
-    [1, 2, 3, 4, 5],
-    [1, 2, 3, 4, 6],
-    [1, 2, 3, 5, 6],
-    [1, 2, 4, 5, 6],
-    [1, 3, 4, 5, 6],
-    [2, 3, 4, 5, 6],
+    [0, 1, 2, 3, 4,],
+    [0, 1, 2, 3, 5,],
+    [0, 1, 2, 3, 6,],
+    [0, 1, 2, 4, 5,],
+    [0, 1, 2, 4, 6,],
+    [0, 1, 2, 5, 6,],
+    [0, 1, 3, 4, 5,],
+    [0, 1, 3, 4, 6,],
+    [0, 1, 3, 5, 6,],
+    [0, 1, 4, 5, 6,],
+    [0, 2, 3, 4, 5,],
+    [0, 2, 3, 4, 6,],
+    [0, 2, 3, 5, 6,],
+    [0, 2, 4, 5, 6,],
+    [0, 3, 4, 5, 6,],
+    [1, 2, 3, 4, 5,],
+    [1, 2, 3, 4, 6,],
+    [1, 2, 3, 5, 6,],
+    [1, 2, 4, 5, 6,],
+    [1, 3, 4, 5, 6,],
+    [2, 3, 4, 5, 6,],
 ];
 
 static PERM6: [[usize; 5]; 6] = [
-    [0, 1, 2, 3, 4],
-    [0, 1, 2, 3, 5],
-    [0, 1, 2, 4, 5],
-    [0, 1, 3, 4, 5],
-    [0, 2, 3, 4, 5],
-    [1, 2, 3, 4, 5],
+    [0, 1, 2, 3, 4,],
+    [0, 1, 2, 3, 5,],
+    [0, 1, 2, 4, 5,],
+    [0, 1, 3, 4, 5,],
+    [0, 2, 3, 4, 5,],
+    [1, 2, 3, 4, 5,],
 ];
 
 #[cfg(test)]
@@ -1457,9 +1452,9 @@ mod tests {
     fn eval_5cards() {
         let mut hands = AHashMap::new();
         Deck::default().for_each(5, |hand| {
-            let val = HandValue::eval(hand).rank();
-            *hands.entry(val).or_insert(0) += 1;
-        });
+            let val = HandValue::eval(hand,).rank();
+            *hands.entry(val,).or_insert(0,) += 1;
+        },);
 
         // Values from http://suffe.cool/poker/evaluator.html
         assert_eq!(hands[&HandRank::HighCard], 1_302_540);
@@ -1476,32 +1471,28 @@ mod tests {
     #[test]
     fn hand_ord() {
         let mut hand = [
-            Card::new(Rank::Four, Suit::Hearts),
-            Card::new(Rank::Nine, Suit::Hearts),
-            Card::new(Rank::Ten, Suit::Hearts),
-            Card::new(Rank::Ace, Suit::Hearts),
-            Card::new(Rank::Five, Suit::Spades),
-            Card::new(Rank::Ace, Suit::Diamonds),
-            Card::new(Rank::Five, Suit::Clubs),
+            Card::new(Rank::Four, Suit::Hearts,),
+            Card::new(Rank::Nine, Suit::Hearts,),
+            Card::new(Rank::Ten, Suit::Hearts,),
+            Card::new(Rank::Ace, Suit::Hearts,),
+            Card::new(Rank::Five, Suit::Spades,),
+            Card::new(Rank::Ace, Suit::Diamonds,),
+            Card::new(Rank::Five, Suit::Clubs,),
         ];
 
-        let h1val = HandValue::eval(&hand);
+        let h1val = HandValue::eval(&hand,);
         assert_eq!(h1val.rank(), HandRank::TwoPair);
 
-        (hand[5], hand[6]) = (
-            Card::new(Rank::Ace, Suit::Spades),
-            Card::new(Rank::Ten, Suit::Diamonds),
-        );
+        (hand[5], hand[6],) =
+            (Card::new(Rank::Ace, Suit::Spades,), Card::new(Rank::Ten, Suit::Diamonds,),);
 
-        let h2val = HandValue::eval(&hand);
+        let h2val = HandValue::eval(&hand,);
         assert_eq!(h2val.rank(), HandRank::TwoPair);
         assert!(h1val < h2val);
 
-        (hand[5], hand[6]) = (
-            Card::new(Rank::Queen, Suit::Hearts),
-            Card::new(Rank::Ten, Suit::Diamonds),
-        );
-        let h3val = HandValue::eval(&hand);
+        (hand[5], hand[6],) =
+            (Card::new(Rank::Queen, Suit::Hearts,), Card::new(Rank::Ten, Suit::Diamonds,),);
+        let h3val = HandValue::eval(&hand,);
         assert_eq!(h3val.rank(), HandRank::Flush);
 
         assert!(h1val < h3val);
@@ -1509,34 +1500,34 @@ mod tests {
 
         // Tie
         let mut hand = [
-            Card::new(Rank::Nine, Suit::Spades),
-            Card::new(Rank::Ace, Suit::Spades),
-            Card::new(Rank::Deuce, Suit::Clubs),
-            Card::new(Rank::Queen, Suit::Clubs),
-            Card::new(Rank::Eight, Suit::Diamonds),
-            Card::new(Rank::Nine, Suit::Hearts),
-            Card::new(Rank::Seven, Suit::Hearts),
+            Card::new(Rank::Nine, Suit::Spades,),
+            Card::new(Rank::Ace, Suit::Spades,),
+            Card::new(Rank::Deuce, Suit::Clubs,),
+            Card::new(Rank::Queen, Suit::Clubs,),
+            Card::new(Rank::Eight, Suit::Diamonds,),
+            Card::new(Rank::Nine, Suit::Hearts,),
+            Card::new(Rank::Seven, Suit::Hearts,),
         ];
-        let h1val = HandValue::eval(&hand);
+        let h1val = HandValue::eval(&hand,);
         assert_eq!(h1val.rank(), HandRank::OnePair);
 
-        (hand[5], hand[6]) = (
-            Card::new(Rank::Six, Suit::Spades),
-            Card::new(Rank::Nine, Suit::Clubs),
-        );
-        let h2val = HandValue::eval(&hand);
+        (hand[5], hand[6],) =
+            (Card::new(Rank::Six, Suit::Spades,), Card::new(Rank::Nine, Suit::Clubs,),);
+        let h2val = HandValue::eval(&hand,);
         assert_eq!(h2val.rank(), HandRank::OnePair);
 
         assert_eq!(h1val, h2val);
     }
 
-    /// In release mode this takes around 3.7 secs for 133M hands (~36M hands/s) to run it:
+    /// In release mode this takes around 3.7 secs for 133M hands (~36M hands/s)
+    /// to run it:
     ///
     /// ```bash
     /// cargo t -p poker-eval --features=eval --release -- --ignored
     /// ```
     ///
-    /// This is test is marked as disable as it takes a long time to run in debug mode.
+    /// This is test is marked as disable as it takes a long time to run in
+    /// debug mode.
     #[ignore]
     #[test]
     fn eval_7cards() {
@@ -1544,9 +1535,9 @@ mod tests {
         let mut hands = AHashMap::new();
 
         Deck::default().for_each(7, |hand| {
-            let val = HandValue::eval(hand).rank();
-            *hands.entry(val).or_insert(0u32) += 1;
-        });
+            let val = HandValue::eval(hand,).rank();
+            *hands.entry(val,).or_insert(0u32,) += 1;
+        },);
 
         assert_eq!(hands[&HandRank::HighCard], 23_294_460);
         assert_eq!(hands[&HandRank::OnePair], 58_627_800);

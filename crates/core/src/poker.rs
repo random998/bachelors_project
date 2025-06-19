@@ -1,62 +1,63 @@
 // code copied from github.com/vincev/freezeout
 
+use std::{fmt, ops};
+
 pub use poker_cards::{Card, Deck, Rank, Suit};
 #[cfg(feature = "eval")]
 pub use poker_eval::eval::{HandRank, HandValue};
 use serde::{Deserialize, Serialize};
-use std::{fmt, ops};
 
 // a unique table identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,)]
 /// table id
-pub struct TableId(pub u32);
+pub struct TableId(pub u32,);
 
 impl TableId {
     // unassigned tables receive id 0.
     /// no table const
-    pub const NO_TABLE: Self = Self(0);
+    pub const NO_TABLE: Self = Self(0,);
 
-    fn get_random_u32() -> Result<u32, getrandom::Error> {
+    fn get_random_u32() -> Result<u32, getrandom::Error,> {
         let mut buf = [0u8; 4];
-        getrandom::fill(&mut buf)?;
-        Ok(u32::from_ne_bytes(buf))
+        getrandom::fill(&mut buf,)?;
+        Ok(u32::from_ne_bytes(buf,),)
     }
     /// create new unique (with high probability) table id.
     #[must_use]
     pub fn new_id() -> Self {
-        Self(Self::get_random_u32().unwrap())
+        Self(Self::get_random_u32().unwrap(),)
     }
 }
 
 impl fmt::Display for TableId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 /// data structure for storing the amount of chips for a given table.
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Copy, Clone)]
-pub struct Chips(u32);
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Copy, Clone,)]
+pub struct Chips(u32,);
 
 impl Chips {
     /// const for zero chips.
-    pub const ZERO: Self = Self(0);
+    pub const ZERO: Self = Self(0,);
 
     /// create chips struct with the given amount of chips.
     #[must_use]
-    pub const fn new(value: u32) -> Self {
-        Self(value)
+    pub const fn new(value: u32,) -> Self {
+        Self(value,)
     }
 
     /// retrieve the integer amount of chips of a given table.
     #[must_use]
-    pub const fn amount(&self) -> u32 {
+    pub const fn amount(&self,) -> u32 {
         self.0
     }
 }
 
-impl From<Chips> for u32 {
-    fn from(val: Chips) -> Self {
+impl From<Chips,> for u32 {
+    fn from(val: Chips,) -> Self {
         val.0
     }
 }
@@ -64,56 +65,56 @@ impl From<Chips> for u32 {
 impl ops::Add for Chips {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self {
-        Self(self.0.saturating_add(rhs.0))
+    fn add(self, rhs: Self,) -> Self {
+        Self(self.0.saturating_add(rhs.0,),)
     }
 }
 
 impl ops::AddAssign for Chips {
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 = self.0.saturating_add(rhs.0);
+    fn add_assign(&mut self, rhs: Self,) {
+        self.0 = self.0.saturating_add(rhs.0,);
     }
 }
 
 impl ops::Sub for Chips {
     type Output = Self;
 
-    fn sub(self, rhs: Self) -> Self {
-        Self(self.0.saturating_sub(rhs.0))
+    fn sub(self, rhs: Self,) -> Self {
+        Self(self.0.saturating_sub(rhs.0,),)
     }
 }
 
 impl ops::SubAssign for Chips {
-    fn sub_assign(&mut self, rhs: Self) {
-        self.0 = self.0.saturating_sub(rhs.0);
+    fn sub_assign(&mut self, rhs: Self,) {
+        self.0 = self.0.saturating_sub(rhs.0,);
     }
 }
 
-impl ops::Mul<u32> for Chips {
+impl ops::Mul<u32,> for Chips {
     type Output = Self;
 
-    fn mul(self, rhs: u32) -> Self {
-        Self(self.0.saturating_mul(rhs))
+    fn mul(self, rhs: u32,) -> Self {
+        Self(self.0.saturating_mul(rhs,),)
     }
 }
 
-impl ops::Div<u32> for Chips {
+impl ops::Div<u32,> for Chips {
     type Output = Self;
 
-    fn div(self, rhs: u32) -> Self {
-        Self(self.0.saturating_div(rhs))
+    fn div(self, rhs: u32,) -> Self {
+        Self(self.0.saturating_div(rhs,),)
     }
 }
 
-impl ops::Rem<u32> for Chips {
+impl ops::Rem<u32,> for Chips {
     type Output = Self;
-    fn rem(self, rhs: u32) -> Self {
-        Self(self.0 % rhs)
+    fn rem(self, rhs: u32,) -> Self {
+        Self(self.0 % rhs,)
     }
 }
 
 impl fmt::Display for Chips {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         let amount = self.0;
         if amount >= 10_000_000 {
             write!(f, "{:.1}M", f64::from(amount) / 1e6)
@@ -133,16 +134,18 @@ impl fmt::Display for Chips {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize,)]
 /// enum for listening the different states the player's cards can be in.
 pub enum PlayerCards {
     #[default]
     /// the player has no cards.
     None,
-    /// the player has cards, but they are covered (only visible to the player himself).
+    /// the player has cards, but they are covered (only visible to the player
+    /// himself).
     Covered,
-    /// the player has two cards, which are not covered (only visible to the player himself).
-    Cards(Card, Card),
+    /// the player has two cards, which are not covered (only visible to the
+    /// player himself).
+    Cards(Card, Card,),
 }
 
 #[cfg(test)]

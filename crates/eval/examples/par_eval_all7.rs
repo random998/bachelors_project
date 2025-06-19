@@ -1,13 +1,10 @@
 // code copied from https://github.com/vincev/freezeout
 
-//
 // ```bash
 // $ cargo r --release --features=parallel --example par_eval_all7
 // ```
-use std::{
-    sync::atomic::{AtomicU64, Ordering},
-    time::Instant,
-};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
 
 use poker_eval::{Deck, HandRank, HandValue};
 
@@ -18,32 +15,23 @@ fn main() {
 
     // Create per task counters to avoid contention and boost performance.
     let task_counters = (0..NUM_TASKS)
-        .map(|_| {
-            (0..NUM_RANKS)
-                .map(|_| AtomicU64::new(0))
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
+        .map(|_| (0..NUM_RANKS).map(|_| AtomicU64::new(0,),).collect::<Vec<_,>>(),)
+        .collect::<Vec<_,>>();
 
     let now = Instant::now();
 
     Deck::default().par_for_each(NUM_TASKS, 7, |task_id, hand| {
-        let rank = HandValue::eval(hand).rank();
+        let rank = HandValue::eval(hand,).rank();
         let counters = &task_counters[task_id];
-        counters[rank as usize].fetch_add(1, Ordering::Relaxed);
-    });
+        counters[rank as usize].fetch_add(1, Ordering::Relaxed,);
+    },);
 
     let elapsed = now.elapsed().as_secs_f64();
 
     // Aggregate counters.
     let agg = (0..NUM_RANKS)
-        .map(|r| {
-            task_counters
-                .iter()
-                .map(|counts| counts[r].load(Ordering::Relaxed))
-                .sum()
-        })
-        .collect::<Vec<_>>();
+        .map(|r| task_counters.iter().map(|counts| counts[r].load(Ordering::Relaxed,),).sum(),)
+        .collect::<Vec<_,>>();
 
     let total = agg.iter().sum::<u64>();
     println!("Total hands      {total}");

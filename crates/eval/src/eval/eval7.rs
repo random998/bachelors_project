@@ -1,7 +1,6 @@
 // code copied from https://github.com/vincev/freezeout
-use xxhash_rust::xxh3::xxh3_64_with_seed;
-
 use poker_cards::Card;
+use xxhash_rust::xxh3::xxh3_64_with_seed;
 
 #[rustfmt::skip]
 static HASH_ADJS: [u16; 16384] = [
@@ -18052,17 +18051,17 @@ static HAND_VALUES: [(u16, [u8; 3]); 49205] = [
     (4272, [0x05, 0x88, 0x9b]), (  24, [0x0a, 0xbb, 0xbb]),
 ];
 
-fn h_0(k: u64) -> usize {
-    xxh3_64_with_seed(&k.to_be_bytes(), 0xb487c11dfa1112fd) as usize % 16384
+fn h_0(k: u64,) -> usize {
+    xxh3_64_with_seed(&k.to_be_bytes(), 0xb487c11dfa1112fd,) as usize % 16384
 }
 
-fn h_n(k: u64, adj: u16) -> usize {
-    xxh3_64_with_seed(&k.to_be_bytes(), u64::from(adj)) as usize % 49205
+fn h_n(k: u64, adj: u16,) -> usize {
+    xxh3_64_with_seed(&k.to_be_bytes(), u64::from(adj,),) as usize % 49205
 }
 
-pub fn hand_rank(hand: &[Card]) -> (u16, [u8; 3]) {
-    let hand_id = hand.iter().map(|c| u64::from(c.id() & 0xff)).product::<u64>();
-    let bucket = h_0(hand_id);
+pub fn hand_rank(hand: &[Card],) -> (u16, [u8; 3],) {
+    let hand_id = hand.iter().map(|c| u64::from(c.id() & 0xff,),).product::<u64>();
+    let bucket = h_0(hand_id,);
     let adj = HASH_ADJS[bucket];
-    HAND_VALUES[h_n(hand_id, adj)]
+    HAND_VALUES[h_n(hand_id, adj,)]
 }
