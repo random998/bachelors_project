@@ -1,4 +1,4 @@
-// code inspired byhttps://github.com/vincev/freezeout
+// code inspired by https://github.com/vincev/freezeout
 //! tables pool.
 
 use anyhow::Result;
