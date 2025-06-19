@@ -249,14 +249,14 @@ impl Deck {
     where
         F: FnMut(&[Card]),
     {
-        assert!(2 <= k && k <= 7, "2 <= k <= 7");
+        assert!((2..=7).contains(&k), "2 <= k <= 7");
 
         if k > self.cards.len() {
             return;
         }
 
         let n = self.cards.len();
-        let mut h = vec![Card::new(Rank::Ace, Suit::Hearts); 7];
+        let mut h = [Card::new(Rank::Ace, Suit::Hearts); 7];
 
         for c1 in 0..n {
             h[0] = self.cards[c1];
