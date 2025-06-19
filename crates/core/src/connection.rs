@@ -140,7 +140,7 @@ mod tests {
     use crate::crypto::SigningKey;
     use crate::message::{Message, SignedMessage};
     use crate::poker::Chips;
-    use super::SecureWebSocket;
+    use super::{ClientConnection, SecureWebSocket};
 
     #[tokio::test]
     async fn encrypted_websocket_connection() {
@@ -165,7 +165,7 @@ mod tests {
         });
 
         let url = format!("ws://{addr}");
-        let mut con = SecureWebSocket::connect_to(&url).await.unwrap(); 
+        let mut con : ClientConnection = ClientConnection::connect_to(&url).await.unwrap(); 
         let keypair = SigningKey::default();
         let peer_id = keypair.verifying_key().peer_id();
 
