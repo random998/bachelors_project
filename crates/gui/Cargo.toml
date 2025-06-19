@@ -8,6 +8,7 @@ version = { workspace = true }
 ahash = { workspace = true }
 anyhow = { workspace = true }
 ewebsock = { version = "0.8.0", features = ["tls"] }
+getrandom = { version = "0.3.3", features = ["wasm_js"] }
 poker-cards = { workspace = true, features = ["egui"] }
 poker-core = { workspace = true }
 indoc = "2"

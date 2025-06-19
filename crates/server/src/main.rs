@@ -1,7 +1,7 @@
 // code inspired by https://github.com/vincev/freezeout
 use clap::Parser;
-use poker_server::server;
 use log::error;
+use poker_server::server;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]

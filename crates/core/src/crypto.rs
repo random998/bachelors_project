@@ -1,7 +1,7 @@
 /// Cryptographic types and utilities for signing and verifying messages.
 use anyhow::{Result, bail};
 use bip39::Mnemonic;
-use blake2::{Blake2s, Digest, digest::typenum::ToInt, digest};
+use blake2::{Blake2s, Digest, digest, digest::typenum::ToInt};
 use ed25519_dalek::{Signer, Verifier};
 use rand::{CryptoRng, RngCore, SeedableRng, rngs::StdRng};
 use serde::{Deserialize, Serialize};
@@ -32,7 +32,11 @@ impl SigningKey {
     pub fn from_phrase(phrase: &str) -> Result<Self> {
         let mnemonic = Mnemonic::from_phrase(phrase, Default::default())?;
         if mnemonic.entropy().len() != ENTROPY_LENGTH {
-            bail!("Invalid entropy length. Expected: {}, got: {}", ENTROPY_LENGTH, mnemonic.entropy().len());
+            bail!(
+                "Invalid entropy length. Expected: {}, got: {}",
+                ENTROPY_LENGTH,
+                mnemonic.entropy().len()
+            );
         }
 
         let mut entropy = Entropy::default();
@@ -46,12 +50,14 @@ impl SigningKey {
         T: Serialize,
     {
         let mut hasher = SignatureHasher::new();
-        bincode::serialize_into(&mut hasher, message).expect("Failed to serialize message for signing");
+        bincode::serialize_into(&mut hasher, message)
+            .expect("Failed to serialize message for signing");
         Signature(self.key.sign(&hasher.finalize()))
     }
 
     /// Return the mnemonic phrase corresponding to this key's entropy.
-    #[must_use] pub fn phrase(&self) -> String {
+    #[must_use]
+    pub fn phrase(&self) -> String {
         Mnemonic::from_entropy(self.entropy.as_ref(), Default::default())
             .unwrap()
             .phrase()
@@ -59,7 +65,8 @@ impl SigningKey {
     }
 
     /// Return the corresponding public key (verifier).
-    #[must_use] pub fn verifying_key(&self) -> VerifyingKey {
+    #[must_use]
+    pub fn verifying_key(&self) -> VerifyingKey {
         VerifyingKey(self.key.verifying_key())
     }
 
@@ -81,7 +88,11 @@ impl SigningKey {
 
 impl fmt::Debug for SigningKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SigningKey {}", bs58::encode(self.phrase()).into_string())
+        write!(
+            f,
+            "SigningKey {}",
+            bs58::encode(self.phrase()).into_string()
+        )
     }
 }
 
@@ -91,7 +102,11 @@ pub struct Signature(ed25519_dalek::Signature);
 
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Signature {}", bs58::encode(self.0.to_bytes()).into_string())
+        write!(
+            f,
+            "Signature {}",
+            bs58::encode(self.0.to_bytes()).into_string()
+        )
     }
 }
 
@@ -106,12 +121,14 @@ impl VerifyingKey {
         T: Serialize,
     {
         let mut hasher = SignatureHasher::new();
-        bincode::serialize_into(&mut hasher, message).expect("Failed to serialize message for verification");
+        bincode::serialize_into(&mut hasher, message)
+            .expect("Failed to serialize message for verification");
         self.0.verify(&hasher.finalize(), &signature.0).is_ok()
     }
 
     /// Derive a `PeerId` from the verifying key.
-    #[must_use] pub fn peer_id(&self) -> PeerId {
+    #[must_use]
+    pub fn peer_id(&self) -> PeerId {
         let mut hasher = Blake2s::<digest::consts::U16>::new();
         hasher.update(self.0.as_bytes());
         PeerId(hasher.finalize().into())
@@ -120,7 +137,11 @@ impl VerifyingKey {
 
 impl fmt::Debug for VerifyingKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "VerifyingKey({})", bs58::encode(self.0.as_bytes()).into_string())
+        write!(
+            f,
+            "VerifyingKey({})",
+            bs58::encode(self.0.as_bytes()).into_string()
+        )
     }
 }
 
@@ -130,11 +151,14 @@ pub struct PeerId([u8; digest::consts::U16::INT]);
 
 impl PeerId {
     /// Return the hex-encoded identifier string.
-    #[must_use] pub fn digits(&self) -> String {
-        self.0.iter().fold(String::with_capacity(32), |mut output, b| {
-            output.push_str(&format!("{b:02x}"));
-            output
-        })
+    #[must_use]
+    pub fn digits(&self) -> String {
+        self.0
+            .iter()
+            .fold(String::with_capacity(32), |mut output, b| {
+                output.push_str(&format!("{b:02x}"));
+                output
+            })
     }
 }
 
@@ -157,7 +181,8 @@ mod tests {
     #[test]
     fn test_phrase_roundtrip() {
         let sk = SigningKey::default();
-        let restored = SigningKey::from_phrase(&sk.phrase()).expect("Failed to recover key from phrase");
+        let restored =
+            SigningKey::from_phrase(&sk.phrase()).expect("Failed to recover key from phrase");
         assert_eq!(sk.key, restored.key);
     }
 

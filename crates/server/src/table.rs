@@ -92,7 +92,11 @@ impl Table {
 
     pub async fn can_player_join(&self) -> bool {
         let (response_tx, response_rx) = oneshot::channel();
-        let sent = self.command_sender.send(TableCommand::CanPlayerJoin { response_tx }).await.is_ok();
+        let sent = self
+            .command_sender
+            .send(TableCommand::CanPlayerJoin { response_tx })
+            .await
+            .is_ok();
         sent && response_rx.await.unwrap_or(false)
     }
 
@@ -120,11 +124,17 @@ impl Table {
     }
 
     pub async fn leave(&self, player_id: &PeerId) {
-        let _ = self.command_sender.send(TableCommand::Leave(player_id.clone())).await;
+        let _ = self
+            .command_sender
+            .send(TableCommand::Leave(player_id.clone()))
+            .await;
     }
 
     pub async fn handle_message(&self, msg: SignedMessage) {
-        let _ = self.command_sender.send(TableCommand::HandleMessage(msg)).await;
+        let _ = self
+            .command_sender
+            .send(TableCommand::HandleMessage(msg))
+            .await;
     }
 }
 

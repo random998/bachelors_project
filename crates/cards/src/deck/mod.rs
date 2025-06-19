@@ -48,7 +48,7 @@ impl Card {
             0x4 => Suit::Diamonds,
             0x2 => Suit::Hearts,
             0x1 => Suit::Spades,
-            _ => panic!("Invalid suit value 0x{:x}", self.0) // Panics the current thread. This allows a program to terminate immediately and provide feedback to the caller of the program.
+            _ => panic!("Invalid suit value 0x{:x}", self.0), // Panics the current thread. This allows a program to terminate immediately and provide feedback to the caller of the program.
         }
     }
 
@@ -70,11 +70,12 @@ impl Card {
             11 => Rank::Queen,
             12 => Rank::King,
             13 => Rank::Ace,
-            _ => panic!("Invalid rank value 0x{:x}", self.0)
+            _ => panic!("Invalid rank value 0x{:x}", self.0),
         }
     }
 
-    #[inline] // tells the compiler it might be worth inlining the function for perfomance (see https://doc.rust-lang.org/nightly/reference/attributes/codegen.html?highlight=inline#the-inline-attribute)
+    #[inline]
+    // tells the compiler it might be worth inlining the function for perfomance (see https://doc.rust-lang.org/nightly/reference/attributes/codegen.html?highlight=inline#the-inline-attribute)
     /// extracts the rank bits of a Card from its encoded u32 representation.
     pub fn rank_bits(&self) -> u32 {
         (self.0 >> 8) & 0xf
@@ -129,7 +130,7 @@ impl Rank {
         [
             Deuce, Trey, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace,
         ]
-            .into_iter()
+        .into_iter()
     }
 }
 
@@ -154,12 +155,8 @@ impl fmt::Display for Rank {
     }
 }
 
-
-
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Suit {
-
     Clubs = 8,
     Diamonds = 4,
     Hearts = 2,
@@ -180,12 +177,9 @@ impl fmt::Display for Suit {
 
 impl Suit {
     pub fn suits() -> impl DoubleEndedIterator<Item = Suit> {
-        [
-            Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades,
-        ].into_iter()
+        [Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades].into_iter()
     }
 }
-
 
 #[derive(Debug)]
 pub struct Deck {
@@ -220,7 +214,7 @@ impl Deck {
 
     /// removes the specified card from the deck.
     pub fn remove(&mut self, card: Card) {
-       self.cards.retain(|c| c != &card);
+        self.cards.retain(|c| c != &card);
     }
 
     /// Calls the given closure n times with a sample of k cards.

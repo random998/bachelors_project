@@ -26,4 +26,3 @@ pub use eval::{HandRank, HandValue};
 
 // Reexport cards types.
 pub use poker_cards::{Card, Deck, Rank, Suit};
-

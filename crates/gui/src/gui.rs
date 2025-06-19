@@ -180,4 +180,3 @@ impl eframe::App for AppFrame {
         self.app.close_connection();
     }
 }
-

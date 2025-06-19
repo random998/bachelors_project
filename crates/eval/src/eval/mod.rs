@@ -1562,4 +1562,3 @@ mod tests {
         assert_eq!(total, 133_784_560);
     }
 }
-

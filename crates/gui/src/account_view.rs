@@ -127,7 +127,8 @@ impl View for AccountView {
         if self.connection_closed {
             Some(Box::new(ConnectView::new(frame.storage(), app)))
         } else if self.table_joined {
-            let empty_state = ClientGameState::new(app.player_id().clone(), app.nickname().to_string());
+            let empty_state =
+                ClientGameState::new(app.player_id().clone(), app.nickname().to_string());
             Some(Box::new(GameView::new(
                 ctx,
                 std::mem::replace(&mut self.game_state, empty_state),

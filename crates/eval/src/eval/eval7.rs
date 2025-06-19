@@ -18066,4 +18066,3 @@ pub fn hand_rank(hand: &[Card]) -> (u16, [u8; 3]) {
     let adj = HASH_ADJS[bucket];
     HAND_VALUES[h_n(hand_id, adj)]
 }
-
