@@ -2,10 +2,7 @@
 //! Table player types and player state management.
 
 use rand::prelude::*;
-use std::{
-    cmp::Ordering,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 
 use poker_core::{
