@@ -21,7 +21,7 @@ pub struct SigningKey {
 type SignatureHasher = Blake2s<digest::consts::U32>;
 
 impl Default for SigningKey {
-    fn default() -> SigningKey {
+    fn default() -> Self {
         let mut rng = StdRng::from_os_rng();
         Self::generate_from_rng(&mut rng)
     }
@@ -29,7 +29,7 @@ impl Default for SigningKey {
 
 impl SigningKey {
     /// Create a signing key from a BIP39 mnemonic phrase.
-    pub fn from_phrase(phrase: &str) -> Result<SigningKey> {
+    pub fn from_phrase(phrase: &str) -> Result<Self> {
         let mnemonic = Mnemonic::from_phrase(phrase, Default::default())?;
         if mnemonic.entropy().len() != ENTROPY_LENGTH {
             bail!("Invalid entropy length. Expected: {}, got: {}", ENTROPY_LENGTH, mnemonic.entropy().len());
@@ -51,7 +51,7 @@ impl SigningKey {
     }
 
     /// Return the mnemonic phrase corresponding to this key's entropy.
-    pub fn phrase(&self) -> String {
+    #[must_use] pub fn phrase(&self) -> String {
         Mnemonic::from_entropy(self.entropy.as_ref(), Default::default())
             .unwrap()
             .phrase()
@@ -59,23 +59,23 @@ impl SigningKey {
     }
 
     /// Return the corresponding public key (verifier).
-    pub fn verifying_key(&self) -> VerifyingKey {
+    #[must_use] pub fn verifying_key(&self) -> VerifyingKey {
         VerifyingKey(self.key.verifying_key())
     }
 
     /// Generate a signing key using a provided cryptographically secure RNG.
-    fn generate_from_rng<R: RngCore + CryptoRng>(rng: &mut R) -> SigningKey {
+    fn generate_from_rng<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         let mut entropy = Entropy::default();
         rng.fill_bytes(&mut entropy);
         Self::generate_from_entropy(entropy)
     }
 
     /// Generate a signing key deterministically from a fixed entropy.
-    fn generate_from_entropy(entropy: Entropy) -> SigningKey {
+    fn generate_from_entropy(entropy: Entropy) -> Self {
         let key_hash = SignatureHasher::digest(entropy);
         let key = ed25519_dalek::SigningKey::from_bytes(&key_hash.into());
         let entropy = Zeroizing::new(entropy);
-        SigningKey { key, entropy }
+        Self { key, entropy }
     }
 }
 
@@ -111,7 +111,7 @@ impl VerifyingKey {
     }
 
     /// Derive a `PeerId` from the verifying key.
-    pub fn peer_id(&self) -> PeerId {
+    #[must_use] pub fn peer_id(&self) -> PeerId {
         let mut hasher = Blake2s::<digest::consts::U16>::new();
         hasher.update(self.0.as_bytes());
         PeerId(hasher.finalize().into())
@@ -130,7 +130,7 @@ pub struct PeerId([u8; digest::consts::U16::INT]);
 
 impl PeerId {
     /// Return the hex-encoded identifier string.
-    pub fn digits(&self) -> String {
+    #[must_use] pub fn digits(&self) -> String {
         self.0.iter().fold(String::with_capacity(32), |mut output, b| {
             output.push_str(&format!("{b:02x}"));
             output
