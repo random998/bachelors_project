@@ -403,7 +403,7 @@ impl GameView {
         const IMAGE_LY: f32 = 60.0;
         const LABEL_LY: f32 = 20.0;
 
-        if let Some(payoff,) = &player.payoff {
+        if let Some(payoff,) = &player.hand_payoff {
             if payoff.cards.is_empty() {
                 return;
             }
@@ -597,9 +597,9 @@ impl GameView {
                             && self.bet_params.is_none()
                         {
                             self.bet_params = Some(BetParams {
-                                min_raise: req.min_raise.into(),
-                                big_blind: req.big_blind.into(),
-                                raise_value: req.min_raise.into(),
+                                min_raise: req.min_raise,
+                                big_blind: req.big_blind,
+                                raise_value: req.min_raise,
                             },);
                         }
                     },
