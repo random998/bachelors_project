@@ -7,8 +7,8 @@ use std::sync::Arc;
 use anyhow::{bail, Result};
 use parking_lot::Mutex;
 use rusqlite::{params, Connection};
-use zkpoker::crypto::PeerId;
-use zkpoker::poker::Chips;
+use poker_core::crypto::PeerId;
+use poker_core::poker::Chips;
 
 /// A single row in the `players` table.
 #[derive(Debug,)]
@@ -73,7 +73,7 @@ impl Database {
                 Ok(Player {
                     player_id: player_id.clone(),
                     nickname: row.get(1,)?,
-                    chips: Chips::from(row.get::<usize, i32>(2,)? as u32,),
+                    chips: Chips::new(row.get::<usize, i32>(0,)? as u32)
                 },)
             },);
 
@@ -132,7 +132,7 @@ impl Database {
 
             let mut stmt = conn.prepare("SELECT chips FROM players WHERE id = ?1",)?;
             let result = stmt.query_row(params![player_id.digits()], |row| {
-                Ok(Chips::from(row.get::<usize, i32>(0,)? as u32,),)
+                Ok(Chips::new(row.get::<usize, i32>(0,)? as u32,),)
             },);
 
             match result {
@@ -188,7 +188,7 @@ impl Database {
                 Ok(Player {
                     player_id: player_id.clone(),
                     nickname: row.get(1,)?,
-                    chips: Chips::from(row.get::<usize, i32>(2,)? as u32,),
+                    chips: Chips::new(row.get::<usize, i32>(2,)? as u32,),
                 },)
             },)
                 .map_err(anyhow::Error::from,)
@@ -199,7 +199,7 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
-    use zkpoker::crypto::SigningKey;
+    use poker_core::crypto::SigningKey;
 
     use super::*;
 
