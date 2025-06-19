@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Result};
 use log::{error, info, warn};
-use poker_core::connection::{self, EncryptedConnection};
+use poker_core::connection::{self, ClientConnection, SecureWebSocket};
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{Message, SignedMessage};
 use poker_core::poker::Chips;
@@ -20,15 +20,11 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::signal;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::{self, Duration};
-use tokio_rustls::rustls::pki_types::pem::PemObject;
-use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use tokio_rustls::rustls::ServerConfig as TlsServerConfig;
-use tokio_rustls::server::TlsStream;
 use tokio_rustls::TlsAcceptor;
 
-use crate::db::Db;
+use crate::db::Database;
 use crate::table::{Table, TableMessage};
-use crate::tables_pool::{TablesPool, TablesPoolsError};
+use crate::tables_pool::{TablesPool, TablesPoolError};
 
 #[derive(Debug,)]
 pub struct ServerConfig {
@@ -36,9 +32,9 @@ pub struct ServerConfig {
     pub port: u16,
     pub table_count: usize,
     pub seats_per_table: usize,
-    pub data_path: Option<std::path::PathBuf,>,
-    pub key_path: Option<std::path::PathBuf,>,
-    pub cert_chain_path: Option<std::path::PathBuf,>,
+    pub data_path: Option<PathBuf,>,
+    pub key_path: Option<PathBuf,>,
+    pub cert_chain_path: Option<PathBuf,>,
 }
 
 pub async fn start_server(config: ServerConfig,) -> Result<(),> {
@@ -163,8 +159,23 @@ impl PokerServer {
     }
 }
 /// client connection handler.
+struct ConnectionHandler {
+    /// The tables on this server.
+    tables: TablesPool,
+    /// The server signing key shared by all connections.
+    sk: Arc<SigningKey>,
+    /// The players DB.
+    database: Database,
+    /// This client table.
+    table: Option<Arc<Table>>,
+    /// Channel for listening shutdown notification.
+    shutdown_broadcast_rx: broadcast::Receiver<()>,
+    /// Sender that drops when this connection is done.
+    _shutdown_complete_tx: mpsc::Sender<()>,
+}
+
 impl ConnectionHandler {
-    async fn handle_connection<S,>(&self, conn: &mut EncryptedConnection<S,>,) -> Result<(),>
+    async fn handle_connection<S,>(&self, conn: &mut SecureWebSocket<S,>,) -> Result<(),>
     where S: AsyncRead + AsyncWrite + Unpin {
         let (nickname, player_id,) = self.receive_initial_join(conn,).await?;
         let (table_msg_tx, mut table_msg_rx,) = mpsc::channel::<TableMessage,>(128,);
@@ -172,28 +183,28 @@ impl ConnectionHandler {
     }
 
     async fn receive_initial_join<S,>(
-        &self, conn: &mut EncryptedConnection<S,>,
+        &self, conn: &mut SecureWebSocket<S,>,
     ) -> Result<(String, PeerId,),>
     where S: AsyncRead + AsyncWrite + Unpin {
         let message = tokio::select! {
-            result = conn.recv() => match result {
+            result = conn.receive() => match result {
                 Some(Ok(msg)) => msg,
-                Some(Err(err)) => return Err(err.into()),
+                Some(Err(err)) => return Err(err),
                 None => return Ok(()),
             },
             _ = self.shutdown_rx.recv() => return Ok(()),
         };
 
         match message.message() {
-            | Message::JoinServer {
+            | Message::JoinTableRequest{
                 nickname,
             } => {
                 let player = self
                     .database
                     .upsert_player(message.sender(), nickname, Chips::new(1_000_000,),)
                     .await?;
-                let response = Message::ServerJoined {
-                    nickname: player.nickname.clone(),
+                let response = Message::PlayerJoined {
+                    player_id: player.id,
                     chips: player.chips.clone(),
                 };
                 conn.send(&SignedMessage::new(&self.signing_key, response,),).await?;
@@ -204,7 +215,7 @@ impl ConnectionHandler {
     }
 
     async fn connection_loop<S,>(
-        &self, conn: &mut EncryptedConnection<S,>, player_id: PeerId, nickname: String,
+        &self, conn: &mut SecureWebSocket<S,>, player_id: PeerId, nickname: String,
         table_msg_tx: mpsc::Sender<TableMessage,>,
         table_msg_rx: &mut mpsc::Receiver<TableMessage,>,
     ) -> Result<(),>
@@ -219,7 +230,7 @@ impl ConnectionHandler {
 
         loop {
             let next = tokio::select! {
-                client_msg = conn.recv() => match client_msg {
+                client_msg = conn.receive() => match client_msg {
                     Some(Ok(msg)) => Incoming::FromClient(msg),
                     Some(Err(e)) => return Err(e.into()),
                     None => return Ok(()),
@@ -228,7 +239,7 @@ impl ConnectionHandler {
                     Some(msg) => Incoming::FromTable(msg),
                     None => return Ok(()),
                 },
-                _ = self.shutdown_rx.recv() => Incoming::Shutdown,
+                _ = self.shutdown_rx.receive() => Incoming::Shutdown,
             };
 
             match next {
@@ -245,19 +256,19 @@ impl ConnectionHandler {
     }
 
     async fn handle_client_message<S,>(
-        &self, conn: &mut EncryptedConnection<S,>, player_id: &PeerId, nickname: &str,
+        &self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId, nickname: &str,
         msg: SignedMessage, table_msg_tx: &mpsc::Sender<TableMessage,>,
     ) -> Result<(),>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
         match msg.message() {
-            | Message::JoinTable => {
+            | Message::PlayerJoined {player_id, table_id, chips} => {
                 let sufficient =
-                    self.database.deduct_chips(player_id, Chips::new(1_000_000,),).await?;
+                    self.database.deduct_chips(*player_id, Chips::new(1_000_000,),).await?;
                 if !sufficient {
                     let notice = Message::NotEnoughChips;
-                    conn.send(&SignedMessage::new(&self.signing_key, notice,),).await?;
+                    conn.send(&SignedMessage::new(&self.sk, notice,),).await?;
                     return Ok((),);
                 }
 
@@ -267,18 +278,18 @@ impl ConnectionHandler {
                     .await
                 {
                     | Ok(_,) => {},
-                    | Err(TablesPoolError::AlreadyJoined,) => {
+                    | Err(TablesPoolError::PlayerAlreadyJoined,) => {
                         let msg = Message::PlayerAlreadyJoined;
-                        conn.send(&SignedMessage::new(&self.signing_key, msg,),).await?;
+                        conn.send(&SignedMessage::new(&self.sk, msg,),).await?;
                     },
                     | Err(TablesPoolError::NoTablesLeft,) => {
-                        let msg = Message::NoTablesLeftNotication;
-                        conn.send(&SignedMessage::new(&self.signing_key, msg,),).await?;
+                        let msg = Message::NoTablesLeftNotification;
+                        conn.send(&SignedMessage::new(&self.sk, msg,),).await?;
                     },
                 }
             },
-            | Message::LeaveTable => {
-                self.tables.leave(player_id,).await;
+            | Message::PlayerLeftTable => {
+                self.table.clone().unwrap().leave(player_id,).await;
             },
             | _ => {
                 warn!("Unexpected message from {}", player_id);
@@ -288,7 +299,7 @@ impl ConnectionHandler {
     }
 
     async fn handle_table_message<S,>(
-        &self, conn: &mut EncryptedConnection<S,>, player_id: &PeerId, msg: TableMessage,
+        &self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId, msg: TableMessage,
     ) -> Result<(),>
     where S: AsyncRead + AsyncWrite + Unpin {
         match msg {
