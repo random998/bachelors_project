@@ -9,7 +9,7 @@ use std::{fmt, ops};
 // a unique table identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 /// table id
-pub struct TableId(u32);
+pub struct TableId(pub u32);
 
 impl TableId {
     // unassigned tables receive id 0.

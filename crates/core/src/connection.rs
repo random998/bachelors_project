@@ -140,47 +140,43 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{crypto::SigningKey, message::Message};
-    use tokio::net::TcpListener;
+        use crate::{crypto::SigningKey, message::Message};
+        use tokio::net::TcpListener;
 
     #[tokio::test]
-    async fn test_secure_websocket_communication() {
-        let addr = "127.0.0.1:12345";
-        let (notify_tx, notify_rx) = tokio::sync::oneshot::channel();
+        async fn encrypted_websocket_connection() {
+            let addr = "127.0.0.1:12345";
 
-        let listener = TcpListener::bind(addr).await.unwrap();
-        tokio::spawn(async move {
-            let (stream, _) = listener.accept().await.unwrap();
-            let mut connection = SecureWebSocket::accept_connection(stream).await.unwrap();
+            let (tx, rx) = tokio::sync::oneshot::channel();
 
-            let msg1 = connection.receive().await.unwrap().unwrap();
-            assert!(
-                matches!(msg1.message(), Message::JoinTableRequest{ player_id, nickname} if nickname == "Bob")
+            let listener = TcpListener::bind(addr).await.unwrap();
+            tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut con = accept_connection(stream).await;
+
+                let msg = con.receive().await.unwrap().unwrap();
+                assert!(matches!(msg.message(), Message::JoinServer { nickname} if nickname == "Bob"));
+
+                let msg = con.recv().await.unwrap().unwrap();
+                assert!(matches!(msg.message(), Message::JoinTable));
+
+                tx.send(()).unwrap();
+            });
+
+            let url = format!("ws://{addr}");
+            let mut con = connect_async(&url).await.unwrap();
+            let keypair = SigningKey::default();
+            let msg = SignedMessage::new(
+                &keypair,
+                Message::JoinServer {
+                    nickname: "Bob".to_string(),
+                },
             );
+            con.send(&msg).await.unwrap();
 
-            let msg2 = connection.receive().await.unwrap().unwrap();
-            assert!(matches!(msg2.message(), Message::JoinTableRequest {player_id, nickname} if nickname == "Alice"));
+            let msg = SignedMessage::new(&keypair, Message::JoinTable);
+            con.send(&msg).await.unwrap();
 
-            notify_tx.send(()).unwrap();
-        });
-
-        let url = format!("ws://{addr}");
-        let mut connection = SecureWebSocket::connect_to(&url).await.unwrap();
-        let signing_key = SigningKey::default();
-
-        let join_msg = SignedMessage::new(
-            &signing_key,
-            Message::JoinTableRequest{
-                player_id: ,
-                nickname: "Bob".to_string(),
-            },
-        );
-        connection.send(&join_msg).await.unwrap();
-
-         let table_msg = SignedMessage::new(&signing_key, Message::PlayerJoined {player_id, chips});
-        connection.send(&table_msg).await.unwrap();
-
-        notify_rx.await.unwrap();
-    }
+            rx.await.unwrap();
+        }
 }
