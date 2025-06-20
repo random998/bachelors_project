@@ -53,7 +53,7 @@ impl View for AccountView {
                 },
                 | ConnectionEvent::Message(msg,) => {
                     match msg.message() {
-                        | Message::PlayerJoinedTableConfirmation {
+                        | Message::PlayerJoined {
                             ..
                         } => {
                             self.table_joined = true;
@@ -61,7 +61,7 @@ impl View for AccountView {
                         | Message::NotEnoughChips => {
                             self.message = "Not enough chips to play, reconnect later".to_string();
                         },
-                        | Message::NoTablesLeftNotication => {
+                        | Message::NoTablesLeftNotification => {
                             self.message = "All tables are busy, reconnect later".to_string();
                         },
                         | Message::PlayerAlreadyJoined => {
@@ -110,7 +110,9 @@ impl View for AccountView {
 
                     let btn = Button::new(RichText::new("Join Table",).font(TEXT_FONT,),);
                     if ui.add_sized(vec2(180.0, 30.0,), btn,).clicked() {
-                        app.send_message(Message::JoinTable,);
+                        app.send_message(Message::JoinTableRequest {
+                            nickname: self.nickname.clone(),
+                        },);
                     };
                 },);
             },);
