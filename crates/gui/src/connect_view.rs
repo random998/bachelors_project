@@ -154,7 +154,7 @@ impl View for ConnectView {
 
                     ui.label(RichText::new("Public Identifier",).font(LABEL_FONT,),);
                     let mut player_id_str = self.player_id.to_string();
-                    TextEdit::singleline(&mut player_id_str)
+                    TextEdit::singleline(&mut player_id_str,)
                         .desired_width(400.0,)
                         .font(TEXT_FONT,)
                         .show(ui,);
