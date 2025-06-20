@@ -8,28 +8,12 @@ version = { workspace = true }
 ahash = { workspace = true }
 anyhow = { workspace = true }
 ewebsock = { version = "0.8.0", features = ["tls"] }
-# getrandom = { version = "0.3.3", features = ["wasm_js"] }
 poker-cards = { workspace = true, features = ["egui"] }
 poker-core = { workspace = true }
 indoc = "2"
 log = { workspace = true }
 serde = { workspace = true }
 snow = { workspace = true }
-
-[target.'cfg(not(target_os = "linux"))'.dependencies]
-eframe = { workspace = true, features = [
-    "default_fonts",
-    "glow",
-    "persistence",
-] }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-eframe = { workspace = true, features = [
-    "default_fonts",
-    "glow",
-    "x11",
-    "persistence",
-] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.3.3", features = ["wasm_js"] }
@@ -39,6 +23,3 @@ web-sys = "0.3"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1", default-features = false, features = ["net", "rt"] }
 aws-lc-sys = { version = "0.29.0", features = ["bindgen"] }
-
-[patch.crates-io]
-getrandom = { version = "0.2.16", features = ["js"] }
