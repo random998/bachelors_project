@@ -10,7 +10,7 @@ use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::poker::Chips;
 use thiserror::Error;
 use tokio::sync::mpsc::Sender;
-use tokio::sync::{broadcast, mpsc, Mutex};
+use tokio::sync::{broadcast, Mutex};
 
 use crate::db::Database;
 use crate::table::{Table, TableJoinError, TableMessage};

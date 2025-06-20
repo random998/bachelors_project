@@ -233,7 +233,7 @@ impl ConnectionHandler {
                 self.tables
                     .join(
                         &player.player_id,
-                        &*player.nickname,
+                        &player.nickname,
                         Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,
                         table_tx,
                     )
@@ -261,7 +261,7 @@ impl ConnectionHandler {
             let next = tokio::select! {
                 client_msg = conn.receive() => match client_msg {
                     Some(Ok(msg)) => Incoming::FromClient(msg),
-                    Some(Err(e)) => return Err(e.into()),
+                    Some(Err(e)) => return Err(e),
                     None => return Ok(()),
                 },
                 table_msg = table_msg_rx.recv() => match table_msg {
@@ -356,12 +356,12 @@ impl ConnectionHandler {
     }
 
     async fn get_or_refill_chips(&mut self, player_id: &PeerId,) -> Result<Chips,> {
-        let mut player = self.database.get_player_by_id(player_id.clone(),).await?;
+        let mut player = self.database.get_player_by_id(*player_id,).await?;
 
         // For now refill player to be able to join a table.
         if player.chips < Self::JOIN_TABLE_INITIAL_CHIP_BALANCE {
             let refill = Self::JOIN_TABLE_INITIAL_CHIP_BALANCE - player.chips;
-            self.database.credit_chips(player_id.clone(), refill,).await?;
+            self.database.credit_chips(*player_id, refill,).await?;
             player.chips = Self::JOIN_TABLE_INITIAL_CHIP_BALANCE;
         }
 
