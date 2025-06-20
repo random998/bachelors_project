@@ -5,7 +5,7 @@ use eframe::egui::{
     Window, vec2,
 };
 use log::error;
-use poker_core::crypto::SigningKey;
+use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::Message;
 use poker_core::poker::Chips;
 
@@ -17,7 +17,7 @@ const LABEL_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 /// Connect view.
 pub struct ConnectView {
     passphrase: String,
-    player_id: String,
+    player_id: PeerId,
     nickname: String,
     chips: Chips,
     error: String,
@@ -29,7 +29,7 @@ impl Default for ConnectView {
         let sk = SigningKey::default();
         Self {
             passphrase: sk.phrase(),
-            player_id: sk.verifying_key().peer_id().digits(),
+            player_id: sk.verifying_key().peer_id(),
             nickname: String::default(),
             chips: Chips::default(),
             error: String::default(),
@@ -47,7 +47,7 @@ impl ConnectView {
                 let sk = SigningKey::from_phrase(&d.passphrase,).unwrap_or_default();
                 Self {
                     passphrase: sk.phrase(),
-                    player_id: sk.verifying_key().peer_id().digits(),
+                    player_id: sk.verifying_key().peer_id(),
                     nickname: d.nickname,
                     chips: Chips::default(),
                     error: String::new(),
@@ -59,7 +59,7 @@ impl ConnectView {
 
     fn assign_key(&mut self, sk: &SigningKey,) {
         self.passphrase = sk.phrase();
-        self.player_id = sk.verifying_key().peer_id().digits();
+        self.player_id = sk.verifying_key().peer_id();
     }
 }
 
@@ -69,6 +69,7 @@ impl View for ConnectView {
             match event {
                 | ConnectionEvent::Open => {
                     app.send_message(Message::JoinTableRequest {
+                        player_id: self.player_id.clone(),
                         nickname: self.nickname.to_string(),
                     },);
                 },
@@ -85,7 +86,7 @@ impl View for ConnectView {
                         chips,
                     } = msg.message()
                     {
-                        self.player_id = player_id.to_string();
+                        self.player_id = *player_id;
                         self.chips = *chips;
                         self.server_joined = true;
                     }
@@ -152,8 +153,8 @@ impl View for ConnectView {
                     ui.add_space(5.0,);
 
                     ui.label(RichText::new("Public Identifier",).font(LABEL_FONT,),);
-                    let mut player_id = self.player_id.clone();
-                    TextEdit::singleline(&mut player_id,)
+                    let mut player_id_str = self.player_id.to_string();
+                    TextEdit::singleline(&mut player_id_str)
                         .desired_width(400.0,)
                         .font(TEXT_FONT,)
                         .show(ui,);
