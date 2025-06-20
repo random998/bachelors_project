@@ -14,6 +14,7 @@ use crate::poker::{Card, Chips, PlayerCards, TableId};
 pub enum Message {
     /// Request (by a player) to join a table with the given nickname.
     JoinTableRequest {
+        player_id: PeerId,
         nickname: String,
     },
 
@@ -267,6 +268,12 @@ impl SignedMessage {
     #[must_use]
     pub fn message(&self,) -> &Message {
         &self.payload.msg
+    }
+}
+
+impl fmt::Display for SignedMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message().label())
     }
 }
 
