@@ -38,3 +38,6 @@ poker-server = { version = "0.0.1", path = "crates/server", default-features = f
 [profile.release]
 opt-level = 3
 lto = "fat"
+
+[patch.crates-io]
+getrandom = { path = "vendor/getrandom-0.2.16" }
