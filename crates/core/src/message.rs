@@ -32,7 +32,8 @@ pub enum Message {
     PlayerAlreadyJoined,
 
     /// Confirmation that a specific player has joined a specific table.
-    PlayerJoined { //TODO: implement display trait for this struct
+    PlayerJoined {
+        // TODO: implement display trait for this struct
         table_id: TableId,
         player_id: PeerId,
         chips: Chips,
@@ -101,31 +102,47 @@ pub enum Message {
 
 impl Message {
     // Returns a label of the message variant as a string.
-    #[must_use] pub const fn label(&self) -> &'static str {
+    #[must_use]
+    pub const fn label(&self,) -> &'static str {
         match self {
-            Self::JoinTableRequest { .. } => "JoinTableRequest",
-            Self::PlayerLeftNotification { .. } => "PlayerLeftNotification",
-            Self::NoTablesLeftNotification => "NoTablesLeftNotification",
-            Self::NotEnoughChips => "NotEnoughChips",
-            Self::PlayerAlreadyJoined => "PlayerAlreadyJoined",
-            Self::PlayerJoined { .. } => "PlayerJoined",
-            Self::ShowAccount { .. } => "ShowAccount",
-            Self::StartGame(_) => "StartGame",
-            Self::StartHand => "StartHand",
-            Self::EndHand { .. } => "EndHand",
-            Self::DealCards(_, _) => "DealCards",
-            Self::PlayerLeftTable => "PlayerLeftTable",
-            Self::GameStateUpdate { .. } => "GameStateUpdate",
-            Self::ActionRequest { .. } => "ActionRequest",
-            Self::ActionResponse { .. } => "ActionResponse",
+            | Self::JoinTableRequest {
+                ..
+            } => "JoinTableRequest",
+            | Self::PlayerLeftNotification {
+                ..
+            } => "PlayerLeftNotification",
+            | Self::NoTablesLeftNotification => "NoTablesLeftNotification",
+            | Self::NotEnoughChips => "NotEnoughChips",
+            | Self::PlayerAlreadyJoined => "PlayerAlreadyJoined",
+            | Self::PlayerJoined {
+                ..
+            } => "PlayerJoined",
+            | Self::ShowAccount {
+                ..
+            } => "ShowAccount",
+            | Self::StartGame(_,) => "StartGame",
+            | Self::StartHand => "StartHand",
+            | Self::EndHand {
+                ..
+            } => "EndHand",
+            | Self::DealCards(..,) => "DealCards",
+            | Self::PlayerLeftTable => "PlayerLeftTable",
+            | Self::GameStateUpdate {
+                ..
+            } => "GameStateUpdate",
+            | Self::ActionRequest {
+                ..
+            } => "ActionRequest",
+            | Self::ActionResponse {
+                ..
+            } => "ActionResponse",
         }
     }
-
 }
 
 impl fmt::Display for Message {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.label().fmt(f)
+    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
+        self.label().fmt(f,)
     }
 }
 
