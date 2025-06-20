@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Result};
 use log::{error, info, warn};
-use poker_core::connection::{self, ClientConnection, SecureWebSocket};
+use poker_core::connection::{SecureWebSocket};
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{Message, SignedMessage};
 use poker_core::poker::Chips;
@@ -222,6 +222,7 @@ impl ConnectionHandler {
 
         match message.message() {
             | Message::JoinTableRequest {
+                player_id,
                 nickname,
             } => {
                 let player = self
@@ -265,7 +266,7 @@ impl ConnectionHandler {
 
             match next {
                 | Incoming::FromClient(msg,) => {
-                    self.handle_client_message(conn, &player_id, &nickname, msg, &table_msg_tx,)
+                    self.handle_client_message(conn, &player_id, msg, &table_msg_tx,)
                         .await?
                 },
                 | Incoming::FromTable(msg,) => {
@@ -277,17 +278,16 @@ impl ConnectionHandler {
     }
 
     async fn handle_client_message<S,>(
-        &self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId, nickname: &str,
+        &self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId,
         msg: SignedMessage, table_msg_tx: &Sender<TableMessage,>,
     ) -> Result<(),>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
         match msg.message() {
-            | Message::PlayerJoined {
+            | Message::JoinTableRequest {
+                nickname,
                 player_id,
-                table_id: _,
-                chips: _,
             } => {
                 let sufficient =
                     self.database.deduct_chips(*player_id, Chips::new(1_000_000,),).await?;
@@ -317,7 +317,7 @@ impl ConnectionHandler {
                 self.table.clone().unwrap().leave(player_id,).await;
             },
             | _ => {
-                warn!("Unexpected message from {}", player_id);
+                warn!("Unexpected message from {}: {msg}", player_id);
             },
         }
         Ok((),)
