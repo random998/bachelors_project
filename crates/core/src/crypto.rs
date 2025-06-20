@@ -15,7 +15,7 @@ const ENTROPY_LENGTH: usize = 16;
 type Entropy = [u8; ENTROPY_LENGTH];
 
 /// Private key used to sign messages.
-#[derive(Clone)]
+#[derive(Clone,)]
 pub struct SigningKey {
     key: ed25519_dalek::SigningKey,
     entropy: Zeroizing<Entropy,>,

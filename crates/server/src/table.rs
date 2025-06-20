@@ -38,7 +38,7 @@ enum TableCommand {
         nickname: String,
         join_chips: Chips,
         table_tx: mpsc::Sender<TableMessage,>,
-        response_tx: oneshot::Sender<Result<(), TableJoinError>>,
+        response_tx: oneshot::Sender<Result<(), TableJoinError,>,>,
     },
     CanPlayerJoin {
         response_tx: oneshot::Sender<bool,>,

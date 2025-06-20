@@ -20,12 +20,11 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::signal;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::{self, Duration};
-use tokio_rustls::{
-    TlsAcceptor,
-    rustls::{ServerConfig as TlsServerConfig,   pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
-},
-server::TlsStream,
-};
+use tokio_rustls::rustls::pki_types::pem::PemObject;
+use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use tokio_rustls::rustls::ServerConfig as TlsServerConfig;
+use tokio_rustls::server::TlsStream;
+use tokio_rustls::TlsAcceptor;
 
 use crate::db::Database;
 use crate::table::{Table, TableMessage};
@@ -106,7 +105,7 @@ pub async fn start_server(config: ServerConfig,) -> Result<(),> {
 }
 pub struct PokerServer {
     listener: TcpListener,
-    signing_key: Arc<SigningKey>,
+    signing_key: Arc<SigningKey,>,
     database: Database,
     tls_acceptor: Option<TlsAcceptor,>,
     tables: TablesPool,
@@ -133,21 +132,21 @@ impl PokerServer {
 
             // Spawn a task to handle connection messages.
             tokio::spawn(async move {
-                let res = if let Some(acceptor) = tls_acceptor {
-                    match acceptor.accept(stream).await {
-                        Ok(stream) => handler.run_tls(stream).await,
-                        Err(e) => Err(e.into()),
+                let res = if let Some(acceptor,) = tls_acceptor {
+                    match acceptor.accept(stream,).await {
+                        | Ok(stream,) => handler.run_tls(stream,).await,
+                        | Err(e,) => Err(e.into(),),
                     }
                 } else {
-                    handler.run_tcp(stream).await
+                    handler.run_tcp(stream,).await
                 };
 
-                if let Err(err) = res {
+                if let Err(err,) = res {
                     error!("Connection to {addr} {err}");
                 }
 
                 info!("Connection to {addr} closed");
-            });
+            },);
         }
     }
 
@@ -186,17 +185,17 @@ impl ConnectionHandler {
     const JOIN_TABLE_INITIAL_CHIP_BALANCE: Chips = Chips::new(1_000_000,);
 
     /// Handle TLS stream.
-    async fn run_tls(&mut self, stream: TlsStream<TcpStream>) -> Result<()> {
-        let mut conn = SecureWebSocket::accept_connection(stream).await?;
-        let res = self.handle_connection(&mut conn).await;
+    async fn run_tls(&mut self, stream: TlsStream<TcpStream,>,) -> Result<(),> {
+        let mut conn = SecureWebSocket::accept_connection(stream,).await?;
+        let res = self.handle_connection(&mut conn,).await;
         conn.close().await;
         res
     }
 
     /// Handle unsecured stream.
-    async fn run_tcp(&mut self, stream: TcpStream) -> Result<()> {
-        let mut conn = SecureWebSocket::accept_connection(stream).await?;
-        let res = self.handle_connection(&mut conn).await;
+    async fn run_tcp(&mut self, stream: TcpStream,) -> Result<(),> {
+        let mut conn = SecureWebSocket::accept_connection(stream,).await?;
+        let res = self.handle_connection(&mut conn,).await;
         conn.close().await;
         res
     }
@@ -365,74 +364,73 @@ impl ConnectionHandler {
 
         Ok(player.chips,)
     }
-    fn load_signing_key(path: &Option<PathBuf>) -> Result<Arc<SigningKey>> {
-        fn load_or_create(path: &Path) -> Result<Arc<SigningKey>> {
-            let keypair_path = path.join("server.phrase");
+    fn load_signing_key(path: &Option<PathBuf,>,) -> Result<Arc<SigningKey,>,> {
+        fn load_or_create(path: &Path,) -> Result<Arc<SigningKey,>,> {
+            let keypair_path = path.join("server.phrase",);
             let keypair = if keypair_path.exists() {
                 info!("Loading keypair {}", keypair_path.display());
-                let passphrase = std::fs::read_to_string(keypair_path)?;
-                SigningKey::from_phrase(&passphrase)?
+                let passphrase = std::fs::read_to_string(keypair_path,)?;
+                SigningKey::from_phrase(&passphrase,)?
             } else {
                 let keypair = SigningKey::default();
-                std::fs::create_dir_all(path)?;
-                std::fs::write(&keypair_path, keypair.phrase().as_bytes())?;
+                std::fs::create_dir_all(path,)?;
+                std::fs::write(&keypair_path, keypair.phrase().as_bytes(),)?;
                 info!("Writing keypair {}", keypair_path.display());
                 keypair
             };
 
-            Ok(Arc::new(keypair))
+            Ok(Arc::new(keypair,),)
         }
 
         // Load keypair from user path or try to create one if it doesn't exist.
-        if let Some(path) = path {
-            load_or_create(path)
+        if let Some(path,) = path {
+            load_or_create(path,)
         } else {
-            let Some(proj_dirs) = directories::ProjectDirs::from("", "", "freezeout") else {
+            let Some(proj_dirs,) = directories::ProjectDirs::from("", "", "freezeout",) else {
                 bail!("Cannot find project dirs");
             };
 
-            load_or_create(proj_dirs.config_dir())
+            load_or_create(proj_dirs.config_dir(),)
         }
     }
 
-    fn open_database(path: &Option<PathBuf>) -> Result<Database> {
-        Self::load_database(path)
+    fn open_database(path: &Option<PathBuf,>,) -> Result<Database,> {
+        Self::load_database(path,)
     }
 
-    fn load_or_create(path: &Path) -> Result<Database> {
-        let database_path = path.join("game.Database");
+    fn load_or_create(path: &Path,) -> Result<Database,> {
+        let database_path = path.join("game.Database",);
         if database_path.exists() {
             info!("Loading database {}", database_path.display());
-            Database::open(database_path)
+            Database::open(database_path,)
         } else {
-            std::fs::create_dir_all(path)?;
+            std::fs::create_dir_all(path,)?;
             info!("Writing database {}", database_path.display());
-            Database::open(database_path)
+            Database::open(database_path,)
         }
     }
-    fn load_database(path: &Option<PathBuf>) -> Result<Database> {
+    fn load_database(path: &Option<PathBuf,>,) -> Result<Database,> {
         // Load database from user path or try to create one if it doesn't exist.
-        if let Some(path) = path {
-            Self::load_or_create(path)
+        if let Some(path,) = path {
+            Self::load_or_create(path,)
         } else {
-            let Some(proj_dirs) = directories::ProjectDirs::from("", "", "freezeout") else {
+            let Some(proj_dirs,) = directories::ProjectDirs::from("", "", "freezeout",) else {
                 bail!("Cannot find project dirs");
             };
-            Self::load_or_create(proj_dirs.config_dir())
+            Self::load_or_create(proj_dirs.config_dir(),)
         }
     }
 
-    fn load_tls(key_path: &PathBuf, chain_path: &PathBuf) -> Result<TlsAcceptor> {
-        let key = PrivateKeyDer::from_pem_file(key_path)?;
-        let chain = CertificateDer::pem_file_iter(chain_path)?.collect::<Result<Vec<_>, _>>()?;
+    fn load_tls(key_path: &PathBuf, chain_path: &PathBuf,) -> Result<TlsAcceptor,> {
+        let key = PrivateKeyDer::from_pem_file(key_path,)?;
+        let chain = CertificateDer::pem_file_iter(chain_path,)?.collect::<Result<Vec<_,>, _,>>()?;
 
         info!("Loaded TLS chain from {}", chain_path.display());
         info!("Loaded TLS key   from {}", key_path.display());
 
-        let config = TlsServerConfig::builder()
-            .with_no_client_auth()
-            .with_single_cert(chain, key)?;
+        let config =
+            TlsServerConfig::builder().with_no_client_auth().with_single_cert(chain, key,)?;
 
-        Ok(TlsAcceptor::from(Arc::new(config)))
+        Ok(TlsAcceptor::from(Arc::new(config,),),)
     }
 }
