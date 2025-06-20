@@ -50,11 +50,11 @@ pub async fn start_server(config: ServerConfig,) -> Result<(),> {
     );
 
     let listener = TcpListener::bind(&bind_addr,).await?;
-    let signing_key = load_signing_key(&config.data_path,)?;
-    let database = Database::open(config.data_path,)?;
+    let signing_key = ConnectionHandler::load_signing_key(&config.data_path,)?;
+    let database = ConnectionHandler::open_database(&config.data_path,)?;
 
     let tls_acceptor = match (&config.key_path, &config.cert_chain_path,) {
-        | (Some(key,), Some(chain,),) => Some(load_tls(key, chain,)?,),
+        | (Some(key,), Some(chain,),) => Some(ConnectionHandler::load_tls(key, chain,)?,),
         | _ => {
             warn!("TLS not enabled, using fallback encryption");
             None
@@ -106,7 +106,7 @@ pub async fn start_server(config: ServerConfig,) -> Result<(),> {
 }
 pub struct PokerServer {
     listener: TcpListener,
-    signing_key: SigningKey,
+    signing_key: Arc<SigningKey>,
     database: Database,
     tls_acceptor: Option<TlsAcceptor,>,
     tables: TablesPool,
@@ -120,31 +120,34 @@ impl PokerServer {
             let (stream, addr,) = self.accept_connection().await?;
             info!("New connection from {addr}");
 
-            let handler = ConnectionHandler::new(
-                self.tables.clone(),
-                self.signing_key.clone(),
-                self.database.clone(),
-                self.shutdown_tx.subscribe(),
-                self.shutdown_done_tx.clone(),
-            );
+            let mut handler = ConnectionHandler {
+                tables: self.tables.clone(),
+                signing_key: self.signing_key.clone(),
+                database: self.database.clone(),
+                table: None,
+                shutdown_broadcast_rx: self.shutdown_tx.subscribe(),
+                _shutdown_complete_tx: self.shutdown_done_tx.clone(),
+            };
 
             let tls_acceptor = self.tls_acceptor.clone();
 
+            // Spawn a task to handle connection messages.
             tokio::spawn(async move {
-                let result = match tls_acceptor {
-                    | Some(acceptor,) => acceptor
-                        .accept(stream,)
-                        .await
-                        .map_err(|e| anyhow!("TLS accept error: {e}"),)
-                        .and_then(|s| handler.run_tls(s,).await,),
-                    | None => handler.handle_tcp(stream,).await,
+                let res = if let Some(acceptor) = tls_acceptor {
+                    match acceptor.accept(stream).await {
+                        Ok(stream) => handler.run_tls(stream).await,
+                        Err(e) => Err(e.into()),
+                    }
+                } else {
+                    handler.run_tcp(stream).await
                 };
 
-                if let Err(e,) = result {
-                    error!("Connection {addr} failed: {e}");
+                if let Err(err) = res {
+                    error!("Connection to {addr} {err}");
                 }
-                info!("Connection {addr} closed");
-            },);
+
+                info!("Connection to {addr} closed");
+            });
         }
     }
 
@@ -169,7 +172,7 @@ struct ConnectionHandler {
     tables: TablesPool,
     /// The server signing key shared by all connections.
     signing_key: Arc<SigningKey,>,
-    /// The players DB.
+    /// The players Database.
     database: Database,
     /// This client table.
     table: Option<Arc<Table,>,>,
@@ -184,7 +187,7 @@ impl ConnectionHandler {
 
     /// Handle TLS stream.
     async fn run_tls(&mut self, stream: TlsStream<TcpStream>) -> Result<()> {
-        let mut conn = ClientConnection::accept_connection(stream).await?;
+        let mut conn = SecureWebSocket::accept_connection(stream).await?;
         let res = self.handle_connection(&mut conn).await;
         conn.close().await;
         res
@@ -192,7 +195,7 @@ impl ConnectionHandler {
 
     /// Handle unsecured stream.
     async fn run_tcp(&mut self, stream: TcpStream) -> Result<()> {
-        let mut conn = ClientConnection::accept_connection(stream).await?;
+        let mut conn = SecureWebSocket::accept_connection(stream).await?;
         let res = self.handle_connection(&mut conn).await;
         conn.close().await;
         res
@@ -214,7 +217,7 @@ impl ConnectionHandler {
                 Some(Err(err)) => return Err(err),
                 None => return Ok(()),
             },
-            _ = self.shutdown_rx.recv() => return Ok(()),
+            _ = self.shutdown_rx.receive() => return Ok(()),
         };
 
         match message.message() {
@@ -361,5 +364,75 @@ impl ConnectionHandler {
         }
 
         Ok(player.chips,)
+    }
+    fn load_signing_key(path: &Option<PathBuf>) -> Result<Arc<SigningKey>> {
+        fn load_or_create(path: &Path) -> Result<Arc<SigningKey>> {
+            let keypair_path = path.join("server.phrase");
+            let keypair = if keypair_path.exists() {
+                info!("Loading keypair {}", keypair_path.display());
+                let passphrase = std::fs::read_to_string(keypair_path)?;
+                SigningKey::from_phrase(&passphrase)?
+            } else {
+                let keypair = SigningKey::default();
+                std::fs::create_dir_all(path)?;
+                std::fs::write(&keypair_path, keypair.phrase().as_bytes())?;
+                info!("Writing keypair {}", keypair_path.display());
+                keypair
+            };
+
+            Ok(Arc::new(keypair))
+        }
+
+        // Load keypair from user path or try to create one if it doesn't exist.
+        if let Some(path) = path {
+            load_or_create(path)
+        } else {
+            let Some(proj_dirs) = directories::ProjectDirs::from("", "", "freezeout") else {
+                bail!("Cannot find project dirs");
+            };
+
+            load_or_create(proj_dirs.config_dir())
+        }
+    }
+
+    fn open_database(path: &Option<PathBuf>) -> Result<Database> {
+        Self::load_database(path)
+    }
+
+    fn load_or_create(path: &Path) -> Result<Database> {
+        let database_path = path.join("game.Database");
+        if database_path.exists() {
+            info!("Loading database {}", database_path.display());
+            Database::open(database_path)
+        } else {
+            std::fs::create_dir_all(path)?;
+            info!("Writing database {}", database_path.display());
+            Database::open(database_path)
+        }
+    }
+    fn load_database(path: &Option<PathBuf>) -> Result<Database> {
+        // Load database from user path or try to create one if it doesn't exist.
+        if let Some(path) = path {
+            Self::load_or_create(path)
+        } else {
+            let Some(proj_dirs) = directories::ProjectDirs::from("", "", "freezeout") else {
+                bail!("Cannot find project dirs");
+            };
+            Self::load_or_create(proj_dirs.config_dir())
+        }
+    }
+
+    fn load_tls(key_path: &PathBuf, chain_path: &PathBuf) -> Result<TlsAcceptor> {
+        let key = PrivateKeyDer::from_pem_file(key_path)?;
+        let chain = CertificateDer::pem_file_iter(chain_path)?.collect::<Result<Vec<_>, _>>()?;
+
+        info!("Loaded TLS chain from {}", chain_path.display());
+        info!("Loaded TLS key   from {}", key_path.display());
+
+        let config = TlsServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(chain, key)?;
+
+        Ok(TlsAcceptor::from(Arc::new(config)))
     }
 }
