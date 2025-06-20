@@ -102,6 +102,7 @@ impl TablesPool {
 
 #[cfg(test)]
 mod tests {
+    use tokio::sync::mpsc;
     use poker_core::poker::TableId;
 
     use super::*;
