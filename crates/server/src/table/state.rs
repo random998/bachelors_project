@@ -9,14 +9,14 @@ use log::{error, info};
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
 use poker_core::poker::{Card, Chips, Deck, HandValue, PlayerCards, TableId};
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_rustls::rustls::InvalidMessage::HandshakePayloadTooLarge;
 
-use super::player::{Player, PlayersState};
 use super::TableMessage;
+use super::player::{Player, PlayersState};
 use crate::db::Database;
 
 /// Represents the current phase of a hand being played.
@@ -561,7 +561,8 @@ impl InternalTableState {
         for player_id in broke {
             if let Some(player,) = self.players.get(&player_id,) {
                 let _ = player.tx.send(TableMessage::PlayerLeave,).await;
-                self.broadcast(Message::PlayerLeftTable(player_id.clone(),),).await;
+                let msg = Message::PlayerLeftTable;
+                self.broadcast(msg,).await;
             }
             self.players.remove(&player_id,);
         }
