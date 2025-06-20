@@ -20,3 +20,6 @@ snow = { workspace = true }
 getrandom = { version = "0.2.16", features = ["js"] }
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
+
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "getrandom/wasm_js"]

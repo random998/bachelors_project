@@ -22,7 +22,7 @@ getrandom = { version = "0.3.3", features = ["wasm_js"] }
 rand = { workspace = true }
 serde = { workspace = true }
 snow = { workspace = true, optional = true }
-tokio = { workspace = true, optional = true, features = ["net", "rt", "macros"] }
+tokio = { workspace = true, optional = true, features = ["rt", "macros"] }
 tokio-rustls = { workspace = true, optional = true }
 tokio-tungstenite = { version = "0.26.2", optional = true, features = [
     "rustls-tls-webpki-roots",

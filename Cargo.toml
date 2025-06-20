@@ -22,11 +22,11 @@ log = "0.4.22"
 parking_lot = "0.12.3"
 rand = "0.9.1"
 serde = { version = "1.0.216", features = ["derive"] }
-snow = { version = "0.9.6" }
+snow = { version = "0.9.6", package = "snow", features = ["default"], dependencies = { getrandom = {version = "0.3.3", features = ["wasm_js"]} } }
 tokio = { version = "1.45.1", features = ["rt", "sync", "macros"] }
 tokio-rustls = "0.26.2"
 tokio-tungstenite = "0.26.0"
-getrandom = { version = "0.3.3", features = ["wasm_js"] }
+getrandom = { version = "0.2.16", features = ["js"] }
 
 # crates
 poker-cards = { version = "0.0.1", path = "crates/cards", default-features = false }
@@ -39,5 +39,3 @@ poker-server = { version = "0.0.1", path = "crates/server", default-features = f
 opt-level = 3
 lto = "fat"
 
-[patch.crates-io]
-getrandom = { path = "vendor/getrandom-0.2.16" }
