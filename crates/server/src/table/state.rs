@@ -218,10 +218,8 @@ impl InternalTableState {
                         | PlayerAction::Call => player.place_bet(*action, self.last_bet,),
                         | PlayerAction::Check => {},
                         | PlayerAction::Bet | PlayerAction::Raise => {
-                            let amount: Chips = (*amount)
-                                .min(player.current_bet + player.chips,);
-                            self.min_raise = (amount - self.last_bet)
-                                .max(self.min_raise,);
+                            let amount: Chips = (*amount).min(player.current_bet + player.chips,);
+                            self.min_raise = (amount - self.last_bet).max(self.min_raise,);
                             self.last_bet = amount.max(self.last_bet,);
                         },
                         | _ => {},
@@ -457,8 +455,7 @@ impl InternalTableState {
             },)
             .collect();
 
-        let pot =
-            self.pots.iter().map(|p| p.total_chips,).fold(Chips::ZERO, |acc, c| acc + c,);
+        let pot = self.pots.iter().map(|p| p.total_chips,).fold(Chips::ZERO, |acc, c| acc + c,);
 
         let msg = Message::GameStateUpdate {
             players,
@@ -549,12 +546,8 @@ impl InternalTableState {
 
     /// Remove and notify players who have lost all their chips.
     async fn remove_broke_players(&mut self,) {
-        let broke: Vec<_,> = self
-            .players
-            .iter()
-            .filter(|p| p.chips == Chips::ZERO,)
-            .map(|p| p.id,)
-            .collect();
+        let broke: Vec<_,> =
+            self.players.iter().filter(|p| p.chips == Chips::ZERO,).map(|p| p.id,).collect();
 
         for player_id in broke {
             if let Some(player,) = self.players.get(&player_id,) {
@@ -572,9 +565,7 @@ impl InternalTableState {
 
         // Payout remaining chips to each player, notify and remove them.
         for player in self.players.iter() {
-            if let Err(err,) =
-                self.database.credit_chips(player.id, player.chips,).await
-            {
+            if let Err(err,) = self.database.credit_chips(player.id, player.chips,).await {
                 error!("Failed to pay player {}: {}", player.id, err);
             }
             let _ = player.tx.send(TableMessage::PlayerLeave,).await;
