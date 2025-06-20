@@ -24,7 +24,7 @@ serde = { workspace = true }
 snow = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["net", "rt", "macros"] }
 tokio-rustls = { workspace = true, optional = true }
-tokio-tungstenite = { version = "0.26.0", optional = true, features = [
+tokio-tungstenite = { version = "0.26.2", optional = true, features = [
     "rustls-tls-webpki-roots",
 ] }
 zeroize = "1.8.1"
