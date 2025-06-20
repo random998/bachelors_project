@@ -23,7 +23,7 @@ pub enum TablesPoolError {
     PlayerAlreadyJoined,
 }
 
-#[derive(Debug,)]
+#[derive(Clone, Debug,)]
 pub struct TablesPool(Arc<Mutex<SharedTables,>,>,);
 
 #[derive(Debug,)]

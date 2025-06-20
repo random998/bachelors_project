@@ -15,6 +15,7 @@ const ENTROPY_LENGTH: usize = 16;
 type Entropy = [u8; ENTROPY_LENGTH];
 
 /// Private key used to sign messages.
+#[derive(Clone)]
 pub struct SigningKey {
     key: ed25519_dalek::SigningKey,
     entropy: Zeroizing<Entropy,>,
@@ -167,7 +168,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_phrase_roundtrip() {
+    fn test_phrase_round_trip() {
         let sk = SigningKey::default();
         let restored =
             SigningKey::from_phrase(&sk.phrase(),).expect("Failed to recover key from phrase",);
