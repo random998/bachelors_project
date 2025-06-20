@@ -289,8 +289,8 @@ impl ConnectionHandler {
         match msg.message() {
             | Message::PlayerJoined {
                 player_id,
-                table_id,
-                chips,
+                table_id: _,
+                chips: _,
             } => {
                 let sufficient =
                     self.database.deduct_chips(*player_id, Chips::new(1_000_000,),).await?;
