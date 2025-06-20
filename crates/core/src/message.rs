@@ -287,6 +287,7 @@ mod tests {
         let vk = sk.verifying_key();
         let peer_id = vk.peer_id();
         let message = Message::JoinTableRequest {
+            player_id: peer_id,
             nickname: "Alice".to_string(),
         };
 
@@ -295,7 +296,7 @@ mod tests {
 
         let deserialized_msg = SignedMessage::deserialize_and_verify(&bytes,).unwrap();
         assert!(
-            matches!(deserialized_msg.message(), Message::JoinTableRequest{nickname } if nickname == "Alice")
+            matches!(deserialized_msg.message(), Message::JoinTableRequest{nickname, player_id } if nickname == "Alice" && peer_id == *player_id)
         );
     }
 }
