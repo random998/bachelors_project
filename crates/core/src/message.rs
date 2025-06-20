@@ -272,7 +272,7 @@ impl SignedMessage {
 }
 
 impl fmt::Display for SignedMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(f, "{}", self.message().label())
     }
 }

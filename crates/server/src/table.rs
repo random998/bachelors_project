@@ -8,8 +8,8 @@ use log::{error, info};
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::SignedMessage;
 use poker_core::poker::{Chips, TableId};
-use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::sync::mpsc::Sender;
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio::time;
 
 use crate::db::Database;
@@ -98,8 +98,7 @@ impl Table {
     }
 
     pub async fn try_join(
-        &self, player_id: &PeerId, nickname: &str, chips: Chips,
-        table_tx: Sender<TableMessage>,
+        &self, player_id: &PeerId, nickname: &str, chips: Chips, table_tx: Sender<TableMessage,>,
     ) -> Result<(), TableJoinError,> {
         let (response_tx, response_rx,) = oneshot::channel();
 

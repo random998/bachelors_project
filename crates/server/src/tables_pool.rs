@@ -4,8 +4,6 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-use crate::db::Database;
-use crate::table::{Table, TableJoinError, TableMessage};
 use anyhow::Result;
 use log::error;
 use poker_core::crypto::{PeerId, SigningKey};
@@ -13,6 +11,9 @@ use poker_core::poker::Chips;
 use thiserror::Error;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{broadcast, mpsc, Mutex};
+
+use crate::db::Database;
+use crate::table::{Table, TableJoinError, TableMessage};
 
 #[derive(Debug, Error,)]
 pub enum TablesPoolError {
@@ -57,8 +58,7 @@ impl TablesPool {
     }
 
     pub async fn join(
-        &self, player_id: &PeerId, nickname: &str, chips: Chips,
-        msg_tx: Sender<TableMessage>,
+        &self, player_id: &PeerId, nickname: &str, chips: Chips, msg_tx: Sender<TableMessage,>,
     ) -> Result<Arc<Table,>, TablesPoolError,> {
         let mut pool = self.0.lock().await;
 

@@ -12,15 +12,15 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Result};
 use log::{error, info, warn};
-use poker_core::connection::{SecureWebSocket};
+use poker_core::connection::SecureWebSocket;
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{Message, SignedMessage};
 use poker_core::poker::Chips;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::signal;
-use tokio::sync::{broadcast, mpsc};
 use tokio::sync::mpsc::Sender;
+use tokio::sync::{broadcast, mpsc};
 use tokio::time::{self, Duration};
 use tokio_rustls::rustls::pki_types::pem::PemObject;
 use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer};
@@ -204,12 +204,13 @@ impl ConnectionHandler {
     async fn handle_connection<S,>(&mut self, conn: &mut SecureWebSocket<S,>,) -> Result<(),>
     where S: AsyncRead + AsyncWrite + Unpin {
         let (table_msg_tx, mut table_msg_rx,) = mpsc::channel::<TableMessage,>(128,);
-        let (nickname, player_id,) = self.receive_initial_join(conn, table_msg_tx.clone()).await?;
+        let (nickname, player_id,) = self.receive_initial_join(conn, table_msg_tx.clone(),).await?;
         self.connection_loop(conn, player_id, nickname, table_msg_tx, &mut table_msg_rx,).await
     }
 
     async fn receive_initial_join<S,>(
-        &mut self, conn: &mut SecureWebSocket<S,>, table_tx: Sender<TableMessage>) -> Result<(String, PeerId,),>
+        &mut self, conn: &mut SecureWebSocket<S,>, table_tx: Sender<TableMessage,>,
+    ) -> Result<(String, PeerId,),>
     where S: AsyncRead + AsyncWrite + Unpin {
         let message = tokio::select! {
             result = conn.receive() => match result {
@@ -229,8 +230,15 @@ impl ConnectionHandler {
                     .database
                     .upsert_player(message.sender(), nickname, Chips::new(1_000_000,),)
                     .await?;
-                self.tables.join(&player.player_id, &*player.nickname, Self::JOIN_TABLE_INITIAL_CHIP_BALANCE, table_tx).await?;
-                Ok((player.nickname, player.player_id))
+                self.tables
+                    .join(
+                        &player.player_id,
+                        &*player.nickname,
+                        Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,
+                        table_tx,
+                    )
+                    .await?;
+                Ok((player.nickname, player.player_id,),)
             },
             | _ => bail!("Invalid initial message from {}: expected JoinServer", message.sender()),
         }
@@ -238,8 +246,7 @@ impl ConnectionHandler {
 
     async fn connection_loop<S,>(
         &mut self, conn: &mut SecureWebSocket<S,>, player_id: PeerId, nickname: String,
-        table_msg_tx: Sender<TableMessage,>,
-        table_msg_rx: &mut mpsc::Receiver<TableMessage,>,
+        table_msg_tx: Sender<TableMessage,>, table_msg_rx: &mut mpsc::Receiver<TableMessage,>,
     ) -> Result<(),>
     where
         S: AsyncRead + AsyncWrite + Unpin,
@@ -266,8 +273,7 @@ impl ConnectionHandler {
 
             match next {
                 | Incoming::FromClient(msg,) => {
-                    self.handle_client_message(conn, &player_id, msg, &table_msg_tx,)
-                        .await?
+                    self.handle_client_message(conn, &player_id, msg, &table_msg_tx,).await?
                 },
                 | Incoming::FromTable(msg,) => {
                     self.handle_table_message(conn, &player_id, msg,).await?
@@ -278,8 +284,8 @@ impl ConnectionHandler {
     }
 
     async fn handle_client_message<S,>(
-        &self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId,
-        msg: SignedMessage, table_msg_tx: &Sender<TableMessage,>,
+        &self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId, msg: SignedMessage,
+        table_msg_tx: &Sender<TableMessage,>,
     ) -> Result<(),>
     where
         S: AsyncRead + AsyncWrite + Unpin,
