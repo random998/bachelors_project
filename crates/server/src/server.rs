@@ -20,7 +20,12 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::signal;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::{self, Duration};
-use tokio_rustls::TlsAcceptor;
+use tokio_rustls::{
+    TlsAcceptor,
+    rustls::{ServerConfig as TlsServerConfig,   pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
+},
+server::TlsStream,
+};
 
 use crate::db::Database;
 use crate::table::{Table, TableMessage};
@@ -131,7 +136,7 @@ impl PokerServer {
                         .accept(stream,)
                         .await
                         .map_err(|e| anyhow!("TLS accept error: {e}"),)
-                        .and_then(|s| handler.handle_tls(s,).await,),
+                        .and_then(|s| handler.run_tls(s,).await,),
                     | None => handler.handle_tcp(stream,).await,
                 };
 
@@ -176,6 +181,22 @@ struct ConnectionHandler {
 
 impl ConnectionHandler {
     const JOIN_TABLE_INITIAL_CHIP_BALANCE: Chips = Chips::new(1_000_000,);
+
+    /// Handle TLS stream.
+    async fn run_tls(&mut self, stream: TlsStream<TcpStream>) -> Result<()> {
+        let mut conn = ClientConnection::accept_connection(stream).await?;
+        let res = self.handle_connection(&mut conn).await;
+        conn.close().await;
+        res
+    }
+
+    /// Handle unsecured stream.
+    async fn run_tcp(&mut self, stream: TcpStream) -> Result<()> {
+        let mut conn = ClientConnection::accept_connection(stream).await?;
+        let res = self.handle_connection(&mut conn).await;
+        conn.close().await;
+        res
+    }
     async fn handle_connection<S,>(&self, conn: &mut SecureWebSocket<S,>,) -> Result<(),>
     where S: AsyncRead + AsyncWrite + Unpin {
         let (nickname, player_id,) = self.receive_initial_join(conn,).await?;

@@ -12,7 +12,7 @@ extern crate tokio;
 pub mod db;
 
 pub mod server;
-pub use server::{run, Config};
+// pub use server::{run, Config};
 
 pub mod table;
 pub mod tables_pool;
