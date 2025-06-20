@@ -1,6 +1,4 @@
-// Copyright (C) 2025 Vince Vasta
-// SPDX-License-Identifier: Apache-2.0
-
+// code based on https://github.com/vincev/freezeout
 //! Connection dialog view.
 use eframe::egui::{
     Align2, Button, Color32, Context, FontFamily, FontId, Grid, RichText, Window, vec2,

@@ -2,7 +2,8 @@
 
 //! Freezeout Poker egui app implementation.
 use anyhow::Result;
-use eframe::egui::{Context, TextBuffer, Theme};
+use eframe::Storage;
+use eframe::egui::{Context, Theme};
 use poker_cards::egui::Textures;
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{Message, SignedMessage};
@@ -117,14 +118,12 @@ impl App {
 
     /// Get a value from the app storage.
     #[must_use]
-    pub fn get_storage(&self, storage: Option<&dyn eframe::Storage,>,) -> Option<AppData,> {
+    pub fn get_storage(&self, storage: Option<&dyn Storage,>,) -> Option<AppData,> {
         storage.and_then(|s| eframe::get_value::<AppData,>(s, Self::STORAGE_KEY,),)
     }
 
     /// Set a value in the app storage.
-    pub fn set_storage(
-        &self, storage: Option<&mut (dyn eframe::Storage + 'static),>, data: &AppData,
-    ) {
+    pub fn set_storage(&self, storage: Option<&mut (dyn Storage + 'static),>, data: &AppData,) {
         if let Some(s,) = storage {
             eframe::set_value::<AppData,>(s, Self::STORAGE_KEY, data,);
             s.flush();
