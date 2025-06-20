@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use log::error;
-use poker_server::server;
+use zkpoker_server::server;
 
 #[derive(Parser, Debug,)]
 struct Cli {
@@ -34,17 +34,17 @@ async fn main() {
         .init();
 
     let cli = Cli::parse();
-    let config = poker_server::Config {
-        address: cli.address,
-        port: cli.port,
-        tables: cli.tables as usize,
-        seats: cli.seats as usize,
-        data_path: cli.data_path,
+    let config = server::ServerConfig {
+        address: cli.listening_address,
+        table_count: cli.num_tables as usize,
+        seats_per_table: cli.seats_per_table as usize,
+        port: cli.listening_port,
         key_path: cli.key_path,
-        chain_path: cli.chain_path,
+        cert_chain_path: cli.chain_path,
+        data_path: cli.application_data_path,
     };
 
-    if let Err(e,) = server::run(config,).await {
+    if let Err(e,) = server::start_server(config,).await {
         error!("{e}");
     }
 }

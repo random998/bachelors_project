@@ -28,3 +28,8 @@ fn main() {
             .expect("failed to start eframe",)
     },)
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {
+    println!("This binary only runs on wasm32-unknown-unknown target.");
+}
