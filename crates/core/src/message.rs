@@ -1,5 +1,6 @@
 // based on https://github.com/vincev/freezeout
 
+use std::fmt;
 use std::sync::Arc;
 
 /// Type definitions for p2p messages.
@@ -31,7 +32,7 @@ pub enum Message {
     PlayerAlreadyJoined,
 
     /// Confirmation that a specific player has joined a specific table.
-    PlayerJoined {
+    PlayerJoined { //TODO: implement display trait for this struct
         table_id: TableId,
         player_id: PeerId,
         chips: Chips,
@@ -96,6 +97,36 @@ pub enum Message {
         /// Chips committed with the action, if applicable (used for Bet/Raise).
         amount: Chips,
     },
+}
+
+impl Message {
+    // Returns a label of the message variant as a string.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Message::JoinTableRequest { .. } => "JoinTableRequest",
+            Message::PlayerLeftNotification { .. } => "PlayerLeftNotification",
+            Message::NoTablesLeftNotification => "NoTablesLeftNotification",
+            Message::NotEnoughChips => "NotEnoughChips",
+            Message::PlayerAlreadyJoined => "PlayerAlreadyJoined",
+            Message::PlayerJoined { .. } => "PlayerJoined",
+            Message::ShowAccount { .. } => "ShowAccount",
+            Message::StartGame(_) => "StartGame",
+            Message::StartHand => "StartHand",
+            Message::EndHand { .. } => "EndHand",
+            Message::DealCards(_, _) => "DealCards",
+            Message::PlayerLeftTable => "PlayerLeftTable",
+            Message::GameStateUpdate { .. } => "GameStateUpdate",
+            Message::ActionRequest { .. } => "ActionRequest",
+            Message::ActionResponse { .. } => "ActionResponse",
+        }
+    }
+
+}
+
+impl fmt::Display for Message {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.label().fmt(f)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize,)]
