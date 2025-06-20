@@ -2969,7 +2969,9 @@ version = "0.0.1"
 dependencies = [
  "ahash",
  "anyhow",
+ "clap",
  "eframe",
+ "env_logger",
  "ewebsock",
  "getrandom 0.2.16",
  "indoc",
@@ -2978,6 +2980,7 @@ dependencies = [
  "poker-core",
  "serde",
  "snow",
+ "tokio-rustls",
  "wasm-bindgen-futures",
  "web-sys",
 ]

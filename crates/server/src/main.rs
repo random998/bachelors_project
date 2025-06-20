@@ -7,9 +7,9 @@ use zkpoker_server::server;
 
 #[derive(Parser, Debug,)]
 struct Cli {
-    #[arg(long, short, default_value = "127.0.0.1")]
+    #[arg(long, default_value = "127.0.0.1")]
     listening_address: String, // server listening address.
-    #[arg(long, short, default_value_t = 9871)]
+    #[arg(long, default_value_t = 9871)]
     listening_port: u16,
     #[arg(long, default_value_t = 10, value_parser = clap::value_parser!(u16).range(1..=1_000))]
     num_tables: u16,
