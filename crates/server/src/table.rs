@@ -9,6 +9,7 @@ use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::SignedMessage;
 use poker_core::poker::{Chips, TableId};
 use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::mpsc::Sender;
 use tokio::time;
 
 use crate::db::Database;
@@ -20,7 +21,7 @@ pub use state::TableJoinError;
 
 #[derive(Debug,)]
 pub struct Table {
-    command_sender: mpsc::Sender<TableCommand,>,
+    command_sender: Sender<TableCommand,>,
     table_id: TableId,
 }
 
@@ -37,7 +38,7 @@ enum TableCommand {
         player_id: PeerId,
         nickname: String,
         join_chips: Chips,
-        table_tx: mpsc::Sender<TableMessage,>,
+        table_tx: Sender<TableMessage,>,
         response_tx: oneshot::Sender<Result<(), TableJoinError,>,>,
     },
     CanPlayerJoin {
@@ -50,7 +51,7 @@ enum TableCommand {
 impl Table {
     pub fn new(
         seats: usize, signing_key: Arc<SigningKey,>, database: Database,
-        shutdown_rx: broadcast::Receiver<(),>, shutdown_complete_tx: mpsc::Sender<(),>,
+        shutdown_rx: broadcast::Receiver<(),>, shutdown_complete_tx: Sender<(),>,
     ) -> Self {
         assert!(seats > 1, "A table must have at least two seats");
 
@@ -98,7 +99,7 @@ impl Table {
 
     pub async fn try_join(
         &self, player_id: &PeerId, nickname: &str, chips: Chips,
-        table_tx: mpsc::Sender<TableMessage,>,
+        table_tx: Sender<TableMessage>,
     ) -> Result<(), TableJoinError,> {
         let (response_tx, response_rx,) = oneshot::channel();
 
@@ -132,7 +133,7 @@ struct TableTask {
     database: Database,
     command_receiver: mpsc::Receiver<TableCommand,>,
     shutdown_rx: broadcast::Receiver<(),>,
-    shutdown_complete_tx: mpsc::Sender<(),>,
+    shutdown_complete_tx: Sender<(),>,
 }
 
 impl TableTask {

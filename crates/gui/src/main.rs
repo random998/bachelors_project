@@ -1,3 +1,8 @@
+#![warn(clippy::all, rust_2018_idioms)]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use poker_gui::gui;
+
 #[cfg(target_arch = "wasm32")]
 fn main() {
     use eframe::wasm_bindgen::JsCast as _;
@@ -30,6 +35,49 @@ fn main() {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn main() {
-    println!("This binary only runs on wasm32-unknown-unknown target.");
+fn main() -> eframe::Result<()> {
+    use clap::{Parser};
+
+    #[derive(Debug, Parser)]
+    struct Cli {
+        /// The server WebSocket url.
+        #[arg(long, short, default_value = "ws://127.0.0.1:9871")]
+        url: String,
+        /// The configuration storage key.
+        #[arg(long, short)]
+        storage: Option<String>,
+    }
+
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .format_target(false)
+        .format_timestamp_millis()
+        .init();
+
+    let init_size = [1024.0, 640.0];
+    let native_options = eframe::NativeOptions {
+        viewport: eframe::egui::ViewportBuilder::default()
+            .with_inner_size(init_size)
+            .with_min_inner_size(init_size)
+            .with_max_inner_size(init_size)
+            .with_title("Cards"),
+        ..Default::default()
+    };
+
+    let cli = Cli::parse();
+
+    let config = gui::Config {
+        server_url: cli.url,
+    };
+
+    let app_name = cli
+        .storage
+        .map(|s| format!("freezeout-{s}"))
+        .unwrap_or_else(|| "freezeout".to_string());
+
+    eframe::run_native(
+        &app_name,
+        native_options,
+        Box::new(|cc| Ok(Box::new(gui::AppFrame::new(config, cc)))),
+    )
 }
