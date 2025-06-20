@@ -71,7 +71,7 @@ impl Database {
             let mut stmt = conn.prepare("SELECT id, nickname, chips FROM players WHERE id = ?1",)?;
             let query_result = stmt.query_row(params![player_id.digits()], |row| {
                 Ok(Player {
-                    player_id: player_id.clone(),
+                    player_id,
                     nickname: row.get(1,)?,
                     chips: Chips::new(row.get::<usize, i32>(0,)? as u32,),
                 },)
@@ -107,7 +107,7 @@ impl Database {
                 },
                 | Err(_,) => {
                     let new_player = Player {
-                        player_id: player_id.clone(),
+                        player_id,
                         nickname: nickname.clone(),
                         chips: initial_chips,
                     };
@@ -186,7 +186,7 @@ impl Database {
             let mut stmt = conn.prepare("SELECT id, nickname, chips FROM players WHERE id = ?1",)?;
             stmt.query_row(params![player_id.digits()], |row| {
                 Ok(Player {
-                    player_id: player_id.clone(),
+                    player_id,
                     nickname: row.get(1,)?,
                     chips: Chips::new(row.get::<usize, i32>(2,)? as u32,),
                 },)

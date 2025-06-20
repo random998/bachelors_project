@@ -60,10 +60,10 @@ impl Player {
     }
 
     pub fn place_bet(&mut self, action: PlayerAction, total_bet: Chips,) {
-        let required = total_bet - self.current_bet.clone();
-        let actual_bet = required.min(self.chips.clone(),);
+        let required = total_bet - self.current_bet;
+        let actual_bet = required.min(self.chips,);
 
-        self.chips -= actual_bet.clone();
+        self.chips -= actual_bet;
         self.current_bet += actual_bet;
         self.last_action = action;
     }
@@ -241,27 +241,27 @@ mod tests {
     fn new_player(chips: Chips,) -> Player {
         let peer_id = SigningKey::default().verifying_key().peer_id();
         let (table_tx, _table_rx,) = mpsc::channel(10,);
-        Player::new(peer_id.clone(), "Alice".to_string(), chips, table_tx.clone(),)
+        Player::new(peer_id, "Alice".to_string(), chips, table_tx.clone(),)
     }
 
     #[test]
     fn test_player_bet() {
         let init_chips = Chips::new(100_000,);
-        let mut player = new_player(init_chips.clone(),);
+        let mut player = new_player(init_chips,);
 
         // Simple bet.
         let bet_size = Chips::new(60_000,);
-        player.place_bet(PlayerAction::Bet, bet_size.clone(),);
+        player.place_bet(PlayerAction::Bet, bet_size,);
         assert_eq!(player.current_bet, bet_size.clone());
-        assert_eq!(player.chips, init_chips.clone() - bet_size.clone());
+        assert_eq!(player.chips, init_chips - bet_size);
         assert!(matches!(player.last_action, PlayerAction::Bet));
 
         // The bet amount is the total bet check chips paid are the new bet minus the
         // previous bet.
         let bet_size = bet_size + Chips::new(20_000,);
-        player.place_bet(PlayerAction::Bet, bet_size.clone(),);
+        player.place_bet(PlayerAction::Bet, bet_size,);
         assert_eq!(player.current_bet, bet_size.clone());
-        assert_eq!(player.chips, init_chips.clone() - bet_size.clone());
+        assert_eq!(player.chips, init_chips - bet_size);
 
         // Start new hand reset bet chips and action.
         player.reset_for_new_hand();
@@ -271,7 +271,7 @@ mod tests {
         assert_eq!(player.chips, init_chips - bet_size);
 
         // Bet more than remaining chips goes all in.
-        let remaining_chips = player.chips.clone();
+        let remaining_chips = player.chips;
         player.place_bet(PlayerAction::Bet, Chips::new(1_000_000,),);
         assert_eq!(player.current_bet, remaining_chips);
         assert_eq!(player.chips, Chips::ZERO);
@@ -311,7 +311,7 @@ mod tests {
         assert_eq!(players.active_player_idx.unwrap(), 1);
 
         // Player before active leaves, the active player moved to position 0.
-        let player_id = players.players[0].id.clone();
+        let player_id = players.players[0].id;
         assert!(players.remove(&player_id).is_some());
         assert_eq!(players.active_player_idx.unwrap(), 0);
         assert_eq!(players.count_active(), SEATS - 1);
@@ -331,7 +331,7 @@ mod tests {
         assert_eq!(players.active_player_idx.unwrap(), 1);
 
         // Player after active leaves, the active player should be the same.
-        let player_id = players.players[2].id.clone();
+        let player_id = players.players[2].id;
         assert!(players.remove(&player_id).is_some());
         assert_eq!(players.active_player_idx.unwrap(), 1);
         assert_eq!(players.count_active(), SEATS - 1);
@@ -351,8 +351,8 @@ mod tests {
         assert_eq!(players.active_player_idx.unwrap(), 1);
 
         // Active leaves the next player should become active.
-        let active_id = players.players[1].id.clone();
-        let next_id = players.players[2].id.clone();
+        let active_id = players.players[1].id;
+        let next_id = players.players[2].id;
         assert!(players.remove(&active_id).is_some());
         assert_eq!(players.active_player_idx.unwrap(), 1);
         assert_eq!(players.active_player().unwrap().id, next_id);
@@ -378,8 +378,8 @@ mod tests {
 
         // Active leaves but the player after that has folded so the next player at
         // index 3, that will move to index 2, should become active.
-        let active_id = players.players[1].id.clone();
-        let next_id = players.players[3].id.clone();
+        let active_id = players.players[1].id;
+        let next_id = players.players[3].id;
         assert!(players.remove(&active_id).is_some());
         assert_eq!(players.active_player_idx.unwrap(), 2);
         assert_eq!(players.active_player().unwrap().id, next_id);

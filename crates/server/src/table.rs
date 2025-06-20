@@ -104,7 +104,7 @@ impl Table {
 
         self.command_sender
             .send(TableCommand::TryJoin {
-                player_id: player_id.clone(),
+                player_id: *player_id,
                 nickname: nickname.to_string(),
                 join_chips: chips,
                 table_tx,
@@ -117,7 +117,7 @@ impl Table {
     }
 
     pub async fn leave(&self, player_id: &PeerId,) {
-        let _ = self.command_sender.send(TableCommand::Leave(player_id.clone(),),).await;
+        let _ = self.command_sender.send(TableCommand::Leave(*player_id,),).await;
     }
 
     pub async fn handle_message(&self, msg: SignedMessage,) {

@@ -13,7 +13,6 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 use thiserror::Error;
 use tokio::sync::mpsc;
-use tokio_rustls::rustls::InvalidMessage::HandshakePayloadTooLarge;
 
 use super::player::{Player, PlayersState};
 use super::TableMessage;
@@ -144,12 +143,12 @@ impl InternalTableState {
         }
 
         let new_player: Player =
-            Player::new(player_id.clone(), nickname.to_string(), starting_chips.clone(), channel,);
+            Player::new(*player_id, nickname.to_string(), starting_chips, channel,);
 
         let confirmation = Message::PlayerJoined {
             table_id: self.table_id,
             chips: starting_chips,
-            player_id: player_id.clone(),
+            player_id: *player_id,
         };
 
         let signed = SignedMessage::new(&self.signing_key, confirmation,);
@@ -158,8 +157,8 @@ impl InternalTableState {
 
         for existing in self.players.iter() {
             let join_msg = Message::PlayerJoined {
-                player_id: existing.id.clone(),
-                chips: existing.chips.clone(),
+                player_id: existing.id,
+                chips: existing.chips,
                 table_id: self.table_id,
             };
 
@@ -168,8 +167,8 @@ impl InternalTableState {
         }
 
         self.broadcast(Message::PlayerJoined {
-            player_id: new_player.id.clone(),
-            chips: new_player.chips.clone(),
+            player_id: new_player.id,
+            chips: new_player.chips,
             table_id: self.table_id,
         },)
             .await;
@@ -186,7 +185,7 @@ impl InternalTableState {
     pub async fn leave(&mut self, player_id: &PeerId,) {
         if let Some(leaver,) = self.players.remove(player_id,) {
             let msg = Message::PlayerLeftNotification {
-                player_id: player_id.clone(),
+                player_id: *player_id,
             };
             self.broadcast(msg,).await;
             leaver.notify_left().await;
@@ -216,15 +215,14 @@ impl InternalTableState {
                         | PlayerAction::Fold => {
                             player.fold();
                         },
-                        | PlayerAction::Call => player.place_bet(*action, self.last_bet.clone(),),
+                        | PlayerAction::Call => player.place_bet(*action, self.last_bet,),
                         | PlayerAction::Check => {},
                         | PlayerAction::Bet | PlayerAction::Raise => {
-                            let amount: Chips = amount
-                                .clone()
-                                .min(player.current_bet.clone() + player.chips.clone(),);
-                            self.min_raise = (amount.clone() - self.last_bet.clone())
-                                .max(self.min_raise.clone(),);
-                            self.last_bet = amount.max(self.last_bet.clone(),);
+                            let amount: Chips = (*amount)
+                                .min(player.current_bet + player.chips,);
+                            self.min_raise = (amount - self.last_bet)
+                                .max(self.min_raise,);
+                            self.last_bet = amount.max(self.last_bet,);
                         },
                         | _ => {},
                     }
@@ -290,7 +288,7 @@ impl InternalTableState {
     async fn start_game(&mut self,) {
         self.phase = HandPhase::StartingGame;
         self.players.shuffle(&mut self.rng,);
-        let order = self.players.iter().map(|p| p.id.clone(),).collect();
+        let order = self.players.iter().map(|p| p.id,).collect();
         self.broadcast(Message::StartGame(order,),).await;
 
         self.start_hand().await;
@@ -308,7 +306,7 @@ impl InternalTableState {
         }
 
         self.last_bet = Chips::ZERO;
-        self.min_raise = self.big_blind.clone();
+        self.min_raise = self.big_blind;
 
         self.players.start_round();
 
@@ -343,7 +341,7 @@ impl InternalTableState {
         self.update_pots();
         self.players.reset_bets();
         self.last_bet = Chips::ZERO;
-        self.min_raise = self.big_blind.clone();
+        self.min_raise = self.big_blind;
 
         self.broadcast_throttle(Duration::from_millis(1000,),).await; // TODO: remove hardcoded number.
 
@@ -424,7 +422,7 @@ impl InternalTableState {
         let msg = Message::EndHand {
             payoffs: payoffs.to_vec(),
             board: self.community_cards.clone(),
-            cards: self.players.iter().map(|p| (p.id.clone(), p.public_cards,),).collect(),
+            cards: self.players.iter().map(|p| (p.id, p.public_cards,),).collect(),
         };
         self.broadcast(msg,).await;
     }
@@ -448,8 +446,8 @@ impl InternalTableState {
 
                 PlayerUpdate {
                     player_id: p.id,
-                    chips: p.chips.clone(),
-                    bet: p.current_bet.clone(),
+                    chips: p.chips,
+                    bet: p.current_bet,
                     action: p.last_action,
                     action_timer,
                     hole_cards: p.private_cards,
@@ -460,7 +458,7 @@ impl InternalTableState {
             .collect();
 
         let pot =
-            self.pots.iter().map(|p| p.total_chips.clone(),).fold(Chips::ZERO, |acc, c| acc + c,);
+            self.pots.iter().map(|p| p.total_chips,).fold(Chips::ZERO, |acc, c| acc + c,);
 
         let msg = Message::GameStateUpdate {
             players,
@@ -499,7 +497,7 @@ impl InternalTableState {
             player.action_timer = Some(Instant::now(),);
 
             let msg = Message::ActionRequest {
-                player_id: player.id.clone(),
+                player_id: player.id,
                 min_raise: self.min_raise + self.last_bet,
                 big_blind: self.big_blind,
                 actions,
@@ -555,7 +553,7 @@ impl InternalTableState {
             .players
             .iter()
             .filter(|p| p.chips == Chips::ZERO,)
-            .map(|p| p.id.clone(),)
+            .map(|p| p.id,)
             .collect();
 
         for player_id in broke {
@@ -575,7 +573,7 @@ impl InternalTableState {
         // Payout remaining chips to each player, notify and remove them.
         for player in self.players.iter() {
             if let Err(err,) =
-                self.database.credit_chips(player.id.clone(), player.chips.clone(),).await
+                self.database.credit_chips(player.id, player.chips,).await
             {
                 error!("Failed to pay player {}: {}", player.id, err);
             }
@@ -601,9 +599,9 @@ impl InternalTableState {
     fn pay_single_winner(&mut self, payoffs: &mut Vec<HandPayoff,>,) {
         if let Some(player,) = self.players.active_player() {
             for pot in self.pots.drain(..,) {
-                player.chips += pot.total_chips.clone();
+                player.chips += pot.total_chips;
                 match payoffs.iter_mut().find(|p| p.player_id == player.id,) {
-                    | Some(payoff,) => payoff.chips += pot.total_chips.clone(),
+                    | Some(payoff,) => payoff.chips += pot.total_chips,
                     | None => payoffs.push(HandPayoff {
                         player_id: player.id,
                         chips: pot.total_chips,
@@ -630,7 +628,7 @@ impl InternalTableState {
                 },)
                 .map(|(p, c1, c2,)| {
                     let mut cards = vec![c1, c2];
-                    cards.extend_from_slice(&community_cards,);
+                    cards.extend_from_slice(community_cards,);
                     let (value, best_hand,) = HandValue::eval_with_best_hand(&cards,);
                     (p, value, best_hand,)
                 },)
@@ -664,7 +662,7 @@ impl InternalTableState {
                 match payoffs.iter_mut().find(|p| p.player_id == player.id,) {
                     | Some(existing,) => existing.chips += payoff,
                     | None => payoffs.push(HandPayoff {
-                        player_id: player.id.clone(),
+                        player_id: player.id,
                         chips: payoff,
                         cards: best_hand_cards,
                         rank: value.rank().to_string(),
