@@ -1,4 +1,5 @@
 // code taken from https://github.com/vincev/freezeout
+// test.
 
 //! poker server entry point
 // "In computer programming, an entry point is the place in a program where the
@@ -9,7 +10,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use log::{error, info, warn};
 use poker_core::connection::{self, ClientConnection, SecureWebSocket};
 use poker_core::crypto::{PeerId, SigningKey};
@@ -20,11 +21,11 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::signal;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::{self, Duration};
+use tokio_rustls::TlsAcceptor;
+use tokio_rustls::rustls::ServerConfig as TlsServerConfig;
 use tokio_rustls::rustls::pki_types::pem::PemObject;
 use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use tokio_rustls::rustls::ServerConfig as TlsServerConfig;
 use tokio_rustls::server::TlsStream;
-use tokio_rustls::TlsAcceptor;
 
 use crate::db::Database;
 use crate::table::{Table, TableMessage};
@@ -199,7 +200,7 @@ impl ConnectionHandler {
         conn.close().await;
         res
     }
-    async fn handle_connection<S,>(&self, conn: &mut SecureWebSocket<S,>,) -> Result<(),>
+    async fn handle_connection<S,>(&mut self, conn: &mut SecureWebSocket<S,>,) -> Result<(),>
     where S: AsyncRead + AsyncWrite + Unpin {
         let (nickname, player_id,) = self.receive_initial_join(conn,).await?;
         let (table_msg_tx, mut table_msg_rx,) = mpsc::channel::<TableMessage,>(128,);
@@ -207,16 +208,16 @@ impl ConnectionHandler {
     }
 
     async fn receive_initial_join<S,>(
-        &self, conn: &mut SecureWebSocket<S,>,
+        &mut self, conn: &mut SecureWebSocket<S,>,
     ) -> Result<(String, PeerId,),>
     where S: AsyncRead + AsyncWrite + Unpin {
         let message = tokio::select! {
             result = conn.receive() => match result {
                 Some(Ok(msg)) => msg,
                 Some(Err(err)) => return Err(err),
-                None => return Ok(()),
+                None => return Err(anyhow!("Connection closed")),
             },
-            _ = self.shutdown_rx.receive() => return Ok(()),
+            _ = self.shutdown_broadcast_rx.recv() => return Err(anyhow!("Connection closed")),
         };
 
         match message.message() {
@@ -228,7 +229,8 @@ impl ConnectionHandler {
                     .upsert_player(message.sender(), nickname, Chips::new(1_000_000,),)
                     .await?;
                 let response = Message::PlayerJoined {
-                    player_id: player.id,
+                    player_id: player.player_id,
+                    table_id: self.table.clone().unwrap().id(),
                     chips: player.chips.clone(),
                 };
                 conn.send(&SignedMessage::new(&self.signing_key, response,),).await?;
@@ -239,7 +241,7 @@ impl ConnectionHandler {
     }
 
     async fn connection_loop<S,>(
-        &self, conn: &mut SecureWebSocket<S,>, player_id: PeerId, nickname: String,
+        &mut self, conn: &mut SecureWebSocket<S,>, player_id: PeerId, nickname: String,
         table_msg_tx: mpsc::Sender<TableMessage,>,
         table_msg_rx: &mut mpsc::Receiver<TableMessage,>,
     ) -> Result<(),>
@@ -263,7 +265,7 @@ impl ConnectionHandler {
                     Some(msg) => Incoming::FromTable(msg),
                     None => return Ok(()),
                 },
-                _ = self.shutdown_rx.receive() => Incoming::Shutdown,
+                _ = self.shutdown_broadcast_rx.recv() => Incoming::Shutdown,
             };
 
             match next {
