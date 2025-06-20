@@ -1,6 +1,10 @@
 // code based on https://github.com/vincev/freezeout
 //! Game view.
-use eframe::egui::*;
+use eframe::egui::{
+    Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId, Frame, Image, Key,
+    Rect, RichText, Sense, Slider, Stroke, StrokeKind, TextFormat, Ui, Vec2, Window, epaint, pos2,
+    text, vec2,
+};
 use log::error;
 use poker_cards::egui::Textures;
 use poker_core::game_state::{ClientGameState, Player};
@@ -50,7 +54,7 @@ impl View for GameView {
                         self.show_account = Some(*chips,);
                     }
 
-                    if let Message::StartHand = msg.message() {
+                    if matches!(msg.message(), Message::StartHand) {
                         self.bet_params = None;
                     }
 
@@ -100,7 +104,8 @@ impl GameView {
     const ACTION_BUTTON_LY: f32 = 35.0;
     const SMALL_BUTTON_SZ: Vec2 = vec2(30.0, 30.0,);
 
-    /// Creates a new [GameView].
+    /// Creates a new [`GameView`].
+    #[must_use]
     pub fn new(ctx: &Context, game_state: ClientGameState,) -> Self {
         ctx.request_repaint();
 
@@ -134,7 +139,7 @@ impl GameView {
             ui.painter().rect(
                 Rect::from_center_size(
                     rect.center(),
-                    vec2(rect.width() - 2.0 * radius, rect.height(),),
+                    vec2(2.0f32.mul_add(-radius, rect.width(),), rect.height(),),
                 ),
                 0.0,
                 fill,
@@ -199,7 +204,8 @@ impl GameView {
         }
 
         let mut card_rect = Rect::from_min_size(
-            rect.center() - vec2(CARD_SIZE.x * 2.5 + 2.0 * BORDER, CARD_SIZE.y / 2.0 + 20.0,),
+            rect.center()
+                - vec2(CARD_SIZE.x.mul_add(2.5, 2.0 * BORDER,), CARD_SIZE.y / 2.0 + 20.0,),
             CARD_SIZE,
         );
 
@@ -299,7 +305,7 @@ impl GameView {
 
         let galley = ui.painter().layout_job(layout_job,);
 
-        let min_pos = if let Align::RIGHT = align.x() {
+        let min_pos = if align.x() == Align::RIGHT {
             rect.right_top() - vec2(galley.size().x, 0.0,)
         } else {
             rect.left_top()
@@ -353,7 +359,7 @@ impl GameView {
 
         let galley = ui.painter().layout_no_wrap(player.chips.to_string(), font, Self::TEXT_COLOR,);
 
-        painter.galley(chips_pos + vec2(5.0, 7.0,), galley.clone(), Self::TEXT_COLOR,);
+        painter.galley(chips_pos + vec2(5.0, 7.0,), galley, Self::TEXT_COLOR,);
 
         if player.is_dealer {
             let btn_pos = bg_rect.right_top() + vec2(-10.0, 10.0,);
@@ -378,7 +384,7 @@ impl GameView {
             | PlayerCards::Cards(c1, c2,) => (textures.card(c1,), textures.card(c2,),),
         };
 
-        let cards_rect = if let Align::RIGHT = align.x() {
+        let cards_rect = if align.x() == Align::RIGHT {
             Rect::from_min_size(rect.left_top() - vec2(rect.size().x + 10.0, 0.0,), rect.size(),)
         } else {
             Rect::from_min_size(rect.right_top() + vec2(10.0, 0.0,), rect.size(),)
@@ -408,13 +414,13 @@ impl GameView {
                 return;
             }
 
-            let x_pos = if let Align::RIGHT = align.x() {
+            let x_pos = if align.x() == Align::RIGHT {
                 rect.left_top().x - rect.size().x - 10.0
             } else {
                 rect.left_top().x
             };
 
-            let y_pos = if let Align::TOP = align.y() {
+            let y_pos = if align.y() == Align::TOP {
                 rect.left_top().y + 130.0
             } else {
                 rect.left_top().y - (IMAGE_LY + LABEL_LY + 10.0)
@@ -422,7 +428,7 @@ impl GameView {
 
             let cards_rect = Rect::from_min_size(
                 pos2(x_pos, y_pos,),
-                vec2(Self::ACTION_BUTTON_LX * 2.0 + 10.0, IMAGE_LY + LABEL_LY,),
+                vec2(Self::ACTION_BUTTON_LX.mul_add(2.0, 10.0,), IMAGE_LY + LABEL_LY,),
             );
 
             paint_border(ui, &cards_rect,);
@@ -533,7 +539,7 @@ impl GameView {
                     Self::TEXT_COLOR,
                 );
 
-                ui.painter().galley(amount_rect.left_top(), galley.clone(), Self::TEXT_COLOR,);
+                ui.painter().galley(amount_rect.left_top(), galley, Self::TEXT_COLOR,);
             }
         }
     }
@@ -674,7 +680,7 @@ impl GameView {
             let min_raise = params.min_raise.min(max_bet,);
             let slider = Slider::new(&mut params.raise_value, min_raise..=max_bet,)
                 .show_value(false,)
-                .step_by(big_blind as f64,)
+                .step_by(f64::from(big_blind,),)
                 .trailing_fill(true,);
 
             ui.style_mut().spacing.slider_width = rect.width() - 10.0;
@@ -759,7 +765,7 @@ impl GameView {
     }
 
     fn paint_legend(&mut self, ui: &mut Ui, rect: &Rect,) {
-        const LINES: &str = indoc::indoc! {r#"
+        const LINES: &str = indoc::indoc! {r"
             C     Call/Check
             F     Fold
             R     Raise
@@ -769,7 +775,7 @@ impl GameView {
             PgUp  +4BB
             PgDn  -4BB
             Enter Confirm
-            ?     Show/Hide"#};
+            ?     Show/Hide"};
 
         if ui.input(|i| i.key_pressed(Key::Questionmark,),) {
             self.show_legend ^= true;
@@ -866,13 +872,13 @@ fn player_rect(rect: &Rect, align: &Align2,) -> Rect {
     };
 
     let y = match (align.x(), align.y(),) {
-        | (Align::LEFT, Align::TOP,) | (Align::RIGHT, Align::TOP,) => {
+        | (Align::LEFT | Align::RIGHT, Align::TOP,) => {
             rect.top() + rect.height() / 4.0 - PLAYER_SIZE.y / 2.0
         },
-        | (Align::LEFT, Align::BOTTOM,) | (Align::RIGHT, Align::BOTTOM,) => {
+        | (Align::LEFT | Align::RIGHT, Align::BOTTOM,) => {
             rect.bottom() - rect.height() / 4.0 - PLAYER_SIZE.y / 2.0
         },
-        | (Align::LEFT, Align::Center,) | (Align::RIGHT, Align::Center,) => {
+        | (Align::LEFT | Align::RIGHT, Align::Center,) => {
             rect.bottom() - rect.height() / 2.0 - PLAYER_SIZE.y / 2.0
         },
         | (Align::Center, Align::TOP,) => rect.top(),

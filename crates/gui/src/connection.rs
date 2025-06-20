@@ -39,7 +39,7 @@ impl Connection {
         // Wake up UI thread on new message
         let wakeup = move || ctx.request_repaint();
         match ewebsock::connect_with_wakeup(url, Default::default(), wakeup,) {
-            | Ok((ws_sender, ws_receiver,),) => Ok(Connection {
+            | Ok((ws_sender, ws_receiver,),) => Ok(Self {
                 ws_sender,
                 ws_receiver,
                 noise_handshake: None,

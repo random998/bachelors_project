@@ -1,6 +1,9 @@
 // code based on https://github.com/vincev/freezeout
 //! Connection dialog view.
-use eframe::egui::*;
+use eframe::egui::{
+    Align2, Button, Color32, Context, Event, FontFamily, FontId, RichText, TextBuffer, TextEdit,
+    Window, vec2,
+};
 use log::error;
 use poker_core::crypto::SigningKey;
 use poker_core::message::Message;
@@ -37,11 +40,12 @@ impl Default for ConnectView {
 
 impl ConnectView {
     /// Creates a new connect view.
+    #[must_use]
     pub fn new(storage: Option<&dyn eframe::Storage,>, app: &App,) -> Self {
         app.get_storage(storage,)
             .map(|d| {
                 let sk = SigningKey::from_phrase(&d.passphrase,).unwrap_or_default();
-                ConnectView {
+                Self {
                     passphrase: sk.phrase(),
                     player_id: sk.verifying_key().peer_id().digits(),
                     nickname: d.nickname,
@@ -82,7 +86,7 @@ impl View for ConnectView {
                     } = msg.message()
                     {
                         self.player_id = player_id.to_string();
-                        self.chips = chips.clone();
+                        self.chips = *chips;
                         self.server_joined = true;
                     }
                 },
