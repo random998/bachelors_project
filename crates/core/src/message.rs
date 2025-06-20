@@ -101,23 +101,23 @@ pub enum Message {
 
 impl Message {
     // Returns a label of the message variant as a string.
-    pub fn label(&self) -> &'static str {
+    #[must_use] pub const fn label(&self) -> &'static str {
         match self {
-            Message::JoinTableRequest { .. } => "JoinTableRequest",
-            Message::PlayerLeftNotification { .. } => "PlayerLeftNotification",
-            Message::NoTablesLeftNotification => "NoTablesLeftNotification",
-            Message::NotEnoughChips => "NotEnoughChips",
-            Message::PlayerAlreadyJoined => "PlayerAlreadyJoined",
-            Message::PlayerJoined { .. } => "PlayerJoined",
-            Message::ShowAccount { .. } => "ShowAccount",
-            Message::StartGame(_) => "StartGame",
-            Message::StartHand => "StartHand",
-            Message::EndHand { .. } => "EndHand",
-            Message::DealCards(_, _) => "DealCards",
-            Message::PlayerLeftTable => "PlayerLeftTable",
-            Message::GameStateUpdate { .. } => "GameStateUpdate",
-            Message::ActionRequest { .. } => "ActionRequest",
-            Message::ActionResponse { .. } => "ActionResponse",
+            Self::JoinTableRequest { .. } => "JoinTableRequest",
+            Self::PlayerLeftNotification { .. } => "PlayerLeftNotification",
+            Self::NoTablesLeftNotification => "NoTablesLeftNotification",
+            Self::NotEnoughChips => "NotEnoughChips",
+            Self::PlayerAlreadyJoined => "PlayerAlreadyJoined",
+            Self::PlayerJoined { .. } => "PlayerJoined",
+            Self::ShowAccount { .. } => "ShowAccount",
+            Self::StartGame(_) => "StartGame",
+            Self::StartHand => "StartHand",
+            Self::EndHand { .. } => "EndHand",
+            Self::DealCards(_, _) => "DealCards",
+            Self::PlayerLeftTable => "PlayerLeftTable",
+            Self::GameStateUpdate { .. } => "GameStateUpdate",
+            Self::ActionRequest { .. } => "ActionRequest",
+            Self::ActionResponse { .. } => "ActionResponse",
         }
     }
 
