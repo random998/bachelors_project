@@ -9,6 +9,10 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/gui/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/snow-0.9.6/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/snow-0.9.6/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/snow-0.9.6/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/snow-0.9.6/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
