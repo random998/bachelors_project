@@ -21,7 +21,7 @@ pub struct Connection {
 }
 
 /// Connection event.
-#[derive(Debug)]
+#[derive(Debug,)]
 pub enum ConnectionEvent {
     /// Connection opened.
     Open,
