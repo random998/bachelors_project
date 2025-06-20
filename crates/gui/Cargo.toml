@@ -7,7 +7,7 @@ version = { workspace = true }
 [dependencies]
 ahash = { workspace = true }
 anyhow = { workspace = true }
-eframe = {version = "0.31.1", features = ["ron"]}
+eframe = {version = "0.31.1", features = ["ron", "serde"]}
 ewebsock = { version = "0.8.0", features = ["tls"] }
 poker-cards = { workspace = true, features = ["egui"] }
 poker-core = { workspace = true }
