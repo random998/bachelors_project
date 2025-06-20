@@ -3,6 +3,7 @@
 use eframe::egui::{
     Align2, Button, Color32, Context, FontFamily, FontId, Grid, RichText, Window, vec2,
 };
+use poker_core::crypto::PeerId;
 use poker_core::game_state::ClientGameState;
 use poker_core::message::Message;
 use poker_core::poker::Chips;
@@ -13,7 +14,7 @@ const TEXT_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 
 /// Connect view.
 pub struct AccountView {
-    player_id: String,
+    player_id: PeerId,
     nickname: String,
     game_state: ClientGameState,
     chips: Chips,
@@ -28,7 +29,7 @@ impl AccountView {
     #[must_use]
     pub fn new(chips: Chips, app: &App,) -> Self {
         Self {
-            player_id: app.player_id().digits(),
+            player_id: *app.player_id(),
             nickname: app.nickname().to_string(),
             game_state: ClientGameState::new(*app.player_id(), app.nickname().to_string(),),
             chips,
@@ -89,7 +90,7 @@ impl View for AccountView {
                         ui.end_row();
 
                         ui.label(RichText::new("Player ID",).font(TEXT_FONT,),);
-                        ui.label(RichText::new(&self.player_id,).font(TEXT_FONT,),);
+                        ui.label(RichText::new(self.player_id.to_string(),).font(TEXT_FONT,),);
                         ui.end_row();
 
                         ui.label(RichText::new("Chips",).font(TEXT_FONT,),);
@@ -112,6 +113,7 @@ impl View for AccountView {
                     let btn = Button::new(RichText::new("Join Table",).font(TEXT_FONT,),);
                     if ui.add_sized(vec2(180.0, 30.0,), btn,).clicked() {
                         app.send_message(Message::JoinTableRequest {
+                            player_id: self.player_id.clone(),
                             nickname: self.nickname.clone(),
                         },);
                     }
