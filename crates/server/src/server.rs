@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 use log::{error, info, warn};
 use poker_core::connection::{self, ClientConnection, SecureWebSocket};
 use poker_core::crypto::{PeerId, SigningKey};
@@ -21,11 +21,11 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::signal;
 use tokio::sync::{broadcast, mpsc};
 use tokio::time::{self, Duration};
-use tokio_rustls::TlsAcceptor;
-use tokio_rustls::rustls::ServerConfig as TlsServerConfig;
 use tokio_rustls::rustls::pki_types::pem::PemObject;
 use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use tokio_rustls::rustls::ServerConfig as TlsServerConfig;
 use tokio_rustls::server::TlsStream;
+use tokio_rustls::TlsAcceptor;
 
 use crate::db::Database;
 use crate::table::{Table, TableMessage};

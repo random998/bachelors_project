@@ -9,14 +9,14 @@ use log::{error, info};
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
 use poker_core::poker::{Card, Chips, Deck, HandValue, PlayerCards, TableId};
-use rand::SeedableRng;
 use rand::rngs::StdRng;
+use rand::SeedableRng;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_rustls::rustls::InvalidMessage::HandshakePayloadTooLarge;
 
-use super::TableMessage;
 use super::player::{Player, PlayersState};
+use super::TableMessage;
 use crate::db::Database;
 
 /// Represents the current phase of a hand being played.
