@@ -1,0 +1,3 @@
+# crates/gui/Trunk.toml
+[build]
+target = "index.html"

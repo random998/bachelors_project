@@ -43,7 +43,7 @@ pub struct App {
 }
 
 impl App {
-    const STORAGE_KEY: &str = "appdata";
+    const STORAGE_KEY: &'static str = "appdata";
 
     fn new(config: Config, textures: Textures,) -> Self {
         let sk = SigningKey::default();
