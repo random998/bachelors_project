@@ -2,7 +2,7 @@
 
 //! Freezeout Poker egui app implementation.
 use anyhow::Result;
-use eframe::egui::*;
+use eframe::egui::{Context, TextBuffer, Theme};
 use poker_cards::egui::Textures;
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{Message, SignedMessage};
@@ -74,7 +74,8 @@ impl App {
     }
 
     /// Checks if there is an active connection.
-    pub fn is_connected(&self,) -> bool {
+    #[must_use]
+    pub const fn is_connected(&self,) -> bool {
         self.connection.is_some()
     }
 
@@ -88,11 +89,13 @@ impl App {
     }
 
     /// This client player id.
-    pub fn player_id(&self,) -> &PeerId {
+    #[must_use]
+    pub const fn player_id(&self,) -> &PeerId {
         &self.player_id
     }
 
     /// This client nickname.
+    #[must_use]
     pub fn nickname(&self,) -> &str {
         &self.nickname
     }
@@ -113,6 +116,7 @@ impl App {
     }
 
     /// Get a value from the app storage.
+    #[must_use]
     pub fn get_storage(&self, storage: Option<&dyn eframe::Storage,>,) -> Option<AppData,> {
         storage.and_then(|s| eframe::get_value::<AppData,>(s, Self::STORAGE_KEY,),)
     }
@@ -147,6 +151,7 @@ pub struct AppFrame {
 
 impl AppFrame {
     /// Creates a new App instance.
+    #[must_use]
     pub fn new(config: Config, cc: &eframe::CreationContext<'_,>,) -> Self {
         cc.egui_ctx.set_theme(Theme::Dark,);
 
@@ -154,7 +159,7 @@ impl AppFrame {
         let app = App::new(config, Textures::new(&cc.egui_ctx,),);
         let panel = Box::new(ConnectView::new(cc.storage, &app,),);
 
-        AppFrame {
+        Self {
             app,
             panel,
         }

@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Connection dialog view.
-use eframe::egui::*;
+use eframe::egui::{
+    Align2, Button, Color32, Context, FontFamily, FontId, Grid, RichText, Window, vec2,
+};
 use poker_core::game_state::ClientGameState;
 use poker_core::message::Message;
 use poker_core::poker::Chips;
@@ -25,11 +27,12 @@ pub struct AccountView {
 
 impl AccountView {
     /// Creates a new connect view.
+    #[must_use]
     pub fn new(chips: Chips, app: &App,) -> Self {
         Self {
             player_id: app.player_id().digits(),
             nickname: app.nickname().to_string(),
-            game_state: ClientGameState::new(app.player_id().clone(), app.nickname().to_string(),),
+            game_state: ClientGameState::new(*app.player_id(), app.nickname().to_string(),),
             chips,
             error: String::default(),
             connection_closed: false,
@@ -113,7 +116,7 @@ impl View for AccountView {
                         app.send_message(Message::JoinTableRequest {
                             nickname: self.nickname.clone(),
                         },);
-                    };
+                    }
                 },);
             },);
     }
@@ -124,8 +127,7 @@ impl View for AccountView {
         if self.connection_closed {
             Some(Box::new(ConnectView::new(frame.storage(), app,),),)
         } else if self.table_joined {
-            let empty_state =
-                ClientGameState::new(app.player_id().clone(), app.nickname().to_string(),);
+            let empty_state = ClientGameState::new(*app.player_id(), app.nickname().to_string(),);
             Some(Box::new(GameView::new(
                 ctx,
                 std::mem::replace(&mut self.game_state, empty_state,),
