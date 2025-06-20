@@ -14,9 +14,17 @@ fn main() {
             .get_element_by_id("server-url",)
             .expect("Failed to find server-address element",)
             .inner_html();
-        // TODO let config = freezeout_gui::Config {server_url};
-        // eframe::WebRunner::new().start(canvas, Default::default(),
-        // Box::new(|cc| Ok(Box::new(freezeout_gui::AppFrame::new(config,
-        // cc))))).await.except("failed to start eframe")
+
+        let config = poker_gui::gui::Config {
+            server_url,
+        };
+        eframe::WebRunner::new()
+            .start(
+                canvas,
+                Default::default(),
+                Box::new(|cc| Ok(Box::new(poker_gui::gui::AppFrame::new(config, cc,),),),),
+            )
+            .await
+            .expect("failed to start eframe",)
     },)
 }
