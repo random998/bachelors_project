@@ -47,12 +47,16 @@ impl Database {
         conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;",)?;
         conn.execute(
             "CREATE TABLE IF NOT EXISTS players (
-                id TEXT PRIMARY KEY,
-                nickname TEXT NOT NULL,
-                chips INTEGER NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                last_update DATETIME DEFAULT CURRENT_TIMESTAMP
-            )",
+            id TEXT PRIMARY KEY,
+            nickname TEXT NOT NULL,
+            chips INTEGER NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP CHECK (
+                created_at GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]'
+            ),
+            last_update TEXT DEFAULT CURRENT_TIMESTAMP CHECK (
+                created_at GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]'
+            )
+        ) STRICT;",
             (),
         )?;
         Ok((),)
@@ -69,7 +73,7 @@ impl Database {
             let conn = db.lock();
 
             let mut stmt = conn.prepare("SELECT id, nickname, chips FROM players WHERE id = ?1",)?;
-            let query_result = stmt.query_row(params![player_id.digits()], |row| {
+            let query_result = stmt.query_row(params![player_id.digits().to_string()], |row| {
                 Ok(Player {
                     player_id,
                     nickname: row.get(1,)?,
@@ -112,8 +116,14 @@ impl Database {
                         chips: initial_chips,
                     };
                     conn.execute(
-                        "INSERT INTO players (id, nickname, chips) VALUES (?1, ?2, ?3)",
-                        params![player_id.digits(), nickname, initial_chips.amount()],
+                        "INSERT INTO players (id, nickname, chips)\
+                             VALUES (?1, ?2, ?3)\
+                             ON CONFLICT(id) DO UPDATE SET \
+                             nickname = excluded.nickname,
+                             chips = excluded.chips,
+                             created_at = excluded.created_at;
+                             ",
+                        params![player_id.digits().to_string(), nickname.to_string(), initial_chips.amount()],
                     )?;
                     Ok(new_player,)
                 },
