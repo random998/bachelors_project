@@ -116,8 +116,12 @@ impl PlayersState {
     }
 
     pub fn remove(&mut self, id: &PeerId,) -> Option<Player,> {
+        let old_active_player_idx = self.active_player_idx.clone().unwrap();
         if let Some(pos,) = self.players.iter().position(|p| &p.id == id,) {
             let removed = self.players.remove(pos,);
+
+            // if the removed player was active, then active_player_idx should be none.
+            assert!((old_active_player_idx == pos && self.active_player_idx.is_none()) || !self.active_player_idx.is_none());
 
             match self.active_player_idx {
                 | Some(idx,) if idx == pos => {
@@ -372,16 +376,20 @@ mod tests {
         players.advance_turn();
         assert_eq!(players.active_player_idx.unwrap(), 1);
 
-        // Deactivate player at index 2
-        players.iter_mut().nth(2,).unwrap().fold();
+        // Deactivate player at index 0
+        players.iter_mut().nth(0,).unwrap().fold();
         assert_eq!(players.count_active(), SEATS - 1);
 
-        // Active leaves but the player after that has folded so the next player at
-        // index 3, that will move to index 2, should become active.
+        // check if player at index 0 and player at index 1 have different ids.
+        assert_ne!(players.players[0].id, players.players[1].id);
+
+        // Active player (player at idx 1) leaves but the player at index 0 has folded so the next player at
+        // index 2 should become active, which has been moved to idx 1.
         let active_id = players.players[1].id;
-        let next_id = players.players[3].id;
+        assert_eq!(players.active_player_idx.unwrap(), 1);
+        let next_id = players.players[2].id;
         assert!(players.remove(&active_id).is_some());
-        assert_eq!(players.active_player_idx.unwrap(), 2);
+        assert_eq!(players.active_player_idx.unwrap(), 1);
         assert_eq!(players.active_player().unwrap().id, next_id);
         assert_eq!(players.count_active(), SEATS - 2);
     }
