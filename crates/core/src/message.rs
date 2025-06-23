@@ -37,6 +37,7 @@ pub enum Message {
         // TODO: implement display trait for this struct
         table_id: TableId,
         player_id: PeerId,
+        nickname: String,
         chips: Chips,
     },
 

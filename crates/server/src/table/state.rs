@@ -147,6 +147,7 @@ impl InternalTableState {
 
         let confirmation = Message::PlayerJoined {
             table_id: self.table_id,
+            nickname: nickname.to_string(),
             chips: starting_chips,
             player_id: *player_id,
         };
@@ -158,6 +159,7 @@ impl InternalTableState {
         for existing in self.players.iter() {
             let join_msg = Message::PlayerJoined {
                 player_id: existing.id,
+                nickname: existing.nickname.clone(),
                 chips: existing.chips,
                 table_id: self.table_id,
             };
@@ -167,6 +169,7 @@ impl InternalTableState {
         }
 
         self.broadcast(Message::PlayerJoined {
+            nickname: new_player.nickname.to_string(),
             player_id: new_player.id,
             chips: new_player.chips,
             table_id: self.table_id,

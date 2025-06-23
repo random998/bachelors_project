@@ -1,7 +1,6 @@
 // code copied from https://github.com/vincev/freezeout
 // Game state representation for each peer client in a peer-to-peer poker game.
 
-use log::debug;
 use crate::crypto::PeerId;
 use crate::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
 use crate::poker::{Card, Chips, PlayerCards, TableId};
@@ -172,7 +171,8 @@ impl ClientGameState {
     pub fn handle_message(&mut self, msg: SignedMessage,) {
         match msg.message() {
             | Message::PlayerJoined {
-                player_id: _player_id,
+                player_id,
+                nickname,
                 chips,
                 table_id,
             } => {
@@ -180,8 +180,8 @@ impl ClientGameState {
                 self.num_taken_seats += 1usize;
                 self.legacy_server_key = msg.sender().digits();
 
-                // Add this player as the first player in the players list.
-                self.players.push(Player::new(self.player_id, self.nickname.clone(), *chips,),);
+                // Add the joined player as the first player in the players list.
+                self.players.push(Player::new(player_id.clone(), nickname.clone(), *chips,),);
             },
             | Message::PlayerLeftNotification {
                 player_id,
@@ -190,8 +190,13 @@ impl ClientGameState {
             },
             | Message::StartGame(seats,) => {
                 // Reorder seats according to the new order.
-                debug!("handling incoming server message StartGame");
-                debug!("current seats list: {:?}", seats);
+                println!("handling incoming server message StartGame");
+                println!("current seats list: {:?}", seats);
+                println!(
+                    "player id list: {:?}",
+                    self.players.iter().map(|p| p.id).collect::<Vec<_,>>()
+                );
+
                 for (idx, seat_id,) in seats.iter().enumerate() {
                     let pos = self
                         .players
