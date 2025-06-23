@@ -139,6 +139,7 @@ impl InternalTableState {
         }
 
         if self.players.iter().any(|player| &player.id == player_id,) {
+            info!("player already joined, players id list: {:?}", self.players.iter().map(|p| p.id).collect::<Vec<_>>());
             return Err(TableJoinError::AlreadyJoined,);
         }
 
@@ -168,16 +169,16 @@ impl InternalTableState {
             let _ = new_player.send(signed,).await;
         }
 
+        self.players.add(new_player.clone(),);
+        info!("Player {player_id} joined table {}", self.table_id);
+
         self.broadcast(Message::PlayerJoined {
-            nickname: new_player.nickname.to_string(),
-            player_id: new_player.id,
-            chips: new_player.chips,
+            nickname: new_player.clone().nickname.to_string(),
+            player_id: new_player.clone().id,
+            chips: new_player.clone().chips,
             table_id: self.table_id,
         },)
             .await;
-
-        self.players.add(new_player,);
-        info!("Player {player_id} joined table {}", self.table_id);
 
         if self.players.count() == self.num_seats {
             self.start_game().await;
