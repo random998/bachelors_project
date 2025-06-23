@@ -121,7 +121,10 @@ impl PlayersState {
             let removed = self.players.remove(pos,);
 
             // if the removed player was active, then active_player_idx should be none.
-            assert!((old_active_player_idx == pos && self.active_player_idx.is_none()) || !self.active_player_idx.is_none());
+            assert!(
+                (old_active_player_idx == pos && self.active_player_idx.is_none())
+                    || !self.active_player_idx.is_none()
+            );
 
             match self.active_player_idx {
                 | Some(idx,) if idx == pos => {
@@ -383,8 +386,9 @@ mod tests {
         // check if player at index 0 and player at index 1 have different ids.
         assert_ne!(players.players[0].id, players.players[1].id);
 
-        // Active player (player at idx 1) leaves but the player at index 0 has folded so the next player at
-        // index 2 should become active, which has been moved to idx 1.
+        // Active player (player at idx 1) leaves but the player at index 0 has folded
+        // so the next player at index 2 should become active, which has been
+        // moved to idx 1.
         let active_id = players.players[1].id;
         assert_eq!(players.active_player_idx.unwrap(), 1);
         let next_id = players.players[2].id;

@@ -71,7 +71,7 @@ fn main() -> eframe::Result<(),> {
     };
 
     let app_name =
-        cli.storage.map_or_else(|| "freezeout".to_string(), |s| format!("freezeout-{s}"));
+        cli.storage.map_or_else(|| "freezeout".to_string(), |s| format!("freezeout-{s}"),);
 
     eframe::run_native(
         &app_name,

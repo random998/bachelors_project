@@ -51,10 +51,12 @@ impl Database {
             nickname TEXT NOT NULL,
             chips INTEGER NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP CHECK (
-                created_at GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]'
+                created_at GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9] \
+             [0-2][0-9]:[0-5][0-9]:[0-5][0-9]'
             ),
             last_update TEXT DEFAULT CURRENT_TIMESTAMP CHECK (
-                created_at GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]'
+                created_at GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9] \
+             [0-2][0-9]:[0-5][0-9]:[0-5][0-9]'
             )
         ) STRICT;",
             (),
@@ -116,14 +118,16 @@ impl Database {
                         chips: initial_chips,
                     };
                     conn.execute(
-                        "INSERT INTO players (id, nickname, chips)\
-                             VALUES (?1, ?2, ?3)\
-                             ON CONFLICT(id) DO UPDATE SET \
-                             nickname = excluded.nickname,
+                        "INSERT INTO players (id, nickname, chips)VALUES (?1, ?2, ?3)ON \
+                         CONFLICT(id) DO UPDATE SET nickname = excluded.nickname,
                              chips = excluded.chips,
                              created_at = excluded.created_at;
                              ",
-                        params![player_id.digits().to_string(), nickname.to_string(), initial_chips.amount()],
+                        params![
+                            player_id.digits().to_string(),
+                            nickname.to_string(),
+                            initial_chips.amount()
+                        ],
                     )?;
                     Ok(new_player,)
                 },

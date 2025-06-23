@@ -65,20 +65,20 @@ impl Card {
     pub fn rank(&self,) -> Rank {
         let rank_bits = self.rank_bits();
         match rank_bits {
-            0 => Rank::Deuce,
-            1 => Rank::Trey,
-            2 => Rank::Four,
-            3 => Rank::Five,
-            4 => Rank::Six,
-            5 => Rank::Seven,
-            6 => Rank::Eight,
-            7 => Rank::Nine,
-            8 => Rank::Ten,
-            9 => Rank::Jack,
-            10 => Rank::Queen,
-            11 => Rank::King,
-            12 => Rank::Ace,
-            _ => panic!("Invalid rank value 0x{:x}", self.0),
+            | 0 => Rank::Deuce,
+            | 1 => Rank::Trey,
+            | 2 => Rank::Four,
+            | 3 => Rank::Five,
+            | 4 => Rank::Six,
+            | 5 => Rank::Seven,
+            | 6 => Rank::Eight,
+            | 7 => Rank::Nine,
+            | 8 => Rank::Ten,
+            | 9 => Rank::Jack,
+            | 10 => Rank::Queen,
+            | 11 => Rank::King,
+            | 12 => Rank::Ace,
+            | _ => panic!("Invalid rank value 0x{:x}", self.0),
         }
     }
 
