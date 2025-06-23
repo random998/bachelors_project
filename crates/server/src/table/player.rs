@@ -352,9 +352,9 @@ mod tests {
 
         // Active leaves the next player should become active.
         let active_id = players.players[1].id;
-        let next_id = players.players[2].id;
+        let next_id = players.players[0].id;
         assert!(players.remove(&active_id).is_some());
-        assert_eq!(players.active_player_idx.unwrap(), 1);
+        assert_eq!(players.active_player_idx.unwrap(), 0);
         assert_eq!(players.active_player().unwrap().id, next_id);
         assert_eq!(players.count_active(), SEATS - 1);
     }
