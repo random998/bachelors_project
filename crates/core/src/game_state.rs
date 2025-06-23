@@ -181,7 +181,7 @@ impl ClientGameState {
                 self.legacy_server_key = msg.sender().digits();
 
                 // Add the joined player as the first player in the players list.
-                self.players.push(Player::new(player_id.clone(), nickname.clone(), *chips,),);
+                self.players.push(Player::new(*player_id, nickname.clone(), *chips,),);
             },
             | Message::PlayerLeftNotification {
                 player_id,
@@ -191,7 +191,7 @@ impl ClientGameState {
             | Message::StartGame(seats,) => {
                 // Reorder seats according to the new order.
                 println!("handling incoming server message StartGame");
-                println!("current seats list: {:?}", seats);
+                println!("current seats list: {seats:?}");
                 println!(
                     "player id list: {:?}",
                     self.players.iter().map(|p| p.id).collect::<Vec<_,>>()
