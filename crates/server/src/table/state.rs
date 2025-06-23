@@ -139,7 +139,10 @@ impl InternalTableState {
         }
 
         if self.players.iter().any(|player| &player.id == player_id,) {
-            info!("player already joined, players id list: {:?}", self.players.iter().map(|p| p.id).collect::<Vec<_>>());
+            info!(
+                "player already joined, players id list: {:?}",
+                self.players.iter().map(|p| p.id).collect::<Vec<_,>>()
+            );
             return Err(TableJoinError::AlreadyJoined,);
         }
 

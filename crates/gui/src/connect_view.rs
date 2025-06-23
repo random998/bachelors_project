@@ -13,7 +13,7 @@ const TEXT_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 const LABEL_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 
 /// Connect view.
-#[derive(Default)]
+#[derive(Default,)]
 pub struct ConnectView {
     nickname: String,
     chips: Chips,
@@ -21,7 +21,6 @@ pub struct ConnectView {
     server_joined: bool,
     signing_key: SigningKey, // key for signing messages
 }
-
 
 impl ConnectView {
     /// Creates a new connect view.
