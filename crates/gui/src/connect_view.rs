@@ -1,5 +1,3 @@
-// code based on https://github.com/vincev/freezeout
-//! Connection dialog view.
 use eframe::egui::{
     Align2, Button, Color32, Context, Event, FontFamily, FontId, RichText, TextBuffer, TextEdit,
     Window, vec2,
@@ -16,24 +14,21 @@ const LABEL_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 
 /// Connect view.
 pub struct ConnectView {
-    passphrase: String,
-    player_id: PeerId,
     nickname: String,
     chips: Chips,
     error: String,
     server_joined: bool,
+    signing_key: SigningKey, // key for signing messages
 }
 
 impl Default for ConnectView {
     fn default() -> Self {
-        let sk = SigningKey::default();
         Self {
-            passphrase: sk.phrase(),
-            player_id: sk.verifying_key().peer_id(),
             nickname: String::default(),
             chips: Chips::default(),
             error: String::default(),
             server_joined: false,
+            signing_key: SigningKey::default(),
         }
     }
 }
@@ -46,20 +41,25 @@ impl ConnectView {
             .map(|d| {
                 let sk = SigningKey::from_phrase(&d.passphrase,).unwrap_or_default();
                 Self {
-                    passphrase: sk.phrase(),
-                    player_id: sk.verifying_key().peer_id(),
                     nickname: d.nickname,
                     chips: Chips::default(),
                     error: String::new(),
                     server_joined: false,
+                    signing_key: sk,
                 }
             },)
             .unwrap_or_default()
     }
 
+    fn passphrase(&self,) -> String {
+        self.signing_key.phrase()
+    }
+    fn player_id(&self,) -> PeerId {
+        self.signing_key.verifying_key().peer_id()
+    }
+
     fn assign_key(&mut self, sk: &SigningKey,) {
-        self.passphrase = sk.phrase();
-        self.player_id = sk.verifying_key().peer_id();
+        self.signing_key = sk.clone();
     }
 }
 
@@ -69,7 +69,7 @@ impl View for ConnectView {
             match event {
                 | ConnectionEvent::Open => {
                     app.send_message(Message::JoinTableRequest {
-                        player_id: self.player_id.clone(),
+                        player_id: self.player_id(),
                         nickname: self.nickname.to_string(),
                     },);
                 },
@@ -83,12 +83,15 @@ impl View for ConnectView {
                     if let Message::PlayerJoined {
                         table_id: _table_id,
                         player_id,
+                        nickname,
                         chips,
                     } = msg.message()
                     {
-                        self.player_id = *player_id;
-                        self.chips = *chips;
-                        self.server_joined = true;
+                        if self.player_id() == player_id.clone() {
+                            self.chips = *chips;
+                            self.server_joined = true;
+                            self.nickname = nickname.to_string();
+                        }
                     }
                 },
             }
@@ -120,7 +123,6 @@ impl View for ConnectView {
                         ui.add_space(125.0,);
                         if ui.button(RichText::new("Generate",).font(TEXT_FONT,),).clicked() {
                             self.error.clear();
-
                             let sk = SigningKey::default();
                             self.assign_key(&sk,);
                         }
@@ -142,19 +144,10 @@ impl View for ConnectView {
 
                     // Copy field value to avoid editing, these fields can only be
                     // changed by pasting the passphrase or with the generate button.
-                    let mut passphrase = self.passphrase.clone();
+                    let mut passphrase = self.passphrase();
                     TextEdit::multiline(&mut passphrase,)
                         .char_limit(108,)
                         .desired_rows(3,)
-                        .desired_width(400.0,)
-                        .font(TEXT_FONT,)
-                        .show(ui,);
-
-                    ui.add_space(5.0,);
-
-                    ui.label(RichText::new("Public Identifier",).font(LABEL_FONT,),);
-                    let mut player_id_str = self.player_id.to_string();
-                    TextEdit::singleline(&mut player_id_str,)
                         .desired_width(400.0,)
                         .font(TEXT_FONT,)
                         .show(ui,);
@@ -182,9 +175,9 @@ impl View for ConnectView {
                             return;
                         }
 
-                        let sk = if let Ok(sk,) = SigningKey::from_phrase(&self.passphrase,) {
+                        let sk = if let Ok(sk,) = SigningKey::from_phrase(&self.passphrase(),) {
                             let data = AppData {
-                                passphrase: self.passphrase.clone(),
+                                passphrase: self.passphrase(),
                                 nickname: self.nickname.clone(),
                             };
 
