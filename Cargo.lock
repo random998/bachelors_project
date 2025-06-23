@@ -2937,6 +2937,7 @@ dependencies = [
  "ed25519-dalek",
  "futures-util",
  "getrandom 0.3.3",
+ "log",
  "poker-cards",
  "poker-eval",
  "rand 0.9.1",

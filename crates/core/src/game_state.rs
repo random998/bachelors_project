@@ -1,6 +1,7 @@
 // code copied from https://github.com/vincev/freezeout
 // Game state representation for each peer client in a peer-to-peer poker game.
 
+use log::debug;
 use crate::crypto::PeerId;
 use crate::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
 use crate::poker::{Card, Chips, PlayerCards, TableId};
@@ -189,6 +190,8 @@ impl ClientGameState {
             },
             | Message::StartGame(seats,) => {
                 // Reorder seats according to the new order.
+                debug!("handling incoming server message StartGame");
+                debug!("current seats list: {:?}", seats);
                 for (idx, seat_id,) in seats.iter().enumerate() {
                     let pos = self
                         .players
