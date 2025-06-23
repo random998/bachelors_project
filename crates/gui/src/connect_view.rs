@@ -13,6 +13,7 @@ const TEXT_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 const LABEL_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 
 /// Connect view.
+#[derive(Default)]
 pub struct ConnectView {
     nickname: String,
     chips: Chips,
@@ -21,17 +22,6 @@ pub struct ConnectView {
     signing_key: SigningKey, // key for signing messages
 }
 
-impl Default for ConnectView {
-    fn default() -> Self {
-        Self {
-            nickname: String::default(),
-            chips: Chips::default(),
-            error: String::default(),
-            server_joined: false,
-            signing_key: SigningKey::default(),
-        }
-    }
-}
 
 impl ConnectView {
     /// Creates a new connect view.
@@ -87,7 +77,7 @@ impl View for ConnectView {
                         chips,
                     } = msg.message()
                     {
-                        if self.player_id() == player_id.clone() {
+                        if self.player_id() == *player_id {
                             self.chips = *chips;
                             self.server_joined = true;
                             self.nickname = nickname.to_string();

@@ -113,7 +113,7 @@ impl View for AccountView {
                     let btn = Button::new(RichText::new("Join Table",).font(TEXT_FONT,),);
                     if ui.add_sized(vec2(180.0, 30.0,), btn,).clicked() {
                         app.send_message(Message::JoinTableRequest {
-                            player_id: self.player_id.clone(),
+                            player_id: self.player_id,
                             nickname: self.nickname.clone(),
                         },);
                     }
