@@ -121,10 +121,10 @@ impl fmt::Display for Chips {
         } else if amount >= 1_000_000 {
             write!(
                 f,
-                "{},{:03},{:03}K",
+                "{},{:03},{:03}",
                 amount / 1_000_000,
                 (amount % 1_000_000) / 1000,
-                amount / 1000
+                amount % 1_000
             )
         } else if amount >= 1_000 {
             write!(f, "{},{:03}", amount / 1000, amount % 1000)
