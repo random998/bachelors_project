@@ -28,6 +28,7 @@ tokio-tungstenite = { version = "0.26.2", optional = true, features = [
     "rustls-tls-webpki-roots",
 ] }
 zeroize = "1.8.1"
+log = "0.4.27"
 
 [features]
 connection = [
