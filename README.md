@@ -40,6 +40,7 @@ Roadmap:
     Each peer should buffer recent state transitions and have a retry/rejoin protocol.
 12. look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
 13. look at source code of dark forest zk game, note how they "did things", especially how they implemented the debugging console.
+14. extend ui to be more intuitive.
 
 Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
 1. Improved secure shuffling protocol.
