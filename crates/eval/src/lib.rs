@@ -10,7 +10,7 @@
 //! hand and get its rank:
 //!
 //! ```
-//! # use freezeout_eval::*;
+//! # use poker_eval::*;
 //! // 2C, 3C, .., JC
 //! let cards = Deck::default().into_iter().take(10,).collect::<Vec<_,>>();
 //! let v1 = HandValue::eval(&cards[0..5],);
