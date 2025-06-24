@@ -190,18 +190,12 @@ impl InternalTableState {
         Ok((),)
     }
     pub async fn leave(&mut self, player_id: &PeerId,) {
-        let active_is_leaving = self.players.is_active(player_id);
+        let active_is_leaving = self.players.is_active(player_id,);
         if let Some(leaver,) = self.players.remove(player_id,) {
             // add player bets to the pot.
-            if let Some(pot) = self.pots.last_mut() {
+            if let Some(pot,) = self.pots.last_mut() {
                 pot.total_chips += leaver.current_bet;
             }
-
-            let msg = Message::PlayerLeftNotification {
-                player_id: *player_id,
-            };
-            self.broadcast(msg,).await;
-            leaver.notify_left().await;
 
             if self.players.count_active() < 2 {
                 self.enter_end_hand().await;
@@ -211,6 +205,13 @@ impl InternalTableState {
             if active_is_leaving {
                 self.request_action().await;
             }
+
+            let msg = Message::PlayerLeftNotification {
+                player_id: *player_id,
+            };
+
+            self.broadcast(msg,).await;
+            leaver.notify_left().await;
         }
     }
 
@@ -582,8 +583,10 @@ impl InternalTableState {
     }
     /// Handles the end of the game: pays out winners and resets the table.
     async fn enter_end_game(&mut self,) {
+        // Give time to the UI to look at winning results before ending the game.
+        self.broadcast_throttle(Duration::from_millis(4500,),).await;
+
         self.phase = HandPhase::EndingGame;
-        self.broadcast_game_update().await;
 
         // Payout remaining chips to each player, notify and remove them.
         for player in self.players.iter() {

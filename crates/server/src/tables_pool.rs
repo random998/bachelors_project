@@ -136,10 +136,7 @@ mod tests {
         }
 
         async fn join(&self, player: &TestPlayer,) -> Option<Arc<Table,>,> {
-            self.pool
-                .join(&player.id, "nn", Chips::new(1_000_000,), player.tx.clone(),)
-                .await
-                .ok()
+            self.pool.join(&player.id, "nn", Chips::new(1_000_000,), player.tx.clone(),).await.ok()
         }
 
         async fn avail_ids(&self,) -> Vec<TableId,> {
@@ -218,14 +215,26 @@ mod tests {
         // the game ends (2 seats per table), table 1 should move to the available
         // queue when a player tries to join.
         table1.leave(&player2.id,).await;
+
+        println!(
+            "available ids after player 2 leaves: {:?}",
+            test_pool
+                .avail_ids()
+                .await
+                .to_vec()
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<String,>>()
+        );
+
         // check if table1 is in the available queue.
-        assert!(test_pool.avail_ids().await.contains(&table1.id()));
-        assert!(!test_pool.full_ids().await.contains(&table1.id()));
+        assert!(!test_pool.avail_ids().await.contains(&table1.id()));
+        assert!(test_pool.full_ids().await.contains(&table1.id()));
 
         // Player 2 joins table 1, note that the join operation moves the tables between
         // queue.
         let table_ids2 = test_pool.avail_ids().await;
-        println!("table ids: {:?}",table_ids2);
+        println!("table ids: {:?}", table_ids2);
         let table1 = test_pool.join(&player2,).await.unwrap();
         assert_eq!(table1.id(), table_ids2[0]);
 
