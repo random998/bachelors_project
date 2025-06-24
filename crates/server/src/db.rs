@@ -176,11 +176,8 @@ impl Database {
             let conn = db.lock();
             let digits = player_id.digits().to_string();
             println!("credit chips, player id digits: {}", digits);
-            
-            let print_rows = conn.execute(
-                "SELECT id, chips FROM players;",
-                params![],
-            );
+
+            let print_rows = conn.execute("SELECT id, chips FROM players;", params![],);
 
             let rows_updated = conn.execute(
                 "UPDATE players SET chips = chips + ?2, last_update = CURRENT_TIMESTAMP WHERE id \
@@ -210,7 +207,7 @@ impl Database {
                     player_id,
                     nickname: row.get(1,)?,
                     chips: {
-                        let chips : i64 = row.get(2,)?;
+                        let chips: i64 = row.get(2,)?;
                         let chips = Chips::new(chips as u32,);
                         chips
                     },
