@@ -190,6 +190,7 @@ impl InternalTableState {
         Ok((),)
     }
     pub async fn leave(&mut self, player_id: &PeerId,) {
+        let was_full = self.players.count() == self.num_seats;
         let active_is_leaving = self.players.is_active(player_id,);
         if let Some(leaver,) = self.players.remove(player_id,) {
             // add player bets to the pot.
@@ -592,6 +593,8 @@ impl InternalTableState {
         for player in self.players.iter() {
             if let Err(err,) = self.database.credit_chips(player.id, player.chips,).await {
                 error!("Failed to pay player {}: {}", player.id, err);
+                println!("error enter_end_game: {}", err);
+                println!("players: {:?}", self.players);
             }
             let _ = player.tx.send(TableMessage::PlayerLeave,).await;
         }

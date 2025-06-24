@@ -87,6 +87,20 @@ impl TablesPool {
         }
     }
 
+    pub async fn leave(&self, table: Arc<Table>, player_id: &PeerId
+        ) -> Result<Arc< Table,>, TablesPoolError,> {
+        // Ask the table to remove the player.
+        let res = table.leave(player_id).await;
+        // Try to move any now-joinable tables from full to available.
+        let mut pool = self.0.lock().await;
+        Self::rehydrate_available_tables(&mut pool).await;
+        match res {
+            | Err(_,) => Err(TablesPoolError::NoTablesLeft),
+            | Ok(_,) => Ok(table,)
+        }
+        
+}
+
     async fn rehydrate_available_tables(pool: &mut SharedTables,) {
         for _ in 0..pool.full.len() {
             if let Some(table,) = pool.full.pop_front() {
@@ -137,6 +151,10 @@ mod tests {
 
         async fn join(&self, player: &TestPlayer,) -> Option<Arc<Table,>,> {
             self.pool.join(&player.id, "nn", Chips::new(1_000_000,), player.tx.clone(),).await.ok()
+        }
+        
+        async fn leave(&self, table: Arc<Table>, player: &TestPlayer,) -> Option<Arc<Table,>> {
+            self.pool.leave(table, &player.id).await.ok()
         }
 
         async fn avail_ids(&self,) -> Vec<TableId,> {
@@ -214,7 +232,7 @@ mod tests {
         // Players 2 leaves table 1 that becomes ready because with one player left
         // the game ends (2 seats per table), table 1 should move to the available
         // queue when a player tries to join.
-        table1.leave(&player2.id,).await;
+        let table1 = test_pool.leave(table1, &player2,).await;
 
         println!(
             "available ids after player 2 leaves: {:?}",
@@ -228,8 +246,8 @@ mod tests {
         );
 
         // check if table1 is in the available queue.
-        assert!(!test_pool.avail_ids().await.contains(&table1.id()));
-        assert!(test_pool.full_ids().await.contains(&table1.id()));
+        assert!(test_pool.avail_ids().await.contains(&table1.clone().unwrap().id()));
+        assert!(!test_pool.full_ids().await.contains(&table1.unwrap().id()));
 
         // Player 2 joins table 1, note that the join operation moves the tables between
         // queue.

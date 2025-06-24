@@ -55,7 +55,7 @@ impl Database {
              [0-2][0-9]:[0-5][0-9]:[0-5][0-9]'
             ),
             last_update TEXT DEFAULT CURRENT_TIMESTAMP CHECK (
-                created_at GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9] \
+                last_update GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9] \
              [0-2][0-9]:[0-5][0-9]:[0-5][0-9]'
             )
         ) STRICT;",
@@ -174,15 +174,22 @@ impl Database {
 
         tokio::task::spawn_blocking(move || {
             let conn = db.lock();
+            let digits = player_id.digits().to_string();
+            println!("credit chips, player id digits: {}", digits);
+            
+            let print_rows = conn.execute(
+                "SELECT id, chips FROM players;",
+                params![],
+            );
 
             let rows_updated = conn.execute(
                 "UPDATE players SET chips = chips + ?2, last_update = CURRENT_TIMESTAMP WHERE id \
                  = ?1",
-                params![player_id.digits(), amount.amount()],
+                params![digits, amount.amount()],
             )?;
 
             if rows_updated == 0 {
-                bail!("Player {player_id} not found");
+                bail!("Player {} not found", player_id.digits().to_string());
             }
 
             Ok((),)
@@ -202,7 +209,11 @@ impl Database {
                 Ok(Player {
                     player_id,
                     nickname: row.get(1,)?,
-                    chips: Chips::new(row.get::<usize, i32>(2,)? as u32,),
+                    chips: {
+                        let chips : i64 = row.get(2,)?;
+                        let chips = Chips::new(chips as u32,);
+                        chips
+                    },
                 },)
             },)
                 .map_err(anyhow::Error::from,)
