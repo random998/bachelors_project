@@ -279,12 +279,12 @@ mod tests {
 
         // Leave all the tables.
         for (p, t,) in players {
-            t.leave(&p.id,).await;
+            _ = t.leave(&p.id,).await;
         }
 
         // One player joins.
         let p = TestPlayer::new();
-        tp.join(&p,).await.unwrap();
+        tp.join(&p,).await.expect("error");
 
         assert_eq!(tp.count_avail().await, N);
         assert_eq!(tp.count_full().await, 0);
