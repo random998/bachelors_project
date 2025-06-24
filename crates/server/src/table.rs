@@ -1,4 +1,3 @@
-// Refactored poker table implementation for improved clarity and structure.
 
 use std::sync::Arc;
 use std::time::Duration;

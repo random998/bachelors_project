@@ -218,13 +218,15 @@ mod tests {
         // the game ends (2 seats per table), table 1 should move to the available
         // queue when a player tries to join.
         table1.leave(&player2.id,).await;
-        // check if table1 is in the availabe queue.
+        // check if table1 is in the available queue.
+        assert!(test_pool.avail_ids().await.contains(&table1.id()));
+        assert!(!test_pool.full_ids().await.contains(&table1.id()));
 
         // Player 2 joins table 1, note that the join operation moves the tables between
         // queue.
-        let table1 = test_pool.join(&player2,).await.unwrap();
         let table_ids2 = test_pool.avail_ids().await;
         println!("table ids: {:?}",table_ids2);
+        let table1 = test_pool.join(&player2,).await.unwrap();
         assert_eq!(table1.id(), table_ids2[0]);
 
         // Player 3 join table 1.
