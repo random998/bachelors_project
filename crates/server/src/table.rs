@@ -14,6 +14,7 @@ use crate::db::Database;
 
 mod player;
 mod state;
+mod players_state;
 
 pub use state::TableJoinError;
 
