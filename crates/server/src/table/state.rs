@@ -190,12 +190,27 @@ impl InternalTableState {
         Ok((),)
     }
     pub async fn leave(&mut self, player_id: &PeerId,) {
+        let active_is_leaving = self.players.is_active(player_id);
         if let Some(leaver,) = self.players.remove(player_id,) {
+            // add player bets to the pot.
+            if let Some(pot) = self.pots.last_mut() {
+                pot.total_chips += leaver.current_bet;
+            }
+
             let msg = Message::PlayerLeftNotification {
                 player_id: *player_id,
             };
             self.broadcast(msg,).await;
             leaver.notify_left().await;
+
+            if self.players.count_active() < 2 {
+                self.enter_end_hand().await;
+                return;
+            }
+
+            if active_is_leaving {
+                self.request_action().await;
+            }
         }
     }
 
