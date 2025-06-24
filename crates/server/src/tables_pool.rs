@@ -135,9 +135,9 @@ mod tests {
             }
         }
 
-        async fn join(&self, test_player: &TestPlayer,) -> Option<Arc<Table,>,> {
+        async fn join(&self, player: &TestPlayer,) -> Option<Arc<Table,>,> {
             self.pool
-                .join(&test_player.id, "nn", Chips::new(1_000_000,), test_player.tx.clone(),)
+                .join(&player.id, "nn", Chips::new(1_000_000,), player.tx.clone(),)
                 .await
                 .ok()
         }
@@ -184,50 +184,52 @@ mod tests {
 
     #[tokio::test]
     async fn test_table_pool() {
-        let tp = TestPool::new(2,);
-        let tids = tp.avail_ids().await;
+        let test_pool = TestPool::new(2,);
+        let table_ids = test_pool.avail_ids().await;
 
         // Player 1 join table 1 that should be in first position.
         let player1 = TestPlayer::new();
-        let table1 = tp.join(&player1,).await.unwrap();
-        assert_eq!(table1.id(), tids[0]);
+        let table1 = test_pool.join(&player1,).await.unwrap();
+        assert_eq!(table1.id(), table_ids[0]);
 
         // Player 2 join table 1.
         let player2 = TestPlayer::new();
-        let table1 = tp.join(&player2,).await.unwrap();
-        assert_eq!(table1.id(), tids[0]);
+        let table1 = test_pool.join(&player2,).await.unwrap();
+        assert_eq!(table1.id(), table_ids[0]);
 
         // As the table is full it should move to the full queue.
-        let table_ids = tp.full_ids().await;
-        assert_eq!(table1.id(), tids[0]);
+        let table_ids = test_pool.full_ids().await;
+        assert_eq!(table1.id(), table_ids[0]);
 
         // Player 1 join table 2, table 2 should be at front of the queue.
-        let table_ids = tp.avail_ids().await;
-        let table2 = tp.join(&player1,).await.unwrap();
+        let table_ids = test_pool.avail_ids().await;
+        let table2 = test_pool.join(&player1,).await.unwrap();
         assert_eq!(table2.id(), table_ids[0]);
 
         // Player 2 join table 2.
-        let table2 = tp.join(&player2,).await.unwrap();
+        let table2 = test_pool.join(&player2,).await.unwrap();
         assert_eq!(table2.id(), table_ids[0]);
 
         // Player 3 tries to join but there are no tables.
         let player3 = TestPlayer::new();
-        assert!(tp.join(&player3).await.is_none());
+        assert!(test_pool.join(&player3).await.is_none());
 
         // Players 2 leaves table 1 that becomes ready because with one player left
         // the game ends (2 seats per table), table 1 should move to the available
-        // queue when a play tries to join.
+        // queue when a player tries to join.
         table1.leave(&player2.id,).await;
+        // check if table1 is in the availabe queue.
 
-        // Player 1 joins table 2, note that the join operation moves the tables between
+        // Player 2 joins table 1, note that the join operation moves the tables between
         // queue.
-        let table2 = tp.join(&player1,).await.unwrap();
-        let table_ids = tp.avail_ids().await;
-        assert_eq!(table2.id(), tids[0]);
+        let table1 = test_pool.join(&player2,).await.unwrap();
+        let table_ids2 = test_pool.avail_ids().await;
+        println!("table ids: {:?}",table_ids2);
+        assert_eq!(table1.id(), table_ids2[0]);
 
-        // Player 2 join table 2.
-        let table2 = tp.join(&player2,).await.unwrap();
-        assert_eq!(table2.id(), tids[0]);
+        // Player 3 join table 1.
+        let table1 = test_pool.join(&player3,).await.unwrap();
+        assert_eq!(table1.id(), table_ids2[0]);
     }
 
     #[tokio::test]
