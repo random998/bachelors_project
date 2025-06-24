@@ -175,9 +175,6 @@ impl Database {
         tokio::task::spawn_blocking(move || {
             let conn = db.lock();
             let digits = player_id.digits().to_string();
-            println!("credit chips, player id digits: {}", digits);
-
-            let print_rows = conn.execute("SELECT id, chips FROM players;", params![],);
 
             let rows_updated = conn.execute(
                 "UPDATE players SET chips = chips + ?2, last_update = CURRENT_TIMESTAMP WHERE id \
