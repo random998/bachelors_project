@@ -87,19 +87,19 @@ impl TablesPool {
         }
     }
 
-    pub async fn leave(&self, table: Arc<Table>, player_id: &PeerId
-        ) -> Result<Arc< Table,>, TablesPoolError,> {
+    pub async fn leave(
+        &self, table: Arc<Table,>, player_id: &PeerId,
+    ) -> Result<Arc<Table,>, TablesPoolError,> {
         // Ask the table to remove the player.
-        let res = table.leave(player_id).await;
+        let res = table.leave(player_id,).await;
         // Try to move any now-joinable tables from full to available.
         let mut pool = self.0.lock().await;
-        Self::rehydrate_available_tables(&mut pool).await;
+        Self::rehydrate_available_tables(&mut pool,).await;
         match res {
-            | Err(_,) => Err(TablesPoolError::NoTablesLeft),
-            | Ok(_,) => Ok(table,)
+            | Err(_,) => Err(TablesPoolError::NoTablesLeft,),
+            | Ok(_,) => Ok(table,),
         }
-        
-}
+    }
 
     async fn rehydrate_available_tables(pool: &mut SharedTables,) {
         for _ in 0..pool.full.len() {
@@ -152,9 +152,9 @@ mod tests {
         async fn join(&self, player: &TestPlayer,) -> Option<Arc<Table,>,> {
             self.pool.join(&player.id, "nn", Chips::new(1_000_000,), player.tx.clone(),).await.ok()
         }
-        
-        async fn leave(&self, table: Arc<Table>, player: &TestPlayer,) -> Option<Arc<Table,>> {
-            self.pool.leave(table, &player.id).await.ok()
+
+        async fn leave(&self, table: Arc<Table,>, player: &TestPlayer,) -> Option<Arc<Table,>,> {
+            self.pool.leave(table, &player.id,).await.ok()
         }
 
         async fn avail_ids(&self,) -> Vec<TableId,> {
