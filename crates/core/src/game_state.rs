@@ -4,6 +4,7 @@
 use crate::crypto::PeerId;
 use crate::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
 use crate::poker::{Card, Chips, PlayerCards, TableId};
+use log::{error, info};
 
 /// Represents the complete state of a single poker game during a game session.
 #[derive(Debug,)]
@@ -265,7 +266,8 @@ impl ClientGameState {
                 actions,
             } => {
                 // Check if the action has been requested for this player.
-                if &self.player_id == player_id {
+                if self.player_id.digits().to_string() == player_id.digits().to_string() {
+                    info!("action request: {}", msg.message());
                     self.action_request = Some(ActionRequest {
                         available_actions: actions.clone(),
                         minimum_raise: *min_raise,

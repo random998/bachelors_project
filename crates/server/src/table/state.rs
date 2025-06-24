@@ -14,7 +14,8 @@ use rand::SeedableRng;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
-use super::player::{Player, PlayersState};
+use super::player::{Player};
+use super::players_state::PlayersState;
 use super::TableMessage;
 use crate::db::Database;
 
@@ -190,7 +191,6 @@ impl InternalTableState {
         Ok((),)
     }
     pub async fn leave(&mut self, player_id: &PeerId,) {
-        let was_full = self.players.count() == self.num_seats;
         let active_is_leaving = self.players.is_active(player_id,);
         if let Some(leaver,) = self.players.remove(player_id,) {
             // add player bets to the pot.
