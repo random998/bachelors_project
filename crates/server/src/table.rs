@@ -114,8 +114,8 @@ impl Table {
         response_rx.await.map_err(|_| TableJoinError::Unknown,)?
     }
 
-    pub async fn leave(&self, player_id: &PeerId,) {
-        let _ = self.command_sender.send(TableCommand::Leave(*player_id,),).await;
+    pub async fn leave(&self, player_id: &PeerId,) -> Result<(), TableJoinError>{
+        self.command_sender.send(TableCommand::Leave(*player_id,),).await.map_err(|_| TableJoinError::Unknown,)
     }
 
     pub async fn handle_message(&self, msg: SignedMessage,) {
