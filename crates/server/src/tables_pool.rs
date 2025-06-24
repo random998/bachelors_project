@@ -284,7 +284,7 @@ mod tests {
 
         // One player joins.
         let p = TestPlayer::new();
-        tp.join(&p,).await.expect("error");
+        tp.join(&p,).await.expect("error",);
 
         assert_eq!(tp.count_avail().await, N);
         assert_eq!(tp.count_full().await, 0);

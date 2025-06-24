@@ -116,8 +116,7 @@ impl PlayersState {
     }
 
     pub fn remove(&mut self, id: &PeerId,) -> Option<Player,> {
-
-        let mut old_active_player_idx = 0; 
+        let mut old_active_player_idx = 0;
         if !self.active_player_idx.is_none() {
             old_active_player_idx = self.active_player_idx.clone().unwrap();
         }
@@ -126,7 +125,9 @@ impl PlayersState {
 
             // if the removed player was active, then active_player_idx should be none.
             assert!(
-                     self.active_player_idx.is_none() || (old_active_player_idx == self.active_player_idx.unwrap() && !self.active_player_idx.is_none())
+                self.active_player_idx.is_none()
+                    || (old_active_player_idx == self.active_player_idx.unwrap()
+                        && !self.active_player_idx.is_none())
             );
 
             match self.active_player_idx {
