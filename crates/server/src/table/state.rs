@@ -1,6 +1,7 @@
 //! Poker table state management.
 //! Adapted and refactored from https://github.com/vincev/freezeout
 
+use std::fmt;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -36,6 +37,28 @@ enum HandPhase {
     Showdown,
     EndingHand,
     EndingGame,
+}
+
+impl fmt::Display for HandPhase {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HandPhase::WaitingForPlayers => write!(f, "WaitingForPlayers"),
+            HandPhase::StartingGame => write!(f, "StartingGame"),
+            HandPhase::StartingHand => write!(f, "StartingHand"),
+            HandPhase::PreflopBetting => write!(f, "PreflopBetting"),
+            HandPhase::Preflop => write!(f, "Preflop"),
+            HandPhase::FlopBetting => write!(f, "FlopBetting"),
+            HandPhase::Flop => write!(f, "Flop"),
+            HandPhase::TurnBetting => write!(f, "TurnBetting"),
+            HandPhase::Turn => write!(f, "Turn"),
+            HandPhase::RiverBetting => write!(f, "RiverBetting"),
+            HandPhase::River => write!(f, "River"),
+            HandPhase::Showdown => write!(f, "Showdown"),
+            HandPhase::EndingHand => write!(f, "EndingHand"),
+            HandPhase::EndingGame => write!(f, "EndingGame"),
+        }
+    }
+
 }
 
 /// Represents a single betting pot.
@@ -316,6 +339,7 @@ impl InternalTableState {
         self.start_hand().await;
     }
 
+    /// method for starting one round as pat of a hand.
     async fn start_round(&mut self,) {
         self.update_pots();
 
@@ -337,6 +361,7 @@ impl InternalTableState {
     }
     async fn start_hand(&mut self,) {
         self.phase = HandPhase::StartingHand;
+        info!("entering {}", self.phase.to_string());
         self.deck = Deck::shuffled(&mut self.rng,);
         self.community_cards.clear();
         self.pots.clear();
