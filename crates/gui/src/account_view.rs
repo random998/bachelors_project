@@ -3,6 +3,7 @@
 use eframe::egui::{
     Align2, Button, Color32, Context, FontFamily, FontId, Grid, RichText, Window, vec2,
 };
+use log::info;
 use poker_core::crypto::PeerId;
 use poker_core::game_state::ClientGameState;
 use poker_core::message::Message;
@@ -44,6 +45,7 @@ impl AccountView {
 impl View for AccountView {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame, app: &mut App,) {
         while let Some(event,) = app.poll_network() {
+            info!("client received event: {:?}", event);
             match event {
                 | ConnectionEvent::Open => {},
                 | ConnectionEvent::Close => {

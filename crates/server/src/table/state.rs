@@ -247,6 +247,7 @@ impl InternalTableState {
     }
     /// handle incoming message from a player.
     pub async fn message(&mut self, msg: SignedMessage,) {
+        info!("server handling incoming message: {:?}", msg.message());
         if let Message::ActionResponse {
             action,
             amount,

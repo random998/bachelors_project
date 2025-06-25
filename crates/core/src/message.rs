@@ -12,6 +12,22 @@ use crate::poker::{Card, Chips, PlayerCards, TableId};
 /// Represents a message exchanged between peers in the P2P poker protocol.
 #[derive(Debug, Serialize, Deserialize,)]
 pub enum Message {
+    /// client requests to join a server. 
+    JoinServerRequest {
+        /// The player nickname.
+        nickname: String,
+        player_id: PeerId
+    },
+    
+    /// response by server that particular client joined the server. 
+    JoinedServerConfirmation {
+        /// The player nickname.
+        nickname: String,
+        /// The chips amount for the player.
+        chips: Chips,
+        player_id: PeerId,
+    },
+    
     /// Request (by a player) to join a table with the given nickname.
     JoinTableRequest {
         player_id: PeerId,
@@ -138,9 +154,16 @@ impl Message {
             | Self::ActionResponse {
                 ..
             } => "ActionResponse",
+            | Self::JoinServerRequest { 
+                ..}
+                => "JoinServerRequest",
+            | Self::JoinedServerConfirmation {
+            .. }
+            =>  "JoinServerConfirmation",
+            }
         }
-    }
 }
+
 
 impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {

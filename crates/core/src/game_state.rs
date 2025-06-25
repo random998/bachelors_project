@@ -171,6 +171,7 @@ impl ClientGameState {
 
     /// Handle an incoming server (legacy, wanted: peer) message.
     pub fn handle_message(&mut self, msg: SignedMessage,) {
+        info!("client handling incoming message: {:?}", msg.message().to_string());
         match msg.message() {
             | Message::PlayerJoined {
                 player_id,
