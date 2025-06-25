@@ -372,6 +372,7 @@ impl InternalTableState {
 
         self.broadcast(Message::StartHand,).await;
 
+        info!("dealing cards to players: {}", self.phase.to_string());
         for player in self.players.iter() {
             if let PlayerCards::Cards(c1, c2,) = player.private_cards {
                 let signed = SignedMessage::new(&self.signing_key, Message::DealCards(c1, c2,),);

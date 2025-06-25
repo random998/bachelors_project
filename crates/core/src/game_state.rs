@@ -250,7 +250,7 @@ impl ClientGameState {
                 assert_eq!(self.players[0].id.digits(), self.player_id.digits());
 
                 self.players[0].hole_cards = PlayerCards::Cards(*c1, *c2,);
-                info!("{}", self.players[0].hole_cards);
+                info!("hole cards of player {}", self.players[0].hole_cards);
             },
             | Message::GameStateUpdate {
                 players,
