@@ -101,7 +101,7 @@ impl Table {
     ) -> Result<(), TableJoinError,> {
         let (response_tx, response_rx,) = oneshot::channel();
 
-        self.command_sender
+        let result = self.command_sender
             .send(TableCommand::TryJoin {
                 player_id: *player_id,
                 nickname: nickname.to_string(),
@@ -109,8 +109,8 @@ impl Table {
                 table_tx,
                 response_tx,
             },)
-            .await
-            .map_err(|_| TableJoinError::Unknown,)?;
+            .await;
+        info!("table join result : {:?}", result);
 
         response_rx.await.map_err(|_| TableJoinError::Unknown,)?
     }

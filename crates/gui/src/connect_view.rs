@@ -57,9 +57,9 @@ impl View for ConnectView {
         while let Some(event,) = app.poll_network() {
             match event {
                 | ConnectionEvent::Open => {
-                    app.send_message(Message::JoinTableRequest {
-                        player_id: self.player_id(),
+                    app.send_message(Message::JoinServerRequest {
                         nickname: self.nickname.to_string(),
+                        player_id: self.player_id(),
                     },);
                 },
                 | ConnectionEvent::Close => {
@@ -69,14 +69,13 @@ impl View for ConnectView {
                     self.error = format!("Connection error {e}");
                 },
                 | ConnectionEvent::Message(msg,) => {
-                    if let Message::PlayerJoined {
-                        table_id: _table_id,
-                        player_id,
+                    if let Message::JoinedServerConfirmation{
                         nickname,
                         chips,
+                        player_id
                     } = msg.message()
                     {
-                        if self.player_id() == *player_id {
+                        if self.player_id() == *player_id && self.nickname == *nickname {
                             self.chips = *chips;
                             self.server_joined = true;
                             self.nickname = nickname.to_string();
