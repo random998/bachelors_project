@@ -4,6 +4,8 @@
 use std::fmt;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use futures::future::{BoxFuture};
+use futures::FutureExt;
 
 use ahash::AHashSet;
 use log::{error, info};
@@ -295,17 +297,20 @@ impl InternalTableState {
             }
         }
     }
-    pub async fn action_update(&mut self,) {
-        self.players.advance_turn();
-        self.broadcast_game_update().await;
 
-        if self.is_round_complete() {
-            self.next_round().await;
-        } else {
-            self.request_action().await;
+    fn action_update(&mut self) -> BoxFuture<'_, ()> {
+        async move {
+            self.players.advance_turn();
+            self.broadcast_game_update().await;
+
+            if self.is_round_complete() {
+                self.next_round().await;
+            } else {
+                self.request_action().await;
+            }
         }
+            .boxed()   // <─ converts the async block into a BoxFuture
     }
-
     async fn next_round(&mut self,) {
         if self.players.count_active() < 2 {
             self.enter_end_hand().await;
@@ -326,7 +331,7 @@ impl InternalTableState {
         }
     }
 
-    pub fn is_round_complete(&self,) -> bool {
+    fn is_round_complete(&self,) -> bool {
         if self.players.count_active() < 2 {
             return true;
         }
@@ -374,7 +379,7 @@ impl InternalTableState {
         self.update_pots();
 
         // Give some time to watch last action and pots.
-        self.broadcast_throttle(Duration::from_millis(1000,),).await;
+        self.broadcast_throttle(Duration::from_millis(1000,),).await; //TODO: do not hardcode numbers.
 
         for player in self.players.iter_mut() {
             player.current_bet = Chips::ZERO;
@@ -487,7 +492,7 @@ impl InternalTableState {
         for _ in 1..=3 {
             self.community_cards.push(self.deck.deal(),);
         }
-        self.phase = HandPhase::Flop;
+        self.phase = HandPhase::FlopBetting;
         self.action_update().await;
     }
 

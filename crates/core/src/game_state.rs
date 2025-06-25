@@ -284,8 +284,10 @@ impl ClientGameState {
         for player_update in updates {
             let player_update = player_update.clone(); // Clone once
 
-            if let Some(pos,) =
-                self.players.iter_mut().position(|p| p.id.digits() == player_update.player_id.digits(),)
+            if let Some(pos,) = self
+                .players
+                .iter_mut()
+                .position(|p| p.id.digits() == player_update.player_id.digits(),)
             {
                 let player = &mut self.players[pos];
                 player.chips = player_update.chips;
