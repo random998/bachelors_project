@@ -217,15 +217,12 @@ impl Database {
 
     /// A player join the server.
     ///
-    /// If the player doesn't exist it creates one with the given chips, for now if
-    /// the player exists but has fewer chips than join chips the chips are updated
-    /// so that the player has enough chips to join.
+    /// If the player doesn't exist it creates one with the given chips, for now
+    /// if the player exists but has fewer chips than join chips the chips
+    /// are updated so that the player has enough chips to join.
     pub async fn join_server(
-        &self,
-        player_id: PeerId,
-        nickname: &str,
-        join_chips: Chips,
-    ) -> Result<Player> {
+        &self, player_id: PeerId, nickname: &str, join_chips: Chips,
+    ) -> Result<Player,> {
         let conn = self.connection.clone();
         let nickname = nickname.to_string();
 
@@ -241,13 +238,13 @@ impl Database {
             let res = stmt.query_row(params![player_id.digits()], |row| {
                 Ok(Player {
                     player_id: player_id.clone(),
-                    nickname: row.get(1)?,
-                    chips: Chips::new(row.get::<usize, i32>(2)? as u32),
-                })
-            });
+                    nickname: row.get(1,)?,
+                    chips: Chips::new(row.get::<usize, i32>(2,)? as u32,),
+                },)
+            },);
 
             match res {
-                Ok(mut player) => {
+                | Ok(mut player,) => {
                     let mut do_update = false;
 
                     // Reset player chips if less than join chips.
@@ -277,9 +274,9 @@ impl Database {
                         )?;
                     }
 
-                    Ok(player)
-                }
-                Err(rusqlite::Error::QueryReturnedNoRows) => {
+                    Ok(player,)
+                },
+                | Err(rusqlite::Error::QueryReturnedNoRows,) => {
                     // If this is a new player add it to the database.
                     let player = Player {
                         player_id,
@@ -293,12 +290,12 @@ impl Database {
                         params![player.player_id.digits(), nickname, player.chips.amount()],
                     )?;
 
-                    Ok(player)
-                }
-                Err(e) => Err(e.into()),
+                    Ok(player,)
+                },
+                | Err(e,) => Err(e.into(),),
             }
-        })
-            .await?
+        },)
+        .await?
     }
 }
 

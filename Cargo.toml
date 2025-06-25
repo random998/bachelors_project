@@ -27,6 +27,7 @@ tokio = { version = "1.45.1", features = ["rt", "sync", "macros"] }
 tokio-rustls = "0.26.2"
 tokio-tungstenite = "0.26.0"
 getrandom = { version = "0.2.16", features = ["js"], default-features = false}
+futures = "0.3"
 
 # crates
 poker-cards = { version = "0.0.1", path = "crates/cards", default-features = false }
