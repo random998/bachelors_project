@@ -101,7 +101,8 @@ impl Table {
     ) -> Result<(), TableJoinError,> {
         let (response_tx, response_rx,) = oneshot::channel();
 
-        let result = self.command_sender
+        let result = self
+            .command_sender
             .send(TableCommand::TryJoin {
                 player_id: *player_id,
                 nickname: nickname.to_string(),
