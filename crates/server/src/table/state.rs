@@ -246,7 +246,7 @@ impl InternalTableState {
         }
     }
     /// handle incoming message from a player.
-    pub async fn message(&mut self, msg: SignedMessage,) {
+    pub async fn handle_message(&mut self, msg: SignedMessage,) {
         info!("server handling incoming message: {:?}", msg.message());
         if let Message::ActionResponse {
             action,
@@ -279,7 +279,7 @@ impl InternalTableState {
     }
     pub async fn tick(&mut self,) {
         let mut players = self.players.clone();
-        if let Some(player,) = players.iter_mut().find(|p| p.action_timer.is_some(),) {
+        if let Some(player,) = players.iter_mut().find(|p| p.action_timer.is_some() && p.active,) {
             if player.action_timer.unwrap().elapsed() > Self::ACTION_TIMEOUT {
                 player.fold();
                 self.action_update().await;
@@ -488,7 +488,7 @@ impl InternalTableState {
             self.community_cards.push(self.deck.deal(),);
         }
         self.phase = HandPhase::Flop;
-        self.start_round().await;
+        self.action_update().await;
     }
 
     async fn enter_deal_turn(&mut self,) {
@@ -624,14 +624,14 @@ impl InternalTableState {
 
             player.action_timer = Some(Instant::now(),);
 
-            let msg = Message::ActionRequest {
+            let message = Message::ActionRequest {
                 player_id: player.id,
                 min_raise: self.min_raise + self.last_bet,
                 big_blind: self.big_blind,
                 actions,
             };
 
-            self.broadcast(msg,).await;
+            self.broadcast(message,).await;
         }
     }
 

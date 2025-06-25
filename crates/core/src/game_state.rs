@@ -269,7 +269,7 @@ impl ClientGameState {
                 actions,
             } => {
                 // Check if the action has been requested for this player.
-                if self.player_id.digits() == player_id.digits() {
+                if self.player_id == *player_id {
                     self.action_request = Some(ActionRequest {
                         available_actions: actions.clone(),
                         minimum_raise: *min_raise,
@@ -281,25 +281,24 @@ impl ClientGameState {
         }
     }
     fn update_players(&mut self, updates: &[PlayerUpdate],) {
-        let updates = updates;
-        for update in updates {
-            let update = update.clone(); // Clone once
+        for player_update in updates {
+            let player_update = player_update.clone(); // Clone once
 
             if let Some(pos,) =
-                self.players.iter_mut().position(|p| p.id.digits() == update.player_id.digits(),)
+                self.players.iter_mut().position(|p| p.id.digits() == player_update.player_id.digits(),)
             {
                 let player = &mut self.players[pos];
-                player.chips = update.chips;
-                player.current_bet = update.bet;
-                player.last_action = update.action;
-                player.last_action_timer = update.action_timer;
-                player.is_dealer = update.is_dealer;
-                player.participating_in_hand = update.is_active;
+                player.chips = player_update.chips;
+                player.current_bet = player_update.bet;
+                player.last_action = player_update.action;
+                player.last_action_timer = player_update.action_timer;
+                player.is_dealer = player_update.is_dealer;
+                player.participating_in_hand = player_update.is_active;
 
                 // Do not override cards for the local player as they are updated
                 // when we get a DealCards message.
                 if pos != 0 {
-                    player.hole_cards = update.hole_cards;
+                    player.hole_cards = player_update.hole_cards;
                 }
 
                 // If local player has folded, remove its cards.

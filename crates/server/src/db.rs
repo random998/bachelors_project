@@ -214,6 +214,92 @@ impl Database {
         },)
         .await?
     }
+
+    /// A player join the server.
+    ///
+    /// If the player doesn't exist it creates one with the given chips, for now if
+    /// the player exists but has fewer chips than join chips the chips are updated
+    /// so that the player has enough chips to join.
+    pub async fn join_server(
+        &self,
+        player_id: PeerId,
+        nickname: &str,
+        join_chips: Chips,
+    ) -> Result<Player> {
+        let conn = self.connection.clone();
+        let nickname = nickname.to_string();
+
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock();
+
+            let mut stmt = conn.prepare(
+                "SELECT id, nickname, chips
+                 FROM players
+                 WHERE id = ?1",
+            )?;
+
+            let res = stmt.query_row(params![player_id.digits()], |row| {
+                Ok(Player {
+                    player_id: player_id.clone(),
+                    nickname: row.get(1)?,
+                    chips: Chips::new(row.get::<usize, i32>(2)? as u32),
+                })
+            });
+
+            match res {
+                Ok(mut player) => {
+                    let mut do_update = false;
+
+                    // Reset player chips if less than join chips.
+                    if player.chips < join_chips {
+                        player.chips = join_chips;
+                        do_update = true;
+                    }
+
+                    // Update nickname if the player joined with a different one.
+                    if player.nickname != nickname {
+                        player.nickname = nickname.to_string();
+                        do_update = true;
+                    }
+
+                    if do_update {
+                        conn.execute(
+                            "UPDATE players SET
+                                chips = ?2,
+                                nickname = ?3,
+                                last_update = CURRENT_TIMESTAMP
+                             WHERE id = ?1",
+                            params![
+                                player.player_id.digits(),
+                                player.chips.amount(),
+                                player.nickname
+                            ],
+                        )?;
+                    }
+
+                    Ok(player)
+                }
+                Err(rusqlite::Error::QueryReturnedNoRows) => {
+                    // If this is a new player add it to the database.
+                    let player = Player {
+                        player_id,
+                        nickname: nickname.to_string(),
+                        chips: join_chips,
+                    };
+
+                    conn.execute(
+                        "INSERT INTO players (id, nickname, chips, last_update)
+                         VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
+                        params![player.player_id.digits(), nickname, player.chips.amount()],
+                    )?;
+
+                    Ok(player)
+                }
+                Err(e) => Err(e.into()),
+            }
+        })
+            .await?
+    }
 }
 
 #[cfg(test)]
