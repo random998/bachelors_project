@@ -44,6 +44,7 @@ Roadmap:
 15. bug report: After the first player does the first action, all players have to do actions at the same time, is this intended? 
 16. bug report: no cards are being displayed! FIXED
 17. Add code smell analysis and tools like in sopra.
+18. Add more extensive tests.
 
 
 Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
