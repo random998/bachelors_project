@@ -179,7 +179,8 @@ impl InternalTableState {
 
         let _ = new_player.send(signed_message,).await;
 
-        // for each existing player, send a player joined message to the newly joined player.
+        // for each existing player, send a player joined message to the newly joined
+        // player.
         for existing_player in self.players.iter() {
             let join_msg = Message::PlayerJoined {
                 player_id: existing_player.id,
@@ -336,20 +337,22 @@ impl InternalTableState {
             }
         }
 
-        if self.players.count_active_with_chips() < 2 { //TODO: do not hardcode constants.
-           return true;
+        if self.players.count_active_with_chips() < 2 {
+            // TODO: do not hardcode constants.
+            return true;
         }
 
-        //TODO: refactor for improved readability. 
+        // TODO: refactor for improved readability.
         // if one player did not act, round is not complete.
         for player in self.players.iter() {
             if player.active {
                 match player.last_action {
-                    PlayerAction::None | PlayerAction::SmallBlind | PlayerAction::BigBlind if player.chips > Chips::ZERO =>
-                        {
-                            return false;
-                        }
-                    _ => {}
+                    | PlayerAction::None | PlayerAction::SmallBlind | PlayerAction::BigBlind
+                        if player.chips > Chips::ZERO =>
+                    {
+                        return false;
+                    },
+                    | _ => {},
                 }
             }
         }
