@@ -45,7 +45,7 @@ impl AccountView {
 impl View for AccountView {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame, app: &mut App,) {
         while let Some(event,) = app.poll_network() {
-            info!("client received event: {:?}", event);
+            info!("client received event: {event:?}");
             match event {
                 | ConnectionEvent::Open => {},
                 | ConnectionEvent::Close => {

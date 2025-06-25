@@ -69,10 +69,10 @@ impl View for ConnectView {
                     self.error = format!("Connection error {e}");
                 },
                 | ConnectionEvent::Message(msg,) => {
-                    if let Message::JoinedServerConfirmation{
+                    if let Message::JoinedServerConfirmation {
                         nickname,
                         chips,
-                        player_id
+                        player_id,
                     } = msg.message()
                     {
                         if self.player_id() == *player_id && self.nickname == *nickname {
