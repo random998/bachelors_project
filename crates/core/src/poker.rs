@@ -1,10 +1,11 @@
 // code copied from github.com/vincev/freezeout
 
+use std::{fmt, ops};
+
 pub use poker_cards::{Card, Deck, Rank, Suit};
 #[cfg(feature = "eval")]
 pub use poker_eval::eval::{HandRank, HandValue};
 use serde::{Deserialize, Serialize};
-use std::{fmt, ops};
 
 // a unique table identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,)]
@@ -148,13 +149,13 @@ pub enum PlayerCards {
 }
 
 impl fmt::Display for PlayerCards {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         let string = match self {
-            PlayerCards::None => "None".to_string(),
-            PlayerCards::Cards(card1, card2) => format!("{}, {}", card1, card2),
-            PlayerCards::Covered => "Covered".to_string(),
+            | Self::None => "None".to_string(),
+            | Self::Cards(card1, card2,) => format!("{card1}, {card2}"),
+            | Self::Covered => "Covered".to_string(),
         };
-        write!(f, "{}", string)
+        write!(f, "{string}")
     }
 }
 #[cfg(test)]

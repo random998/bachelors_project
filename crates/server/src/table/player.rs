@@ -99,7 +99,6 @@ impl Player {
     }
 }
 
-
 #[cfg(test)]
 pub(crate) mod tests {
     use poker_core::crypto::SigningKey;
@@ -158,5 +157,4 @@ pub(crate) mod tests {
         assert!(!player.active);
         assert!(player.action_timer.is_none());
     }
-
 }

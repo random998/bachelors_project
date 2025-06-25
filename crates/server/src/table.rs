@@ -13,8 +13,8 @@ use tokio::time;
 use crate::db::Database;
 
 mod player;
-mod state;
 mod players_state;
+mod state;
 
 pub use state::TableJoinError;
 

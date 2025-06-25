@@ -2,6 +2,7 @@
 // Game state representation for each peer client in a peer-to-peer poker game.
 
 use tracing::info;
+
 use crate::crypto::PeerId;
 use crate::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
 use crate::poker::{Card, Chips, PlayerCards, TableId};
@@ -267,7 +268,7 @@ impl ClientGameState {
                 actions,
             } => {
                 // Check if the action has been requested for this player.
-                if self.player_id.digits().to_string() == player_id.digits().to_string() {
+                if self.player_id.digits() == player_id.digits() {
                     self.action_request = Some(ActionRequest {
                         available_actions: actions.clone(),
                         minimum_raise: *min_raise,

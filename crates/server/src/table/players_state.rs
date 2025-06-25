@@ -1,6 +1,7 @@
+use poker_core::crypto::PeerId;
 use rand::prelude::SliceRandom;
 use rand::Rng;
-use poker_core::crypto::PeerId;
+
 use crate::table::player::Player;
 
 #[derive(Clone, Debug, Default,)]
@@ -31,7 +32,7 @@ impl PlayersState {
             assert!(
                 self.active_player_idx.is_none()
                     || (old_active_player_idx == self.active_player_idx.unwrap()
-                    && !self.active_player_idx.is_none())
+                        && !self.active_player_idx.is_none())
             );
 
             match self.active_player_idx {
@@ -148,12 +149,13 @@ impl PlayersState {
 }
 
 mod tests {
-    use tokio::sync::mpsc;
     use poker_core::crypto::SigningKey;
     use poker_core::poker::Chips;
+    use tokio::sync::mpsc;
+
     use crate::table::player::Player;
     use crate::table::players_state::PlayersState;
-    
+
     fn new_player(chips: Chips,) -> Player {
         let peer_id = SigningKey::default().verifying_key().peer_id();
         let (table_tx, _table_rx,) = mpsc::channel(10,);
@@ -259,5 +261,4 @@ mod tests {
         assert_eq!(players.active_player().unwrap().id, next_id);
         assert_eq!(players.count_active(), SEATS - 2);
     }
-    
 }
