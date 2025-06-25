@@ -162,32 +162,29 @@ impl InternalTableState {
         }
 
         if self.players.iter().any(|player| &player.id == player_id,) {
-            info!(
-                "player already joined, players id list: {:?}",
-                self.players.iter().map(|p| p.id).collect::<Vec<_,>>()
-            );
             return Err(TableJoinError::AlreadyJoined,);
         }
 
         let new_player: Player =
             Player::new(*player_id, nickname.to_string(), starting_chips, channel,);
 
-        let confirmation = Message::PlayerJoined {
+        let confirmation_message = Message::PlayerJoined {
             table_id: self.table_id,
             nickname: nickname.to_string(),
             chips: starting_chips,
             player_id: *player_id,
         };
 
-        let signed = SignedMessage::new(&self.signing_key, confirmation,);
+        let signed_message = SignedMessage::new(&self.signing_key, confirmation_message,);
 
-        let _ = new_player.send(signed,).await;
+        let _ = new_player.send(signed_message,).await;
 
-        for existing in self.players.iter() {
+        // for each existing player, send a player joined message to the newly joined player.
+        for existing_player in self.players.iter() {
             let join_msg = Message::PlayerJoined {
-                player_id: existing.id,
-                nickname: existing.nickname.clone(),
-                chips: existing.chips,
+                player_id: existing_player.id,
+                nickname: existing_player.nickname.clone(),
+                chips: existing_player.chips,
                 table_id: self.table_id,
             };
 
@@ -195,9 +192,9 @@ impl InternalTableState {
             let _ = new_player.send(signed,).await;
         }
 
-        self.players.add(new_player.clone(),);
         info!("Player {player_id} joined table {}", self.table_id);
 
+        // tell all existing players that a new player joined.
         self.broadcast(Message::PlayerJoined {
             nickname: new_player.clone().nickname.to_string(),
             player_id: new_player.clone().id,
@@ -206,6 +203,9 @@ impl InternalTableState {
         },)
             .await;
 
+        self.players.add(new_player.clone(),);
+
+        // if all seats are occupied, start the game.
         if self.players.count() == self.num_seats {
             self.start_game().await;
         }
@@ -325,15 +325,42 @@ impl InternalTableState {
     }
 
     pub fn is_round_complete(&self,) -> bool {
-        // TODO
-        false
+        if self.players.count_active() < 2 {
+            return true;
+        }
+
+        // check if all players matched the last bet.
+        for player in self.players.iter() {
+            if player.active && player.current_bet < self.last_bet && player.chips > Chips::ZERO {
+                return false;
+            }
+        }
+
+        if self.players.count_active_with_chips() < 2 { //TODO: do not hardcode constants.
+           return true;
+        }
+
+        //TODO: refactor for improved readability. 
+        // if one player did not act, round is not complete.
+        for player in self.players.iter() {
+            if player.active {
+                match player.last_action {
+                    PlayerAction::None | PlayerAction::SmallBlind | PlayerAction::BigBlind if player.chips > Chips::ZERO =>
+                        {
+                            return false;
+                        }
+                    _ => {}
+                }
+            }
+        }
+        true
     }
 
     async fn start_game(&mut self,) {
         self.phase = HandPhase::StartingGame;
         self.players.shuffle(&mut self.rng,);
-        let order = self.players.iter().map(|p| p.id,).collect();
-        self.broadcast(Message::StartGame(order,),).await;
+        let seat_order = self.players.iter().map(|p| p.id,).collect();
+        self.broadcast(Message::StartGame(seat_order,),).await;
 
         self.start_hand().await;
     }
@@ -358,16 +385,16 @@ impl InternalTableState {
         self.broadcast_game_update().await;
         self.request_action().await;
     }
-    
-    fn update_blinds(&mut self) {
-        let multiplier = (1 << (self.hand_number / 4).min(4)) as u32;
+
+    fn update_blinds(&mut self,) {
+        let multiplier = (1 << (self.hand_number / 4).min(4,)) as u32;
         if multiplier < 16 {
-            self.small_blind = Self::INITIAL_SMALL_BLIND* multiplier;
+            self.small_blind = Self::INITIAL_SMALL_BLIND * multiplier;
             self.big_blind = Self::INITIAL_BIG_BLIND * multiplier;
         } else {
             // Cap at 12 times initial blinds.
             self.small_blind = Self::INITIAL_SMALL_BLIND * 12;
-            self.big_blind = Self:: INITIAL_BIG_BLIND * 12;
+            self.big_blind = Self::INITIAL_BIG_BLIND * 12;
         }
 
         self.hand_number += 1;
@@ -383,20 +410,20 @@ impl InternalTableState {
         }
         self.update_blinds();
 
-        if let Some(player) = self.players.active_player() {
-            player.place_bet(PlayerAction::SmallBlind, self.small_blind);
+        if let Some(player,) = self.players.active_player() {
+            player.place_bet(PlayerAction::SmallBlind, self.small_blind,);
         };
 
         self.players.advance_turn();
 
-        if let Some(player) = self.players.active_player() {
-            player.place_bet(PlayerAction::BigBlind, self.big_blind);
+        if let Some(player,) = self.players.active_player() {
+            player.place_bet(PlayerAction::BigBlind, self.big_blind,);
         }
 
         self.last_bet = self.big_blind;
         self.min_raise = self.small_blind;
 
-        self.deck = Deck::shuffled(&mut self.rng);
+        self.deck = Deck::shuffled(&mut self.rng,);
         self.community_cards.clear();
         self.pots = vec![Pot::default()];
         self.broadcast(Message::StartHand,).await;
