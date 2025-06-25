@@ -361,7 +361,7 @@ impl InternalTableState {
     async fn start_hand(&mut self,) {
         self.phase = HandPhase::StartingHand;
         info!("entering {}", self.phase.to_string());
-        
+
         self.deck = Deck::shuffled(&mut self.rng,);
         self.community_cards.clear();
         self.pots.clear();
@@ -375,15 +375,15 @@ impl InternalTableState {
         info!("current players list: {}", self.players.clone());
         // deal cards
         for player in self.players.iter_mut() {
-            if player.active{
+            if player.active {
                 player.public_cards = PlayerCards::Covered;
 
                 // Sort cards for the UI.
-                let (c1, c2) = (self.deck.deal(), self.deck.deal());
-                player.private_cards= if c1.rank() < c2.rank() {
-                    PlayerCards::Cards(c1, c2)
+                let (c1, c2,) = (self.deck.deal(), self.deck.deal(),);
+                player.private_cards = if c1.rank() < c2.rank() {
+                    PlayerCards::Cards(c1, c2,)
                 } else {
-                    PlayerCards::Cards(c2, c1)
+                    PlayerCards::Cards(c2, c1,)
                 };
             } else {
                 player.public_cards = PlayerCards::None;
@@ -393,10 +393,10 @@ impl InternalTableState {
 
         // send the dealt cards to each player.
         for player in self.players.iter() {
-            if let PlayerCards::Cards(c1, c2) = player.private_cards {
-                let msg = Message::DealCards(c1, c2);
-                let signed_message = SignedMessage::new(&self.signing_key, msg);
-                player.send(signed_message).await;
+            if let PlayerCards::Cards(c1, c2,) = player.private_cards {
+                let msg = Message::DealCards(c1, c2,);
+                let signed_message = SignedMessage::new(&self.signing_key, msg,);
+                player.send(signed_message,).await;
             }
         }
 
