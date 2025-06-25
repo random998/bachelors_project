@@ -166,7 +166,7 @@ impl TableTask {
                             state.leave(&pid).await;
                         }
                         Some(TableCommand::HandleMessage(msg)) => {
-                            state.message(msg).await;
+                            state.handle_message(msg).await;
                         }
                         None => break Ok(()),
                     }

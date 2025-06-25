@@ -547,7 +547,7 @@ impl GameView {
     fn paint_action_controls(&mut self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
         let mut send_action = None;
 
-        if let Some(actionRequest,) = self.game_state.action_request() {
+        if let Some(action_request,) = self.game_state.action_request() {
             let rect = player_rect(rect, &Align2::CENTER_BOTTOM,);
 
             let mut button_rectangle = Rect::from_min_size(
@@ -555,7 +555,7 @@ impl GameView {
                 vec2(Self::ACTION_BUTTON_LX, Self::ACTION_BUTTON_LY,),
             );
 
-            let actions = actionRequest.available_actions.clone();
+            let actions = action_request.available_actions.clone();
             for action in actions {
                 paint_border(ui, &button_rectangle,);
 
@@ -604,9 +604,9 @@ impl GameView {
                             && self.bet_params.is_none()
                         {
                             self.bet_params = Some(BetParams {
-                                min_raise: actionRequest.minimum_raise.amount(),
-                                big_blind: actionRequest.big_blind_amount.amount(),
-                                raise_value: actionRequest.minimum_raise.amount(),
+                                min_raise: action_request.minimum_raise.amount(),
+                                big_blind: action_request.big_blind_amount.amount(),
+                                raise_value: action_request.minimum_raise.amount(),
                             },);
                         }
                     },
