@@ -298,7 +298,7 @@ impl InternalTableState {
         self.broadcast_game_update().await;
 
         if self.is_round_complete() {
-            self.start_hand().await;
+            self.next_round().await;
         } else {
             self.request_action().await;
         }
@@ -358,17 +358,47 @@ impl InternalTableState {
         self.broadcast_game_update().await;
         self.request_action().await;
     }
+    
+    fn update_blinds(&mut self) {
+        let multiplier = (1 << (self.hand_number / 4).min(4)) as u32;
+        if multiplier < 16 {
+            self.small_blind = Self::INITIAL_SMALL_BLIND* multiplier;
+            self.big_blind = Self::INITIAL_BIG_BLIND * multiplier;
+        } else {
+            // Cap at 12 times initial blinds.
+            self.small_blind = Self::INITIAL_SMALL_BLIND * 12;
+            self.big_blind = Self:: INITIAL_BIG_BLIND * 12;
+        }
+
+        self.hand_number += 1;
+    }
     async fn start_hand(&mut self,) {
         self.phase = HandPhase::StartingHand;
         info!("entering {}", self.phase.to_string());
+        self.players.start_hand();
 
-        self.deck = Deck::shuffled(&mut self.rng,);
+        if self.players.count_active() < 2 {
+            self.enter_end_game().await;
+            return;
+        }
+        self.update_blinds();
+
+        if let Some(player) = self.players.active_player() {
+            player.place_bet(PlayerAction::SmallBlind, self.small_blind);
+        };
+
+        self.players.advance_turn();
+
+        if let Some(player) = self.players.active_player() {
+            player.place_bet(PlayerAction::BigBlind, self.big_blind);
+        }
+
+        self.last_bet = self.big_blind;
+        self.min_raise = self.small_blind;
+
+        self.deck = Deck::shuffled(&mut self.rng);
         self.community_cards.clear();
-        self.pots.clear();
-        self.pots.push(Pot::default(),);
-        self.last_bet = Chips::ZERO;
-        self.min_raise = Chips::ZERO;
-
+        self.pots = vec![Pot::default()];
         self.broadcast(Message::StartHand,).await;
 
         info!("dealing cards to players: {}", self.phase.to_string());
@@ -391,6 +421,8 @@ impl InternalTableState {
             }
         }
 
+        self.broadcast_game_update().await;
+
         // send the dealt cards to each player.
         for player in self.players.iter() {
             if let PlayerCards::Cards(c1, c2,) = player.private_cards {
@@ -400,8 +432,7 @@ impl InternalTableState {
             }
         }
 
-        self.phase = HandPhase::Preflop;
-        self.start_betting_round().await;
+        self.enter_preflop_betting().await;
     }
 
     async fn start_betting_round(&mut self,) {
