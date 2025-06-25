@@ -1,3 +1,4 @@
+use std::fmt;
 use poker_core::crypto::PeerId;
 use rand::prelude::SliceRandom;
 use rand::Rng;
@@ -145,6 +146,12 @@ impl PlayersState {
         for player in &mut self.players {
             player.reset_for_new_hand();
         }
+    }
+}
+
+impl fmt::Display for PlayersState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.players.clone())
     }
 }
 

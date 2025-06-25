@@ -1,6 +1,7 @@
 // code inspired by / taken from // code taken from https://github.com/vincev/freezeout
 //! Table player types and player state management.
 
+use std::fmt;
 use std::time::{Duration, Instant};
 
 use poker_core::crypto::PeerId;
@@ -97,6 +98,13 @@ impl Player {
     pub fn has_chips(&self,) -> bool {
         self.chips > Chips::ZERO
     }
+}
+
+impl fmt::Display for Player {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+    
 }
 
 #[cfg(test)]
