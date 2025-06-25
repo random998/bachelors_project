@@ -15,7 +15,7 @@ use rand::SeedableRng;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
-use super::player::{Player};
+use super::player::Player;
 use super::players_state::PlayersState;
 use super::TableMessage;
 use crate::db::Database;
@@ -40,25 +40,24 @@ enum HandPhase {
 }
 
 impl fmt::Display for HandPhase {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         match self {
-            HandPhase::WaitingForPlayers => write!(f, "WaitingForPlayers"),
-            HandPhase::StartingGame => write!(f, "StartingGame"),
-            HandPhase::StartingHand => write!(f, "StartingHand"),
-            HandPhase::PreflopBetting => write!(f, "PreflopBetting"),
-            HandPhase::Preflop => write!(f, "Preflop"),
-            HandPhase::FlopBetting => write!(f, "FlopBetting"),
-            HandPhase::Flop => write!(f, "Flop"),
-            HandPhase::TurnBetting => write!(f, "TurnBetting"),
-            HandPhase::Turn => write!(f, "Turn"),
-            HandPhase::RiverBetting => write!(f, "RiverBetting"),
-            HandPhase::River => write!(f, "River"),
-            HandPhase::Showdown => write!(f, "Showdown"),
-            HandPhase::EndingHand => write!(f, "EndingHand"),
-            HandPhase::EndingGame => write!(f, "EndingGame"),
+            | HandPhase::WaitingForPlayers => write!(f, "WaitingForPlayers"),
+            | HandPhase::StartingGame => write!(f, "StartingGame"),
+            | HandPhase::StartingHand => write!(f, "StartingHand"),
+            | HandPhase::PreflopBetting => write!(f, "PreflopBetting"),
+            | HandPhase::Preflop => write!(f, "Preflop"),
+            | HandPhase::FlopBetting => write!(f, "FlopBetting"),
+            | HandPhase::Flop => write!(f, "Flop"),
+            | HandPhase::TurnBetting => write!(f, "TurnBetting"),
+            | HandPhase::Turn => write!(f, "Turn"),
+            | HandPhase::RiverBetting => write!(f, "RiverBetting"),
+            | HandPhase::River => write!(f, "River"),
+            | HandPhase::Showdown => write!(f, "Showdown"),
+            | HandPhase::EndingHand => write!(f, "EndingHand"),
+            | HandPhase::EndingGame => write!(f, "EndingGame"),
         }
     }
-
 }
 
 /// Represents a single betting pot.
