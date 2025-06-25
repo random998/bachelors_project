@@ -34,9 +34,13 @@ use crate::tables_pool::{TablesPool, TablesPoolError};
 
 #[derive(Debug,)]
 pub struct ServerConfig {
+    /// ip address of the server
     pub address: String,
+    /// port of the server
     pub port: u16,
+    /// number of tables associated with the server
     pub table_count: usize,
+    /// number of seats per table
     pub seats_per_table: usize,
     pub data_path: Option<PathBuf,>,
     pub key_path: Option<PathBuf,>,
@@ -380,7 +384,7 @@ impl ConnectionHandler {
                     },
                     | Message::PlayerLeftTable => {
                         if let Some(table,) = &self.table {
-                            table.leave(&player_id,).await;
+                             table.leave(&player_id,).await?
                         }
                     },
                     | _ => {
@@ -419,7 +423,7 @@ impl ConnectionHandler {
         };
 
         if let Some(table,) = &self.table {
-            table.leave(&player_id,).await;
+            table.leave(&player_id,).await?
         }
 
         res
@@ -462,7 +466,7 @@ impl ConnectionHandler {
                 }
             },
             | Message::PlayerLeftTable => {
-                self.table.clone().unwrap().leave(player_id,).await;
+                self.table.clone().unwrap().leave(player_id,).await?;
             },
             | _ => {
                 warn!("Unexpected message from {}: {msg}", player_id);
