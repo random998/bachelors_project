@@ -1,10 +1,10 @@
 // code copied from https://github.com/vincev/freezeout
 // Game state representation for each peer client in a peer-to-peer poker game.
 
+use tracing::info;
 use crate::crypto::PeerId;
 use crate::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
 use crate::poker::{Card, Chips, PlayerCards, TableId};
-use log::{error, info};
 
 /// Represents the complete state of a single poker game during a game session.
 #[derive(Debug,)]
@@ -249,6 +249,7 @@ impl ClientGameState {
                 assert_eq!(self.players[0].id.digits(), self.player_id.digits());
 
                 self.players[0].hole_cards = PlayerCards::Cards(*c1, *c2,);
+                info!("{}", self.players[0].hole_cards);
             },
             | Message::GameStateUpdate {
                 players,
@@ -267,7 +268,6 @@ impl ClientGameState {
             } => {
                 // Check if the action has been requested for this player.
                 if self.player_id.digits().to_string() == player_id.digits().to_string() {
-                    info!("action request: {}", msg.message());
                     self.action_request = Some(ActionRequest {
                         available_actions: actions.clone(),
                         minimum_raise: *min_raise,
