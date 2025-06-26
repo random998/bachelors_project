@@ -20,7 +20,7 @@ impl Sim {
         const BOARD_IDX: usize = 2;
 
         assert!(self.num_players > 0);
-        assert!(self.pair.len() == 2);
+        assert_eq!(self.pair.len(), 2);
         assert!(self.board.len() <= 5);
 
         // Remove cards from the deck so that we don't sample them.

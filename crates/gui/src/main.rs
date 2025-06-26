@@ -1,6 +1,8 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use eframe::egui;
+use eframe::egui::ViewportBuilder;
 use poker_gui::gui;
 
 #[cfg(target_arch = "wasm32")]
@@ -56,11 +58,15 @@ fn main() -> eframe::Result<(),> {
 
     let init_size = [1024.0, 640.0,];
     let native_options = eframe::NativeOptions {
-        viewport: eframe::egui::ViewportBuilder::default()
-            .with_inner_size(init_size,)
-            .with_min_inner_size(init_size,)
-            .with_max_inner_size(init_size,)
-            .with_title("Cards",),
+        viewport: ViewportBuilder {
+            resizable: Some(true,),
+            inner_size: Some(egui::vec2(800.0, 500.0,),),
+            ..Default::default()
+        }
+        .with_inner_size(init_size,)
+        .with_min_inner_size(init_size,)
+        .with_max_inner_size(init_size,)
+        .with_title("Cards",),
         ..Default::default()
     };
 
