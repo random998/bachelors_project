@@ -384,7 +384,7 @@ impl ConnectionHandler {
                     },
                     | Message::PlayerLeftTable => {
                         if let Some(table,) = &self.table {
-                             table.leave(&player_id,).await?
+                            table.leave(&player_id,).await?
                         }
                     },
                     | _ => {
