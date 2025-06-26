@@ -6,6 +6,7 @@ use std::sync::LazyLock;
 
 use ahash::AHashMap;
 use eframe::egui;
+use eframe::egui::Context;
 
 use crate::deck::{Card, Deck, Rank, Suit};
 
@@ -140,7 +141,7 @@ pub struct Textures {
 
 impl Textures {
     /// Loads the cards textures.
-    pub fn new(ctx: &egui::Context,) -> Self {
+    pub fn new(ctx: &Context,) -> Self {
         let cards = CARD_IMAGES
             .iter()
             .map(|(card, image_data,)| {
