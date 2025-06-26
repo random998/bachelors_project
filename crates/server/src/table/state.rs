@@ -4,10 +4,10 @@
 use std::fmt;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use futures::future::{BoxFuture};
-use futures::FutureExt;
 
 use ahash::AHashSet;
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use log::{error, info};
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
@@ -298,7 +298,7 @@ impl InternalTableState {
         }
     }
 
-    fn action_update(&mut self) -> BoxFuture<'_, ()> {
+    fn action_update(&mut self,) -> BoxFuture<'_, (),> {
         async move {
             self.players.advance_turn();
             self.broadcast_game_update().await;
@@ -309,7 +309,7 @@ impl InternalTableState {
                 self.request_action().await;
             }
         }
-            .boxed()   // <─ converts the async block into a BoxFuture
+        .boxed() // <─ converts the async block into a BoxFuture
     }
     async fn next_round(&mut self,) {
         if self.players.count_active() < 2 {
@@ -379,7 +379,7 @@ impl InternalTableState {
         self.update_pots();
 
         // Give some time to watch last action and pots.
-        self.broadcast_throttle(Duration::from_millis(1000,),).await; //TODO: do not hardcode numbers.
+        self.broadcast_throttle(Duration::from_millis(1000,),).await; // TODO: do not hardcode numbers.
 
         for player in self.players.iter_mut() {
             player.current_bet = Chips::ZERO;
