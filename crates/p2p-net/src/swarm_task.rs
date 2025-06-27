@@ -1,86 +1,80 @@
 //! crates/p2p-net/src/swarm_task.rs
 
-use bincode::Options;
-use super::*;
 use futures::StreamExt;
-use libp2p::{
-    core::upgrade,
-    gossipsub,
-    identify,
-    noise,
-    tcp,
-    yamux,
-    swarm::{NetworkBehaviour, Swarm, SwarmEvent},
-    SwarmBuilder,
-    Transport,
-};
+use libp2p::core::upgrade;
 use libp2p::identity::Keypair;
+use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
+use libp2p::{gossipsub, identify, noise, tcp, yamux, SwarmBuilder, Transport};
 use poker_core::crypto::SigningKey;
 use tokio::sync::mpsc;
-/* ------------------------------------------------------------------ */
-/* 1  Types & Behaviour --------------------------------------------- */
 
-pub type SignedMsgBlob = Vec<u8>;
+use super::{Result, P2pTransport, SignedMessage, NetTx, P2pTx, P2pRx};
+// ------------------------------------------------------------------
+// 1  Types & Behaviour ---------------------------------------------
 
-#[derive(NetworkBehaviour)]
+pub type SignedMsgBlob = Vec<u8,>;
+
+#[derive(NetworkBehaviour,)]
 // derives an enum called `BehaviourEvent` automatically
 struct Behaviour {
     gossipsub: gossipsub::Behaviour,
-    identify : identify::Behaviour,
+    identify: identify::Behaviour,
 }
 
-/* ------------------------------------------------------------------ */
-/* 2  Constructor ---------------------------------------------------- */
+// ------------------------------------------------------------------
+// 2  Constructor ----------------------------------------------------
 
-pub fn new(table_id: &str, signing_key: &SigningKey) -> P2pTransport {
-    /* identity ------------------------------------------------------ */
-    let kp = identity_from_signing_key(signing_key);
+pub fn new(table_id: &str, signing_key: &SigningKey,) -> P2pTransport {
+    // identity ------------------------------------------------------
+    let kp = identity_from_signing_key(signing_key,);
     let peer_id = kp.public().to_peer_id();
 
-    /* transport ----------------------------------------------------- */
-    let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
-        .upgrade(upgrade::Version::V1)
-        .authenticate(noise::Config::new(&kp).unwrap())
-        .multiplex(yamux::Config::default())
+    // transport -----------------------------------------------------
+    let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true,),)
+        .upgrade(upgrade::Version::V1,)
+        .authenticate(noise::Config::new(&kp,).unwrap(),)
+        .multiplex(yamux::Config::default(),)
         .boxed();
 
-    /* behaviour ----------------------------------------------------- */
-    let topic = gossipsub::IdentTopic::new(format!("poker/{table_id}"));
+    // behaviour -----------------------------------------------------
+    let topic = gossipsub::IdentTopic::new(format!("poker/{table_id}"),);
     let gossip = gossipsub::Behaviour::new(
-        gossipsub::MessageAuthenticity::Signed(kp.clone()),
+        gossipsub::MessageAuthenticity::Signed(kp.clone(),),
         gossipsub::Config::default(),
     )
-        .unwrap();
+    .unwrap();
 
     let behaviour = Behaviour {
         gossipsub: gossip,
-        identify: identify::Behaviour::new(
-            identify::Config::new("zk-poker/0.1".into(), kp.public()),
-        ),
+        identify: identify::Behaviour::new(identify::Config::new(
+            "zk-poker/0.1".into(),
+            kp.public(),
+        ),),
     };
 
-    let mut swarm = SwarmBuilder::with_existing_identity(kp.clone())
-        .with_tokio()                                             // runtime
-        .with_tcp(                                               // transport
-                                                                 tcp::Config::default().nodelay(true),
-                                                                 (noise::Config::new, noise::Config::new),            // security (fn ptrs)
-                                                                 yamux::Config::default,                              // multiplex (fn ptr)
-        ).unwrap()
-        .with_behaviour(|_k| behaviour).unwrap()
-        .build();                                                // finish
+    let mut swarm = SwarmBuilder::with_existing_identity(kp,)
+        .with_tokio() // runtime
+        .with_tcp(
+            // transport
+            tcp::Config::default().nodelay(true,),
+            (noise::Config::new, noise::Config::new,), // security (fn ptrs)
+            yamux::Config::default,                    // multiplex (fn ptr)
+        )
+        .unwrap()
+        .with_behaviour(|_k| behaviour,)
+        .unwrap()
+        .build(); // finish
 
     // Listen on all local interfaces – port chosen by OS
-    swarm
-        .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
-        .unwrap();
+    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap(),).unwrap();
     // Subscribe to the gossipsub topic
-    swarm.behaviour_mut().gossipsub.subscribe(&topic).unwrap();
+    swarm.behaviour_mut().gossipsub.subscribe(&topic,).unwrap();
 
-    /* mpsc pipes --------------------------------------------------- */
-    let (to_swarm_tx , mut to_swarm_rx) = mpsc::channel::<SignedMsgBlob>(64);
-    let (from_swarm_tx, from_swarm_rx)  = mpsc::channel::<SignedMessage>(64);
+    // mpsc pipes ---------------------------------------------------
+    let (to_swarm_tx, mut to_swarm_rx,) = mpsc::channel::<SignedMsgBlob,>(64,);
+    let (from_swarm_tx, from_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
 
-    /* background task --------------------------------------------- */
+    // background task ---------------------------------------------
     tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -106,18 +100,22 @@ pub fn new(table_id: &str, signing_key: &SigningKey) -> P2pTransport {
                 }
             }
         }
-    });
+    },);
 
-    /* return the transport handle --------------------------------- */
+    // return the transport handle ---------------------------------
     P2pTransport {
-        tx: P2pTx { sender: to_swarm_tx },
-        rx: P2pRx { receiver: from_swarm_rx },
+        tx: P2pTx {
+            sender: to_swarm_tx,
+        },
+        rx: P2pRx {
+            receiver: from_swarm_rx,
+        },
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* 3  Helper --------------------------------------------------------- */
-fn identity_from_signing_key(key: &SigningKey) -> Keypair {
-    let bytes = bincode::serialize(key).unwrap();
-    Keypair::ed25519_from_bytes(bytes).unwrap()
+// ------------------------------------------------------------------
+// 3  Helper ---------------------------------------------------------
+fn identity_from_signing_key(key: &SigningKey,) -> Keypair {
+    let bytes = bincode::serialize(key,).unwrap();
+    Keypair::ed25519_from_bytes(bytes,).unwrap()
 }
