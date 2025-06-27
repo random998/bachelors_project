@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use serde::Serialize;
 use tokio::sync::mpsc::Sender;
 
 use crate::message::SignedMessage;
@@ -30,7 +31,7 @@ where T: NetTx + ?Sized + Send /* forward to any NetTx */
     }
 }
 
-#[derive(Debug,)]
+#[derive(Debug, Serialize)]
 pub enum TableMessage {
     Send(SignedMessage,),
     PlayerLeave,
