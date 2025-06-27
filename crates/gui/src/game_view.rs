@@ -591,11 +591,12 @@ impl GameView {
                     },
                     | PlayerAction::Bet | PlayerAction::Raise => {
                         if (ui.input(|i| i.key_pressed(Key::Enter,),) || clicked)
-                            && let Some(params,) = &self.bet_params {
-                                send_action = Some((action, Chips::new(params.raise_value,),),);
-                                self.bet_params = None;
-                                break;
-                            }
+                            && let Some(params,) = &self.bet_params
+                        {
+                            send_action = Some((action, Chips::new(params.raise_value,),),);
+                            self.bet_params = None;
+                            break;
+                        }
 
                         if (ui.input(|i| i.key_pressed(Key::B,),)
                             || ui.input(|i| i.key_pressed(Key::R,),)
