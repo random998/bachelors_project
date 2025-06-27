@@ -234,7 +234,7 @@ pub struct HandPayoff {
 }
 
 /// A signed message.
-#[derive(Debug, Clone,)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SignedMessage {
     /// Clonable payload for broadcasting to multiple connection tasks.
     payload: Arc<Payload,>,
