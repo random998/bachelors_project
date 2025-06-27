@@ -10,6 +10,7 @@ use poker_core::net::traits::{ChannelNetTx, TableMessage};
 use poker_core::net::NetTx;
 use poker_core::poker::{Chips, PlayerCards};
 use tokio::sync::Mutex;
+use crate::table::Sender;
 
 use crate::table::Arc;
 
@@ -129,6 +130,7 @@ impl fmt::Display for Player {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use tokio::sync::mpsc;
     use poker_core::crypto::SigningKey;
 
     use super::*;
@@ -136,12 +138,12 @@ pub(crate) mod tests {
     struct MockNet;
     #[async_trait::async_trait]
     impl NetTx for MockNet {
-        async fn send(&mut self, _m: SignedMessage,) -> Result<(),> {
+        async fn send(&mut self, _m: SignedMessage,) -> anyhow::Result<(),> {
             Ok((),)
         }
 
-        async fn send_table(&mut self, msg: TableMessage,) -> Result<(),> {
-            Ok((),)
+        async fn send_table(&mut self, msg: TableMessage,) -> anyhow::Result<(), > {
+            Ok(())
         }
     }
 
