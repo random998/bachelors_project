@@ -74,13 +74,11 @@ impl View for ConnectView {
                         chips,
                         player_id,
                     } = msg.message()
-                    {
-                        if self.player_id() == *player_id && self.nickname == *nickname {
+                        && self.player_id() == *player_id && self.nickname == *nickname {
                             self.chips = *chips;
                             self.server_joined = true;
                             self.nickname = nickname.to_string();
                         }
-                    }
                 },
             }
         }
