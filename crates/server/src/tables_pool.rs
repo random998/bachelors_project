@@ -7,6 +7,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use log::error;
 use poker_core::crypto::{PeerId, SigningKey};
+use poker_core::net::traits::ChannelNetTx;
 use poker_core::poker::Chips;
 use thiserror::Error;
 use tokio::sync::mpsc::Sender;
@@ -58,7 +59,7 @@ impl TablesPool {
     }
 
     pub async fn join(
-        &self, player_id: &PeerId, nickname: &str, chips: Chips, msg_tx: Sender<TableMessage,>,
+        &self, player_id: &PeerId, nickname: &str, chips: Chips, msg_tx: ChannelNetTx,
     ) -> Result<Arc<Table,>, TablesPoolError,> {
         let mut pool = self.0.lock().await;
 
@@ -116,6 +117,7 @@ impl TablesPool {
 
 #[cfg(test)]
 mod tests {
+    use poker_core::net::traits::TableMessage;
     use poker_core::poker::TableId;
     use tokio::sync::mpsc;
 
@@ -179,7 +181,7 @@ mod tests {
     }
 
     struct TestPlayer {
-        tx: Sender<TableMessage,>,
+        tx: ChannelNetTx,
         _rx: mpsc::Receiver<TableMessage,>,
         id: PeerId,
     }
@@ -189,6 +191,7 @@ mod tests {
             let sk = SigningKey::default();
             let peer_id = sk.verifying_key().peer_id();
             let (tx, rx,) = mpsc::channel(64,);
+            let tx: ChannelNetTx = ChannelNetTx::new(tx,);
             Self {
                 tx,
                 _rx: rx,
