@@ -2963,7 +2963,6 @@ dependencies = [
 name = "poker-core"
 version = "0.0.1"
 dependencies = [
- "ahash",
  "anyhow",
  "async-trait",
  "bincode",
@@ -2973,7 +2972,6 @@ dependencies = [
  "ed25519-dalek",
  "futures-util",
  "getrandom 0.3.3",
- "log",
  "poker-cards",
  "poker-eval",
  "rand 0.9.1",
@@ -3038,6 +3036,7 @@ dependencies = [
  "poker-core",
  "serde",
  "snow",
+ "tokio",
  "tokio-rustls",
  "wasm-bindgen-futures",
  "web-sys",
