@@ -18,17 +18,13 @@ bincode      = "1.3"                   # (de)serialise SignedMessage
 
 # --- libp2p stack -------------
 libp2p = { version = "0.55", default-features = false, features = [
-               "dns",
-               "gossipsub",
-               "noise",
-               "tokio",               # use Tokio reactor
-               "tcp",                 # TCP transport over Tokio
-               "websocket"            # optional ws transport
-           ] }
+            "dns", "tcp", "websocket", "noise", "yamux", "gossipsub", "tokio"
+        ] }
 
 # --- optional (nice-to-have) ---
 log          = "0.4"
 tracing      = { version = "0.1", optional = true }
+futures = "0.3.31"
 
 [features]
 # Compile-time switch so existing WebSocket build keeps working.

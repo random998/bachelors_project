@@ -1,7 +1,7 @@
 // crates/p2p-net/src/lib.rs
 pub mod swarm_task;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use poker_core::message::SignedMessage;
 use poker_core::net::{NetTx, NetRx};
@@ -24,13 +24,12 @@ pub struct P2pRx {
 #[async_trait]
 impl NetTx for P2pTx {
     async fn send(&mut self, msg: SignedMessage) -> Result<()> {
-        let blob = bincode::serialize(&msg)?;
+        let blob = msg.serialize();
         self.sender.send(blob).await?;
         Ok(())
     }
 
     async fn send_table(&mut self, msg: TableMessage) -> Result<()> {
-        let blob = bincode::serialize(&msg)?;
         todo!()
     }
 }
@@ -38,10 +37,10 @@ impl NetTx for P2pTx {
 /// ------------- NetRx implementation -----------------
 #[async_trait]
 impl NetRx for P2pRx {
-    async fn next_msg(&mut self) -> Result<Option<SignedMessage>> {
+    async fn next_msg(&mut self) -> Result<SignedMessage> {
         match self.receiver.recv().await {
-            Some(msg) => Ok(Some(msg)),
-            None      => Ok(None),
+            Some(msg) => Ok(msg),
+            None      => Err(anyhow!("P2pRx closed")),
         }
     }
 }
