@@ -237,7 +237,7 @@ impl Database {
 
             let res = stmt.query_row(params![player_id.digits()], |row| {
                 Ok(Player {
-                    player_id: player_id,
+                    player_id,
                     nickname: row.get(1,)?,
                     chips: Chips::new(row.get::<usize, i32>(2,)? as u32,),
                 },)
