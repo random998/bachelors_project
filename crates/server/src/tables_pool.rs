@@ -14,7 +14,7 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::{broadcast, Mutex};
 
 use crate::db::Database;
-use crate::table::{Table, TableJoinError, TableMessage};
+use crate::table::{Table, TableJoinError};
 
 #[derive(Debug, Error,)]
 pub enum TablesPoolError {

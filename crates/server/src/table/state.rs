@@ -413,7 +413,7 @@ impl InternalTableState {
     }
     async fn start_hand(&mut self,) {
         self.phase = HandPhase::StartingHand;
-        info!("entering {}", self.phase.to_string());
+        info!("entering {}", self.phase);
         self.players.start_hand();
 
         if self.players.count_active() < 2 {
@@ -440,7 +440,7 @@ impl InternalTableState {
         self.pots = vec![Pot::default()];
         self.broadcast(Message::StartHand,).await;
 
-        info!("dealing cards to players: {}", self.phase.to_string());
+        info!("dealing cards to players: {}", self.phase);
         info!("current players list: {}", self.players.clone());
         // deal cards
         for player in self.players.iter_mut() {
@@ -708,7 +708,7 @@ impl InternalTableState {
         for player in self.players.iter_mut() {
             if let Err(err,) = self.database.credit_chips(player.id, player.chips,).await {
                 error!("Failed to pay player {}: {}", player.id, err);
-                println!("error enter_end_game: {}", err);
+                println!("error enter_end_game: {err}");
             }
             let _ = player.tx.send_table(TableMessage::PlayerLeave,).await;
         }
