@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::crypto::{PeerId, Signature, SigningKey, VerifyingKey};
 use crate::poker::{Card, Chips, PlayerCards, TableId};
 /// Represents a message exchanged between peers in the P2P poker protocol.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
 pub enum Message {
     /// client requests to join a server.
     JoinServerRequest {
@@ -234,14 +234,14 @@ pub struct HandPayoff {
 }
 
 /// A signed message.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize,)]
 pub struct SignedMessage {
     /// Clonable payload for broadcasting to multiple connection tasks.
     payload: Arc<Payload,>,
 }
 
 /// Private signed message payload.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
 struct Payload {
     msg: Message,
     sig: Signature,
