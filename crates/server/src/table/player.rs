@@ -10,9 +10,8 @@ use poker_core::net::traits::{ChannelNetTx, TableMessage};
 use poker_core::net::NetTx;
 use poker_core::poker::{Chips, PlayerCards};
 use tokio::sync::Mutex;
-use crate::table::Sender;
 
-use crate::table::Arc;
+use crate::table::{Arc, Sender};
 
 /// Represents a single poker player at a table.
 #[derive(Clone,)]
@@ -130,8 +129,8 @@ impl fmt::Display for Player {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use tokio::sync::mpsc;
     use poker_core::crypto::SigningKey;
+    use tokio::sync::mpsc;
 
     use super::*;
 
@@ -142,8 +141,8 @@ pub(crate) mod tests {
             Ok((),)
         }
 
-        async fn send_table(&mut self, msg: TableMessage,) -> anyhow::Result<(), > {
-            Ok(())
+        async fn send_table(&mut self, msg: TableMessage,) -> anyhow::Result<(),> {
+            Ok((),)
         }
     }
 
