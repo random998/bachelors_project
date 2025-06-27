@@ -242,7 +242,7 @@ impl ConnectionHandler {
                 let signed_message = SignedMessage::new(
                     &self.signing_key,
                     Message::JoinedServerConfirmation {
-                        player_id: player_id.clone(),
+                        player_id: *player_id,
                         nickname: player.nickname,
                         chips: player.chips,
                     },
@@ -287,7 +287,7 @@ impl ConnectionHandler {
                 let smsg = SignedMessage::new(
                     &self.signing_key,
                     Message::JoinedServerConfirmation {
-                        player_id: player_id.clone(),
+                        player_id: *player_id,
                         nickname: player.nickname,
                         chips: player.chips,
                     },
@@ -333,19 +333,19 @@ impl ConnectionHandler {
                         nickname,
                     } => {
                         // For now refill player chips if needed.
-                        self.get_or_refill_chips(&player_id,).await?;
+                        self.get_or_refill_chips(player_id,).await?;
 
                         // Pay chips to joins a table.
                         let has_chips = self
                             .database
-                            .deduct_chips(player_id.clone(), Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,)
+                            .deduct_chips(*player_id, Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,)
                             .await?;
                         if has_chips {
                             let res = self
                                 .tables
                                 .join(
-                                    &player_id,
-                                    &nickname,
+                                    player_id,
+                                    nickname,
                                     Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,
                                     table_tx.clone(),
                                 )
@@ -356,7 +356,7 @@ impl ConnectionHandler {
                                     // Refund chips and notify client.
                                     self.database
                                         .credit_chips(
-                                            player_id.clone(),
+                                            *player_id,
                                             Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,
                                         )
                                         .await?;
@@ -471,7 +471,7 @@ impl ConnectionHandler {
                 self.table.clone().unwrap().leave(player_id,).await?;
             },
             | _ => {
-                warn!("Unexpected message from {}: {msg}", player_id);
+                warn!("Unexpected message from {player_id}: {msg}");
             },
         }
         Ok((),)

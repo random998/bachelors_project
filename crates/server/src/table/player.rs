@@ -4,14 +4,12 @@
 use std::fmt;
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
 use poker_core::crypto::PeerId;
 use poker_core::message::{PlayerAction, SignedMessage};
 use poker_core::net::traits::{ChannelNetTx, TableMessage};
 use poker_core::net::NetTx;
 use poker_core::poker::{Chips, PlayerCards};
-use tokio::sync::mpsc::Sender;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::Mutex;
 
 use crate::table::Arc;
 
@@ -125,7 +123,7 @@ impl Player {
 
 impl fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 
