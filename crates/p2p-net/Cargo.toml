@@ -17,8 +17,7 @@ anyhow       = "1.0"
 bincode      = "1.3"                   # (de)serialise SignedMessage
 
 # --- libp2p stack -------------
-libp2p = { version = "0.55", default-features = false, features = [
-            "dns", "tcp", "websocket", "noise", "yamux", "gossipsub", "tokio", "identify"
+libp2p = { version = "0.55", default-features = false, features = [ "full"
         ] }
 
 # --- optional (nice-to-have) ---

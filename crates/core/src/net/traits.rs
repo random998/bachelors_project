@@ -30,7 +30,7 @@ where T: NetTx + ?Sized + Send /* forward to any NetTx */
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,)]
 pub enum TableMessage {
     Send(SignedMessage,),
     PlayerLeave,
@@ -45,7 +45,8 @@ pub struct ChannelNetTx {
 }
 
 impl ChannelNetTx {
-    #[must_use] pub const fn new(tx: Sender<TableMessage,>,) -> Self {
+    #[must_use]
+    pub const fn new(tx: Sender<TableMessage,>,) -> Self {
         Self {
             tx,
         }
