@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde::Serialize;
 use tokio::sync::mpsc::Sender;
 
 use crate::message::SignedMessage;
@@ -15,7 +14,7 @@ pub trait NetTx: Send + Sync {
 #[async_trait]
 pub trait NetRx: Send + Sync {
     /// Returns `None` when the stream is closed.
-    async fn next_msg(&mut self,) -> Option<SignedMessage,>;
+    async fn next_msg(&mut self,) -> anyhow::Result<SignedMessage,>;
 }
 
 #[async_trait]
@@ -31,7 +30,7 @@ where T: NetTx + ?Sized + Send /* forward to any NetTx */
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub enum TableMessage {
     Send(SignedMessage,),
     PlayerLeave,
