@@ -5,7 +5,7 @@ use futures::StreamExt;
 use libp2p::{
     core::upgrade,
     gossipsub,
-    identity, noise, tcp, yamux,
+    identify, noise, tcp, yamux,
     swarm::{NetworkBehaviour, Swarm, SwarmEvent},
     PeerId, Transport,
 };
@@ -35,10 +35,9 @@ pub fn new(table_id: &str, signing_key: &SigningKey) -> P2pTransport {
     )
         .unwrap();
 
-    #[derive(NetworkBehaviour)]
     struct Behaviour {
         gossipsub: gossipsub::Behaviour,
-        identify : identify::Behaviour,
+        identify : identify::,
     }
 
     let behaviour = Behaviour {
@@ -98,8 +97,8 @@ pub fn new(table_id: &str, signing_key: &SigningKey) -> P2pTransport {
 }
 
 /* ---- helper ---------------------------------------------------------- */
-fn identity_from_signing_key(key: &SigningKey) -> identity::Keypair {
+fn identity_from_signing_key(key: &SigningKey) -> libp2p::identity::Keypair {
     use libp2p::identity::ed25519;
     let secret = ed25519::SecretKey::try_from_bytes(key.to_bytes()).unwrap();
-    identity::Keypair::Ed25519(secret.into())
+    libp2p::identity::Keypair::Ed25519(secret.into())
 }
