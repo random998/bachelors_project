@@ -15,6 +15,7 @@ use log::{error, info, warn};
 use poker_core::connection::SecureWebSocket;
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{Message, SignedMessage};
+use poker_core::net::traits::ChannelNetTx;
 use poker_core::poker::Chips;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream};
@@ -301,6 +302,7 @@ impl ConnectionHandler {
 
         // Create channel to get messages from a table.
         let (table_tx, mut table_rx,) = mpsc::channel(128,);
+        let table_tx: ChannelNetTx = ChannelNetTx::new(table_tx.clone(),);
 
         let res = loop {
             enum Branch {
@@ -431,7 +433,7 @@ impl ConnectionHandler {
 
     async fn handle_client_message<S,>(
         &self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId, msg: SignedMessage,
-        table_msg_tx: &Sender<TableMessage,>,
+        table_msg_tx: &ChannelNetTx,
     ) -> Result<(),>
     where
         S: AsyncRead + AsyncWrite + Unpin,

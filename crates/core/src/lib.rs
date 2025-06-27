@@ -8,4 +8,5 @@ pub mod connection;
 pub mod crypto;
 pub mod game_state;
 pub mod message;
+pub mod net;
 pub mod poker;
