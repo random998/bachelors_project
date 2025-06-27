@@ -155,7 +155,7 @@ where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
     async fn next_msg(&mut self,) -> anyhow::Result<SignedMessage,> {
         match Self::receive(self,).await {
             | Some(res,) => res,
-            | None => Err(anyhow!("Noise WebSocket error during receiving message")),
+            | None => Err(anyhow!("Noise WebSocket error during receiving message"),),
         }
     }
 }

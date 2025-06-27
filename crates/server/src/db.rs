@@ -205,7 +205,7 @@ impl Database {
                     nickname: row.get(1,)?,
                     chips: {
                         let chips: i64 = row.get(2,)?;
-                        
+
                         Chips::new(chips as u32,)
                     },
                 },)
