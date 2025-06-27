@@ -5945,6 +5945,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "table-engine"
+version = "0.0.1"
+
+[[package]]
 name = "tagptr"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
