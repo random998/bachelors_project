@@ -4,6 +4,7 @@ use std::sync::LazyLock;
 
 /// TLS and Noise protocol encrypted WebSocket connection types.
 use anyhow::{Result, anyhow, bail};
+use async_trait::async_trait;
 use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
 use snow::TransportState;
@@ -15,6 +16,8 @@ use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::{self as websocket, MaybeTlsStream, WebSocketStream};
 
 use crate::message::SignedMessage;
+use crate::net::traits::TableMessage;
+use crate::net::{NetRx, NetTx};
 
 static NOISE_PARAMETERS: LazyLock<NoiseParams,> =
     LazyLock::new(|| "Noise_NN_25519_ChaChaPoly_BLAKE2s".parse().unwrap(),);
@@ -42,6 +45,9 @@ where S: AsyncRead + AsyncWrite + Unpin
         Ok((),)
     }
 
+    pub async fn send_table(&mut self, message: &TableMessage,) -> Result<(),> {
+        Err(anyhow!("tried to send table message to another player"),)
+    }
     /// Receive a signed message securely.
     pub async fn receive(&mut self,) -> Option<Result<SignedMessage,>,> {
         let mut buffer = BytesMut::zeroed(MAX_MESSAGE_SIZE,);
@@ -128,6 +134,32 @@ where S: AsyncRead + AsyncWrite + Unpin
         },)
     }
 }
+
+#[async_trait]
+impl<S,> NetTx for SecureWebSocket<S,>
+where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
+{
+    async fn send(&mut self, msg: SignedMessage,) -> Result<(),> {
+        // re-use the existing method
+        Self::send(self, &msg,).await
+    }
+    async fn send_table(&mut self, msg: TableMessage,) -> Result<(),> {
+        Err(anyhow!("tried to send table message to another player"),)
+    }
+}
+
+#[async_trait]
+impl<S,> NetRx for SecureWebSocket<S,>
+where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
+{
+    async fn next_msg(&mut self,) -> Option<SignedMessage,> {
+        match Self::receive(self,).await {
+            | Some(res,) => Some(res.unwrap(),),
+            | None => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use tokio::net::TcpListener;

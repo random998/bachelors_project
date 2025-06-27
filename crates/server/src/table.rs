@@ -5,6 +5,8 @@ use anyhow::Result;
 use log::{error, info};
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::SignedMessage;
+use poker_core::net::traits::ChannelNetTx;
+pub(crate) use poker_core::net::traits::TableMessage;
 use poker_core::poker::{Chips, TableId};
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -24,20 +26,12 @@ pub struct Table {
     table_id: TableId,
 }
 
-#[derive(Debug,)]
-pub enum TableMessage {
-    Send(SignedMessage,),
-    PlayerLeave,
-    Throttle(Duration,),
-    Close,
-}
-
 enum TableCommand {
     TryJoin {
         player_id: PeerId,
         nickname: String,
         join_chips: Chips,
-        table_tx: Sender<TableMessage,>,
+        table_tx: ChannelNetTx,
         response_tx: oneshot::Sender<Result<(), TableJoinError,>,>,
     },
     CanPlayerJoin {
@@ -97,7 +91,7 @@ impl Table {
     }
 
     pub async fn try_join(
-        &self, player_id: &PeerId, nickname: &str, chips: Chips, table_tx: Sender<TableMessage,>,
+        &self, player_id: &PeerId, nickname: &str, chips: Chips, table_tx: ChannelNetTx,
     ) -> Result<(), TableJoinError,> {
         let (response_tx, response_rx,) = oneshot::channel();
 

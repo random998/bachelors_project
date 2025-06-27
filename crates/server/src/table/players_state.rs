@@ -157,19 +157,39 @@ impl fmt::Display for PlayersState {
 }
 
 mod tests {
+    use async_trait::async_trait;
     use poker_core::crypto::SigningKey;
+    use poker_core::message::SignedMessage;
+    use poker_core::net::traits::{ChannelNetTx, TableMessage};
+    use poker_core::net::NetTx;
     use poker_core::poker::Chips;
     use tokio::sync::mpsc;
 
     use crate::table::player::Player;
     use crate::table::players_state::PlayersState;
 
-    fn new_player(chips: Chips,) -> Player {
-        let peer_id = SigningKey::default().verifying_key().peer_id();
-        let (table_tx, _table_rx,) = mpsc::channel(10,);
-        Player::new(peer_id, "Alice".to_string(), chips, table_tx.clone(),)
+    struct MockNet;
+    #[async_trait]
+    impl NetTx for MockNet {
+        async fn send(&mut self, _m: SignedMessage,) -> anyhow::Result<(),> {
+            Ok((),)
+        }
+
+        async fn send_table(&mut self, _msg: TableMessage,) -> anyhow::Result<(),> {
+            Ok((),)
+        }
     }
 
+    fn new_player(chips: Chips,) -> Player {
+        let peer_id = SigningKey::default().verifying_key().peer_id();
+        let (table_tx, _table_rx,) = mpsc::channel(4,);
+        let table_tx: ChannelNetTx = ChannelNetTx {
+            tx: table_tx,
+        };
+
+        let net_box: Box<dyn NetTx + Send,> = Box::new(MockNet,); // NEW
+        Player::new(peer_id, "Alice".to_string(), chips, table_tx, net_box,)
+    }
     fn new_players_state(n: usize,) -> PlayersState {
         let mut players = PlayersState::default();
         (0..n).for_each(|_| players.add(new_player(Chips::new(100_000,),),),);

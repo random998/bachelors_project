@@ -4,19 +4,23 @@
 use std::fmt;
 use std::time::{Duration, Instant};
 
+use anyhow::Result;
 use poker_core::crypto::PeerId;
 use poker_core::message::{PlayerAction, SignedMessage};
+use poker_core::net::traits::{ChannelNetTx, TableMessage};
+use poker_core::net::NetTx;
 use poker_core::poker::{Chips, PlayerCards};
-use rand::prelude::*;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::Sender;
+use tokio::sync::{mpsc, Mutex};
 
-use super::TableMessage;
+use crate::table::Arc;
 
 /// Represents a single poker player at a table.
-#[derive(Clone, Debug,)]
+#[derive(Clone,)]
 pub struct Player {
     pub id: PeerId,
-    pub tx: mpsc::Sender<TableMessage,>,
+    pub tx: ChannelNetTx,
+    pub net_tx: Arc<Mutex<dyn NetTx + Send,>,>,
     pub nickname: String,
     pub chips: Chips,
     pub current_bet: Chips,
@@ -29,13 +33,29 @@ pub struct Player {
     pub dealer: bool,
 }
 
+impl fmt::Debug for Player {
+    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
+        f.debug_struct("Player",)
+            .field("id", &self.id,)
+            .field("nickname", &self.nickname,)
+            .field("chips", &self.chips,)
+            .field("current_bet", &self.current_bet,)
+            .field("last_action", &self.last_action,)
+            .field("active", &self.active,)
+            .field("dealer", &self.dealer,)
+            .finish()
+    }
+}
+
 impl Player {
     pub fn new(
-        id: PeerId, nickname: String, chips: Chips, tx: mpsc::Sender<TableMessage,>,
+        id: PeerId, nickname: String, chips: Chips, tx: ChannelNetTx,
+        net_tx: Box<dyn NetTx + Send,>,
     ) -> Self {
         Self {
             id,
             tx,
+            net_tx: Arc::new(Mutex::new(net_tx,),),
             nickname,
             chips,
             current_bet: Chips::ZERO,
@@ -48,16 +68,19 @@ impl Player {
         }
     }
 
-    pub async fn send(&self, msg: SignedMessage,) {
-        let _ = self.tx.send(TableMessage::Send(msg,),).await;
+    pub async fn send_table_msg(&mut self, msg: TableMessage,) {
+        let _ = self.tx.send_table(msg,).await;
+    }
+    pub async fn send(&mut self, msg: SignedMessage,) {
+        let _ = self.tx.send(msg,).await;
     }
 
-    pub async fn notify_left(&self,) {
-        let _ = self.tx.send(TableMessage::PlayerLeave,).await;
+    pub async fn notify_left(&mut self,) {
+        let _ = self.send_table_msg(TableMessage::PlayerLeave,).await;
     }
 
-    pub async fn send_throttle(&self, duration: Duration,) {
-        let _ = self.tx.send(TableMessage::Throttle(duration,),).await;
+    pub async fn send_throttle(&mut self, duration: Duration,) {
+        let _ = self.send_table_msg(TableMessage::Throttle(duration,),).await;
     }
 
     pub fn place_bet(&mut self, action: PlayerAction, total_bet: Chips,) {
@@ -112,10 +135,27 @@ pub(crate) mod tests {
 
     use super::*;
 
+    struct MockNet;
+    #[async_trait::async_trait]
+    impl NetTx for MockNet {
+        async fn send(&mut self, _m: SignedMessage,) -> Result<(),> {
+            Ok((),)
+        }
+
+        async fn send_table(&mut self, msg: TableMessage,) -> Result<(),> {
+            Ok((),)
+        }
+    }
+
     fn new_player(chips: Chips,) -> Player {
         let peer_id = SigningKey::default().verifying_key().peer_id();
-        let (table_tx, _table_rx,) = mpsc::channel(10,);
-        Player::new(peer_id, "Alice".to_string(), chips, table_tx.clone(),)
+        let (table_tx, _table_rx,): (Sender<TableMessage,>, mpsc::Receiver<TableMessage,>,) =
+            mpsc::channel(10,);
+        let table_tx = ChannelNetTx {
+            tx: table_tx.clone(),
+        };
+        let net = Box::new(MockNet,);
+        Player::new(peer_id, "Alice".to_string(), chips, table_tx, net,)
     }
 
     #[test]
