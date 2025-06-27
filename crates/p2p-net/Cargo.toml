@@ -1,0 +1,37 @@
+[package]
+name    = "p2p-net"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+license = "MIT OR Apache-2.0"
+description = "libp2p transport layer for the ZK-Poker project"
+
+[dependencies]
+# --- core project -------------
+poker-core = { path = "../core" }      # SignedMessage, NetTx, etc.
+
+# --- async / util -------------
+tokio        = { version = "1.38", features = ["rt-multi-thread", "macros", "sync"] }
+async-trait  = "0.1"
+anyhow       = "1.0"
+bincode      = "1.3"                   # (de)serialise SignedMessage
+
+# --- libp2p stack -------------
+libp2p = { version = "0.55", default-features = false, features = [
+               "dns",
+               "gossipsub",
+               "noise",
+               "tokio",               # use Tokio reactor
+               "tcp",                 # TCP transport over Tokio
+               "websocket"            # optional ws transport
+           ] }
+
+# --- optional (nice-to-have) ---
+log          = "0.4"
+tracing      = { version = "0.1", optional = true }
+
+[features]
+# Compile-time switch so existing WebSocket build keeps working.
+# When `p2p` is enabled, downstream crates can pick P2pTx/P2pRx.
+default = []          # keep off by default until Stage-4 GUI swap
+p2p     = []
