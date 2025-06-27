@@ -105,7 +105,7 @@ impl Table {
                 response_tx,
             },)
             .await;
-        info!("table join result : {:?}", result);
+        info!("table join result : {result:?}");
 
         response_rx.await.map_err(|_| TableJoinError::Unknown,)?
     }
