@@ -4,32 +4,32 @@ pub mod swarm_task;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use poker_core::message::SignedMessage;
-use poker_core::net::{NetTx, NetRx};
-
-use tokio::sync::mpsc::{Sender, Receiver};
 use poker_core::net::traits::TableMessage;
+use poker_core::net::{NetRx, NetTx};
+use tokio::sync::mpsc::{Receiver, Sender};
+
 use crate::swarm_task::SignedMsgBlob;
 
 /// Outbound half
 pub struct P2pTx {
-    sender: Sender<SignedMsgBlob>,
+    sender: Sender<SignedMsgBlob,>,
 }
 
 /// Inbound half
 pub struct P2pRx {
-    receiver: Receiver<SignedMessage>,
+    receiver: Receiver<SignedMessage,>,
 }
 
 /// ------------- NetTx implementation -----------------
 #[async_trait]
 impl NetTx for P2pTx {
-    async fn send(&mut self, msg: SignedMessage) -> Result<()> {
+    async fn send(&mut self, msg: SignedMessage,) -> Result<(),> {
         let blob = msg.serialize();
-        self.sender.send(blob).await?;
-        Ok(())
+        self.sender.send(blob,).await?;
+        Ok((),)
     }
 
-    async fn send_table(&mut self, msg: TableMessage) -> Result<()> {
+    async fn send_table(&mut self, msg: TableMessage,) -> Result<(),> {
         todo!()
     }
 }
@@ -37,10 +37,10 @@ impl NetTx for P2pTx {
 /// ------------- NetRx implementation -----------------
 #[async_trait]
 impl NetRx for P2pRx {
-    async fn next_msg(&mut self) -> Result<SignedMessage> {
+    async fn next_msg(&mut self,) -> Result<SignedMessage,> {
         match self.receiver.recv().await {
-            Some(msg) => Ok(msg),
-            None      => Err(anyhow!("P2pRx closed")),
+            | Some(msg,) => Ok(msg,),
+            | None => Err(anyhow!("P2pRx closed"),),
         }
     }
 }

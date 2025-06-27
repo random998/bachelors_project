@@ -15,7 +15,7 @@ const ENTROPY_LENGTH: usize = 16;
 type Entropy = [u8; ENTROPY_LENGTH];
 
 /// Private key used to sign messages.
-#[derive(Clone)]
+#[derive(Clone,)]
 pub struct SigningKey {
     key: ed25519_dalek::SigningKey,
     entropy: Zeroizing<Entropy,>,
@@ -32,11 +32,9 @@ impl Default for SigningKey {
 }
 
 impl Serialize for SigningKey {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.key.serialize(serializer)
+    fn serialize<S,>(&self, serializer: S,) -> std::result::Result<S::Ok, S::Error,>
+    where S: Serializer {
+        self.key.serialize(serializer,)
     }
 }
 
