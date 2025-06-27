@@ -30,6 +30,7 @@ tokio-tungstenite = { version = "0.26.2", optional = true, features = [
 zeroize = "1.8.1"
 log = "0.4.27"
 tracing = "0.1.41"
+async-trait = "0.1.88"
 
 [features]
 connection = [

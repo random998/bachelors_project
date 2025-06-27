@@ -1,6 +1,6 @@
 [package]
-name = "zkpoker-server"
-description = "zkpoker server"
+name = "poker-server"
+description = "poker server"
 version = "0.0.1"
 edition = "2018"
 
@@ -20,3 +20,4 @@ tokio = { workspace = true, features=["full"] }
 tokio-rustls = { workspace = true }
 tokio-tungstenite = { workspace = true }
 futures = {workspace = true}
+async-trait = "0.1.88"

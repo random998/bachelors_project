@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use log::error;
-use zkpoker_server::server;
+use poker_server::server;
 
 #[derive(Parser, Debug,)]
 struct Cli {
