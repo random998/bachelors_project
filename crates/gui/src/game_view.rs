@@ -1,9 +1,9 @@
 // code based on https://github.com/vincev/freezeout
 //! Game view.
 use eframe::egui::{
-    Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId, Frame, Image, Key,
-    Rect, RichText, Sense, Slider, Stroke, StrokeKind, TextFormat, Ui, Vec2, Window, epaint, pos2,
-    text, vec2,
+    Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId,
+    Frame, Image, Key, Rect, RichText, Sense, Slider, Stroke, StrokeKind,
+    TextFormat, Ui, Vec2, Window, epaint, pos2, text, vec2,
 };
 use log::error;
 use poker_cards::egui::Textures;
@@ -16,41 +16,43 @@ use crate::{AccountView, App, ConnectView, ConnectionEvent, View};
 /// Connect view.
 pub struct GameView {
     connection_closed: bool,
-    game_state: ClientGameState,
-    error: Option<String,>,
-    bet_params: Option<BetParams,>,
-    show_account: Option<Chips,>,
-    show_legend: bool,
+    game_state:        ClientGameState,
+    error:             Option<String,>,
+    bet_params:        Option<BetParams,>,
+    show_account:      Option<Chips,>,
+    show_legend:       bool,
 }
 
 struct BetParams {
-    min_raise: u32,
-    big_blind: u32,
+    min_raise:   u32,
+    big_blind:   u32,
     raise_value: u32,
 }
 
 impl View for GameView {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame, app: &mut App,) {
+    fn update(
+        &mut self,
+        ctx: &Context,
+        _frame: &mut eframe::Frame,
+        app: &mut App,
+    ) {
         while let Some(event,) = app.poll_network() {
             match event {
-                | ConnectionEvent::Open => {
+                ConnectionEvent::Open => {
                     self.connection_closed = false;
                 },
-                | ConnectionEvent::Close => {
+                ConnectionEvent::Close => {
                     self.connection_closed = true;
                 },
-                | ConnectionEvent::Error(e,) => {
+                ConnectionEvent::Error(e,) => {
                     self.error = Some(format!("Connection error {e}"),);
                     error!("Connection error {e}");
 
                     app.close_connection();
                     self.connection_closed = true;
                 },
-                | ConnectionEvent::Message(msg,) => {
-                    if let Message::ShowAccount {
-                        chips,
-                    } = msg.message()
-                    {
+                ConnectionEvent::Message(msg,) => {
+                    if let Message::ShowAccount { chips, } = msg.message() {
                         self.show_account = Some(*chips,);
                     }
 
@@ -68,10 +70,18 @@ impl View for GameView {
             .resizable(false,)
             .anchor(Align2::CENTER_CENTER, Vec2::ZERO,)
             .title_bar(false,)
-            .frame(Frame::NONE.fill(Color32::from_gray(80,),).corner_radius(7.0,),)
+            .frame(
+                Frame::NONE
+                    .fill(Color32::from_gray(80,),)
+                    .corner_radius(7.0,),
+            )
             .show(ctx, |ui| {
-                let (rect, _,) = ui.allocate_exact_size(vec2(1024.0, 640.0,), Sense::hover(),);
-                let table_rect = Rect::from_center_size(rect.center(), rect.shrink(60.0,).size(),);
+                let (rect, _,) = ui
+                    .allocate_exact_size(vec2(1024.0, 640.0,), Sense::hover(),);
+                let table_rect = Rect::from_center_size(
+                    rect.center(),
+                    rect.shrink(60.0,).size(),
+                );
                 self.paint_table(ui, &table_rect,);
                 self.paint_board(ui, &table_rect, app,);
                 self.paint_pot(ui, &table_rect,);
@@ -84,7 +94,10 @@ impl View for GameView {
     }
 
     fn next(
-        &mut self, _ctx: &Context, frame: &mut eframe::Frame, app: &mut App,
+        &mut self,
+        _ctx: &Context,
+        frame: &mut eframe::Frame,
+        app: &mut App,
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {
             Some(Box::new(ConnectView::new(frame.storage(), app,),),)
@@ -139,7 +152,7 @@ impl GameView {
             ui.painter().rect(
                 Rect::from_center_size(
                     rect.center(),
-                    vec2(2.0f32.mul_add(-radius, rect.width(),), rect.height(),),
+                    vec2(2.0f32.mul_add(-radius, rect.width()), rect.height()),
                 ),
                 0.0,
                 fill,
@@ -205,13 +218,18 @@ impl GameView {
 
         let mut card_rect = Rect::from_min_size(
             rect.center()
-                - vec2(CARD_SIZE.x.mul_add(2.5, 2.0 * BORDER,), CARD_SIZE.y / 2.0 + 20.0,),
+                - vec2(
+                    CARD_SIZE.x.mul_add(2.5, 2.0 * BORDER,),
+                    CARD_SIZE.y / 2.0 + 20.0,
+                ),
             CARD_SIZE,
         );
 
         for card in self.game_state.community_cards() {
             let tx = app.textures.card(*card,);
-            Image::new(&tx,).corner_radius(5.0,).paint_at(ui, card_rect,);
+            Image::new(&tx,)
+                .corner_radius(5.0,)
+                .paint_at(ui, card_rect,);
 
             card_rect = card_rect.translate(vec2(CARD_SIZE.x + BORDER, 0.0,),);
         }
@@ -236,37 +254,48 @@ impl GameView {
 
             let text_offset = (rect.size() - galley.rect.size()) / 2.0;
 
-            ui.painter().galley(rect.left_top() + text_offset, galley, Self::TEXT_COLOR,);
+            ui.painter().galley(
+                rect.left_top() + text_offset,
+                galley,
+                Self::TEXT_COLOR,
+            );
         }
     }
 
     fn paint_players(&mut self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
-        // Seats starting from mid bottom clock wise each point is a player center.
+        // Seats starting from mid bottom clock wise each point is a player
+        // center.
         let seats: &[Align2] = match self.game_state.players().len() {
-            | 1 => &[Align2::CENTER_BOTTOM,],
-            | 2 => &[Align2::CENTER_BOTTOM, Align2::CENTER_TOP,],
-            | 3 => &[Align2::CENTER_BOTTOM, Align2::LEFT_TOP, Align2::RIGHT_TOP,],
-            | 4 => &[
-                Align2::CENTER_BOTTOM,
-                Align2::LEFT_CENTER,
-                Align2::CENTER_TOP,
-                Align2::RIGHT_CENTER,
-            ],
-            | 5 => &[
-                Align2::CENTER_BOTTOM,
-                Align2::LEFT_BOTTOM,
-                Align2::LEFT_TOP,
-                Align2::RIGHT_TOP,
-                Align2::RIGHT_BOTTOM,
-            ],
-            | _ => &[
-                Align2::CENTER_BOTTOM,
-                Align2::LEFT_BOTTOM,
-                Align2::LEFT_TOP,
-                Align2::CENTER_TOP,
-                Align2::RIGHT_TOP,
-                Align2::RIGHT_BOTTOM,
-            ],
+            1 => &[Align2::CENTER_BOTTOM,],
+            2 => &[Align2::CENTER_BOTTOM, Align2::CENTER_TOP,],
+            3 => &[Align2::CENTER_BOTTOM, Align2::LEFT_TOP, Align2::RIGHT_TOP,],
+            4 => {
+                &[
+                    Align2::CENTER_BOTTOM,
+                    Align2::LEFT_CENTER,
+                    Align2::CENTER_TOP,
+                    Align2::RIGHT_CENTER,
+                ]
+            },
+            5 => {
+                &[
+                    Align2::CENTER_BOTTOM,
+                    Align2::LEFT_BOTTOM,
+                    Align2::LEFT_TOP,
+                    Align2::RIGHT_TOP,
+                    Align2::RIGHT_BOTTOM,
+                ]
+            },
+            _ => {
+                &[
+                    Align2::CENTER_BOTTOM,
+                    Align2::LEFT_BOTTOM,
+                    Align2::LEFT_TOP,
+                    Align2::CENTER_TOP,
+                    Align2::RIGHT_TOP,
+                    Align2::RIGHT_BOTTOM,
+                ]
+            },
         };
 
         for (player, align,) in self.game_state.players().iter().zip(seats,) {
@@ -277,7 +306,12 @@ impl GameView {
     }
 
     fn paint_player(
-        &self, player: &Player, ui: &mut Ui, rect: &Rect, align: &Align2, app: &mut App,
+        &self,
+        player: &Player,
+        ui: &mut Ui,
+        rect: &Rect,
+        align: &Align2,
+        app: &mut App,
     ) {
         let rect = player_rect(rect, align,);
         let id_rect = self.paint_player_id(player, ui, &rect, align,);
@@ -287,7 +321,13 @@ impl GameView {
         self.paint_winning_hand(player, ui, &id_rect, align, &app.textures,);
     }
 
-    fn paint_player_id(&self, player: &Player, ui: &mut Ui, rect: &Rect, align: &Align2,) -> Rect {
+    fn paint_player_id(
+        &self,
+        player: &Player,
+        ui: &mut Ui,
+        rect: &Rect,
+        align: &Align2,
+    ) -> Rect {
         let rect = rect.shrink(5.0,);
 
         let layout_job = text::LayoutJob {
@@ -337,9 +377,16 @@ impl GameView {
         bg_rect
     }
 
-    fn paint_player_name_and_chips(&self, player: &Player, ui: &mut Ui, rect: &Rect,) {
-        let bg_rect =
-            Rect::from_min_size(rect.left_bottom() + vec2(0.0, 10.0,), vec2(rect.width(), 40.0,),);
+    fn paint_player_name_and_chips(
+        &self,
+        player: &Player,
+        ui: &mut Ui,
+        rect: &Rect,
+    ) {
+        let bg_rect = Rect::from_min_size(
+            rect.left_bottom() + vec2(0.0, 10.0,),
+            vec2(rect.width(), 40.0,),
+        );
 
         paint_border(ui, &bg_rect,);
 
@@ -353,11 +400,19 @@ impl GameView {
             Self::TEXT_COLOR,
         );
 
-        painter.galley(bg_rect.left_top() + vec2(5.0, 4.0,), galley.clone(), Self::TEXT_COLOR,);
+        painter.galley(
+            bg_rect.left_top() + vec2(5.0, 4.0,),
+            galley.clone(),
+            Self::TEXT_COLOR,
+        );
 
         let chips_pos = bg_rect.left_top() + vec2(0.0, galley.size().y,);
 
-        let galley = ui.painter().layout_no_wrap(player.chips.to_string(), font, Self::TEXT_COLOR,);
+        let galley = ui.painter().layout_no_wrap(
+            player.chips.to_string(),
+            font,
+            Self::TEXT_COLOR,
+        );
 
         painter.galley(chips_pos + vec2(5.0, 7.0,), galley, Self::TEXT_COLOR,);
 
@@ -372,22 +427,35 @@ impl GameView {
     }
 
     fn paint_player_cards(
-        &self, player: &Player, ui: &mut Ui, rect: &Rect, align: &Align2, textures: &Textures,
+        &self,
+        player: &Player,
+        ui: &mut Ui,
+        rect: &Rect,
+        align: &Align2,
+        textures: &Textures,
     ) {
         if !player.participating_in_hand {
             return;
         }
 
         let (tx1, tx2,) = match player.hole_cards {
-            | PlayerCards::None => return,
-            | PlayerCards::Covered => (textures.back(), textures.back(),),
-            | PlayerCards::Cards(c1, c2,) => (textures.card(c1,), textures.card(c2,),),
+            PlayerCards::None => return,
+            PlayerCards::Covered => (textures.back(), textures.back(),),
+            PlayerCards::Cards(c1, c2,) => {
+                (textures.card(c1,), textures.card(c2,),)
+            },
         };
 
         let cards_rect = if align.x() == Align::RIGHT {
-            Rect::from_min_size(rect.left_top() - vec2(rect.size().x + 10.0, 0.0,), rect.size(),)
+            Rect::from_min_size(
+                rect.left_top() - vec2(rect.size().x + 10.0, 0.0,),
+                rect.size(),
+            )
         } else {
-            Rect::from_min_size(rect.right_top() + vec2(10.0, 0.0,), rect.size(),)
+            Rect::from_min_size(
+                rect.right_top() + vec2(10.0, 0.0,),
+                rect.size(),
+            )
         };
 
         paint_border(ui, &cards_rect,);
@@ -399,12 +467,20 @@ impl GameView {
         let c1_rect = Rect::from_min_size(card_pos, card_size,);
         Image::new(&tx1,).corner_radius(2.0,).paint_at(ui, c1_rect,);
 
-        let c2_rect = Rect::from_min_size(card_pos + vec2(card_size.x + 2.0, 0.0,), card_size,);
+        let c2_rect = Rect::from_min_size(
+            card_pos + vec2(card_size.x + 2.0, 0.0,),
+            card_size,
+        );
         Image::new(&tx2,).corner_radius(2.0,).paint_at(ui, c2_rect,);
     }
 
     fn paint_winning_hand(
-        &self, player: &Player, ui: &mut Ui, rect: &Rect, align: &Align2, textures: &Textures,
+        &self,
+        player: &Player,
+        ui: &mut Ui,
+        rect: &Rect,
+        align: &Align2,
+        textures: &Textures,
     ) {
         const IMAGE_LY: f32 = 60.0;
         const LABEL_LY: f32 = 20.0;
@@ -428,19 +504,26 @@ impl GameView {
 
             let cards_rect = Rect::from_min_size(
                 pos2(x_pos, y_pos,),
-                vec2(Self::ACTION_BUTTON_LX.mul_add(2.0, 10.0,), IMAGE_LY + LABEL_LY,),
+                vec2(
+                    Self::ACTION_BUTTON_LX.mul_add(2.0, 10.0,),
+                    IMAGE_LY + LABEL_LY,
+                ),
             );
 
             paint_border(ui, &cards_rect,);
 
             let card_lx = (cards_rect.size().x - 11.0) / 5.0;
             let card_size = vec2(card_lx, IMAGE_LY - 8.0,);
-            let mut card_rect =
-                Rect::from_min_size(cards_rect.left_top() + vec2(4.0, 4.0,), card_size,);
+            let mut card_rect = Rect::from_min_size(
+                cards_rect.left_top() + vec2(4.0, 4.0,),
+                card_size,
+            );
 
             for card in &payoff.cards {
                 let tx = textures.card(*card,);
-                Image::new(&tx,).corner_radius(2.0,).paint_at(ui, card_rect,);
+                Image::new(&tx,)
+                    .corner_radius(2.0,)
+                    .paint_at(ui, card_rect,);
 
                 card_rect = card_rect.translate(vec2(card_lx + 1.0, 0.0,),);
             }
@@ -474,25 +557,37 @@ impl GameView {
         }
     }
 
-    fn paint_player_action(&self, player: &Player, ui: &mut Ui, rect: &Rect, align: &Align2,) {
+    fn paint_player_action(
+        &self,
+        player: &Player,
+        ui: &mut Ui,
+        rect: &Rect,
+        align: &Align2,
+    ) {
         if matches!(player.hole_cards, PlayerCards::None) {
             return;
         }
 
         let rect = match align.x() {
-            | Align::RIGHT => Rect::from_min_size(
-                rect.left_bottom() + vec2(-(rect.width() + 10.0), 10.0,),
-                vec2(rect.width(), 40.0,),
-            ),
-            | _ => Rect::from_min_size(
-                rect.left_bottom() + vec2(rect.width() + 10.0, 10.0,),
-                vec2(rect.width(), 40.0,),
-            ),
+            Align::RIGHT => {
+                Rect::from_min_size(
+                    rect.left_bottom() + vec2(-(rect.width() + 10.0), 10.0,),
+                    vec2(rect.width(), 40.0,),
+                )
+            },
+            _ => {
+                Rect::from_min_size(
+                    rect.left_bottom() + vec2(rect.width() + 10.0, 10.0,),
+                    vec2(rect.width(), 40.0,),
+                )
+            },
         };
 
         paint_border(ui, &rect,);
 
-        if !matches!(player.last_action, PlayerAction::None) || player.hand_payoff.is_some() {
+        if !matches!(player.last_action, PlayerAction::None)
+            || player.hand_payoff.is_some()
+        {
             let mut action_rect = rect.shrink(1.0,);
             action_rect.set_height(rect.height() / 2.0,);
 
@@ -524,13 +619,19 @@ impl GameView {
                 Self::BG_COLOR,
             );
 
-            if player.current_bet > Chips::ZERO || player.hand_payoff.is_some() {
-                let amount_rect = action_rect.translate(vec2(3.0, action_rect.height() + 2.0,),);
+            if player.current_bet > Chips::ZERO || player.hand_payoff.is_some()
+            {
+                let amount_rect = action_rect
+                    .translate(vec2(3.0, action_rect.height() + 2.0,),);
 
                 let amount = if player.current_bet > Chips::ZERO {
                     player.current_bet.to_string()
                 } else {
-                    player.hand_payoff.as_ref().map(|p| p.chips.to_string(),).unwrap_or_default()
+                    player
+                        .hand_payoff
+                        .as_ref()
+                        .map(|p| p.chips.to_string(),)
+                        .unwrap_or_default()
                 };
 
                 let galley = ui.painter().layout_no_wrap(
@@ -539,12 +640,21 @@ impl GameView {
                     Self::TEXT_COLOR,
                 );
 
-                ui.painter().galley(amount_rect.left_top(), galley, Self::TEXT_COLOR,);
+                ui.painter().galley(
+                    amount_rect.left_top(),
+                    galley,
+                    Self::TEXT_COLOR,
+                );
             }
         }
     }
 
-    fn paint_action_controls(&mut self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
+    fn paint_action_controls(
+        &mut self,
+        ui: &mut Ui,
+        rect: &Rect,
+        app: &mut App,
+    ) {
         let mut send_action = None;
 
         if let Some(action_request,) = self.game_state.action_request() {
@@ -560,40 +670,49 @@ impl GameView {
                 paint_border(ui, &button_rectangle,);
 
                 let label = match action {
-                    | PlayerAction::Bet | PlayerAction::Raise if self.bet_params.is_some() => {
+                    PlayerAction::Bet | PlayerAction::Raise
+                        if self.bet_params.is_some() =>
+                    {
                         // Set the label for bet and raise to confirm if betting
                         // controls are active.
                         "CONFIRM"
                     },
-                    | _ => action.label(),
+                    _ => action.label(),
                 };
 
                 let button = Button::new(
-                    RichText::new(label,).font(Self::TEXT_FONT,).color(Self::TEXT_COLOR,),
+                    RichText::new(label,)
+                        .font(Self::TEXT_FONT,)
+                        .color(Self::TEXT_COLOR,),
                 )
                 .fill(Self::BG_COLOR,);
 
-                let clicked = ui.put(button_rectangle.shrink(2.0,), button,).clicked();
+                let clicked =
+                    ui.put(button_rectangle.shrink(2.0,), button,).clicked();
                 match action {
-                    | PlayerAction::Call | PlayerAction::Check => {
+                    PlayerAction::Call | PlayerAction::Check => {
                         if ui.input(|i| i.key_pressed(Key::C,),) || clicked {
                             send_action = Some((action, Chips::ZERO,),);
                             self.bet_params = None;
                             break;
                         }
                     },
-                    | PlayerAction::Fold => {
+                    PlayerAction::Fold => {
                         if ui.input(|i| i.key_pressed(Key::F,),) || clicked {
                             send_action = Some((action, Chips::ZERO,),);
                             self.bet_params = None;
                             break;
                         }
                     },
-                    | PlayerAction::Bet | PlayerAction::Raise => {
-                        if (ui.input(|i| i.key_pressed(Key::Enter,),) || clicked)
+                    PlayerAction::Bet | PlayerAction::Raise => {
+                        if (ui.input(|i| i.key_pressed(Key::Enter,),)
+                            || clicked)
                             && let Some(params,) = &self.bet_params
                         {
-                            send_action = Some((action, Chips::new(params.raise_value,),),);
+                            send_action = Some((
+                                action,
+                                Chips::new(params.raise_value,),
+                            ),);
                             self.bet_params = None;
                             break;
                         }
@@ -604,27 +723,30 @@ impl GameView {
                             && self.bet_params.is_none()
                         {
                             self.bet_params = Some(BetParams {
-                                min_raise: action_request.minimum_raise.amount(),
-                                big_blind: action_request.big_blind_amount.amount(),
-                                raise_value: action_request.minimum_raise.amount(),
+                                min_raise:   action_request
+                                    .minimum_raise
+                                    .amount(),
+                                big_blind:   action_request
+                                    .big_blind_amount
+                                    .amount(),
+                                raise_value: action_request
+                                    .minimum_raise
+                                    .amount(),
                             },);
                         }
                     },
-                    | _ => {},
+                    _ => {},
                 }
 
-                button_rectangle =
-                    button_rectangle.translate(vec2(Self::ACTION_BUTTON_LX + 10.0, 0.0,),);
+                button_rectangle = button_rectangle
+                    .translate(vec2(Self::ACTION_BUTTON_LX + 10.0, 0.0,),);
             }
 
             self.paint_betting_controls(ui, &rect,);
         }
 
         if let Some((action, amount,),) = send_action {
-            let msg = Message::ActionResponse {
-                action,
-                amount,
-            };
+            let msg = Message::ActionResponse { action, amount, };
             app.send_message(msg,);
 
             self.game_state.reset_action_request();
@@ -660,7 +782,8 @@ impl GameView {
 
             ypos += 35.0;
             ui.painter().galley(
-                rect.left_top() + vec2((rect.width() - galley.size().x) / 2.0, ypos,),
+                rect.left_top()
+                    + vec2((rect.width() - galley.size().x) / 2.0, ypos,),
                 galley,
                 Self::TEXT_COLOR,
             );
@@ -675,29 +798,37 @@ impl GameView {
                 .map(|p| (p.chips + p.current_bet).into(),)
                 .unwrap();
 
-            // Handle case when minimum raise is greater than this player chips, so
-            // that the player can go all in.
+            // Handle case when minimum raise is greater than this player chips,
+            // so that the player can go all in.
             let min_raise = params.min_raise.min(max_bet,);
-            let slider = Slider::new(&mut params.raise_value, min_raise..=max_bet,)
-                .show_value(false,)
-                .step_by(f64::from(big_blind,),)
-                .trailing_fill(true,);
+            let slider =
+                Slider::new(&mut params.raise_value, min_raise..=max_bet,)
+                    .show_value(false,)
+                    .step_by(f64::from(big_blind,),)
+                    .trailing_fill(true,);
 
             ui.style_mut().spacing.slider_width = rect.width() - 10.0;
             ui.visuals_mut().selection.bg_fill = Self::TEXT_COLOR;
 
             ypos += 35.0;
-            let slider_rect =
-                Rect::from_min_size(rect.left_top() + vec2(5.0, ypos,), vec2(rect.width(), 20.0,),);
+            let slider_rect = Rect::from_min_size(
+                rect.left_top() + vec2(5.0, ypos,),
+                vec2(rect.width(), 20.0,),
+            );
             ui.put(slider_rect, slider,);
 
-            // Adjust slider value in case it goes above max_bet, this may happen if
-            // the max_bet is not a multiple of the slider step_by.
+            // Adjust slider value in case it goes above max_bet, this may
+            // happen if the max_bet is not a multiple of the slider
+            // step_by.
             params.raise_value = params.raise_value.min(max_bet,);
 
             ypos += 20.0;
-            let btn = Button::new(RichText::new("-",).font(TEXT_FONT,).color(Self::TEXT_COLOR,),)
-                .fill(Self::BG_COLOR,);
+            let btn = Button::new(
+                RichText::new("-",)
+                    .font(TEXT_FONT,)
+                    .color(Self::TEXT_COLOR,),
+            )
+            .fill(Self::BG_COLOR,);
             let btn_rect = Rect::from_min_size(
                 rect.left_top() + vec2(0.0, ypos,),
                 vec2(rect.width() / 2.0 - 2.0, 20.0,),
@@ -708,17 +839,26 @@ impl GameView {
                 || ui.input(|i| i.key_pressed(Key::ArrowDown,),)
                 || ui.input(|i| i.key_pressed(Key::ArrowLeft,),)
             {
-                params.raise_value = params.raise_value.saturating_sub(big_blind,).max(min_raise,);
+                params.raise_value = params
+                    .raise_value
+                    .saturating_sub(big_blind,)
+                    .max(min_raise,);
             }
 
             // Page down to subtract 4 big blinds
             if ui.input(|i| i.key_pressed(Key::PageDown,),) {
-                params.raise_value =
-                    params.raise_value.saturating_sub(big_blind * 4,).max(min_raise,);
+                params.raise_value = params
+                    .raise_value
+                    .saturating_sub(big_blind * 4,)
+                    .max(min_raise,);
             }
 
-            let btn = Button::new(RichText::new("+",).font(TEXT_FONT,).color(Self::TEXT_COLOR,),)
-                .fill(Self::BG_COLOR,);
+            let btn = Button::new(
+                RichText::new("+",)
+                    .font(TEXT_FONT,)
+                    .color(Self::TEXT_COLOR,),
+            )
+            .fill(Self::BG_COLOR,);
             let btn_rect = Rect::from_min_size(
                 rect.left_top() + vec2(rect.width() / 2.0, ypos,),
                 vec2(rect.width() / 2.0, 20.0,),
@@ -729,20 +869,27 @@ impl GameView {
                 || ui.input(|i| i.key_pressed(Key::ArrowUp,),)
                 || ui.input(|i| i.key_pressed(Key::ArrowRight,),)
             {
-                params.raise_value = params.raise_value.saturating_add(big_blind,).min(max_bet,);
+                params.raise_value =
+                    params.raise_value.saturating_add(big_blind,).min(max_bet,);
             }
 
             // Page up to add 4 big blinds
             if ui.input(|i| i.key_pressed(Key::PageUp,),) {
-                params.raise_value =
-                    params.raise_value.saturating_add(big_blind * 4,).min(max_bet,);
+                params.raise_value = params
+                    .raise_value
+                    .saturating_add(big_blind * 4,)
+                    .min(max_bet,);
             }
         }
     }
 
     fn paint_close_button(&self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
-        let btn = Button::new(RichText::new("X",).font(Self::TEXT_FONT,).color(Self::TEXT_COLOR,),)
-            .fill(Self::BG_COLOR,);
+        let btn = Button::new(
+            RichText::new("X",)
+                .font(Self::TEXT_FONT,)
+                .color(Self::TEXT_COLOR,),
+        )
+        .fill(Self::BG_COLOR,);
 
         let rect = Rect::from_min_size(rect.left_top(), Self::SMALL_BUTTON_SZ,);
 
@@ -752,8 +899,12 @@ impl GameView {
     }
 
     fn paint_help_button(&mut self, ui: &mut Ui, rect: &Rect,) {
-        let btn = Button::new(RichText::new("?",).font(Self::TEXT_FONT,).color(Self::TEXT_COLOR,),)
-            .fill(Self::BG_COLOR,);
+        let btn = Button::new(
+            RichText::new("?",)
+                .font(Self::TEXT_FONT,)
+                .color(Self::TEXT_COLOR,),
+        )
+        .fill(Self::BG_COLOR,);
 
         let rect = Rect::from_min_size(
             rect.right_top() - vec2(Self::SMALL_BUTTON_SZ.x, 0.0,),
@@ -836,18 +987,29 @@ impl GameView {
             StrokeKind::Inside,
         );
 
-        ui.painter().galley(text_pos + Vec2::splat(BORDER,), galley, Color32::DARK_GRAY,);
+        ui.painter().galley(
+            text_pos + Vec2::splat(BORDER,),
+            galley,
+            Color32::DARK_GRAY,
+        );
     }
 }
 
 fn paint_border(ui: &mut Ui, rect: &Rect,) {
     let border_color = Color32::from_gray(20,);
-    ui.painter().rect(*rect, 5.0, border_color, Stroke::NONE, StrokeKind::Inside,);
+    ui.painter().rect(
+        *rect,
+        5.0,
+        border_color,
+        Stroke::NONE,
+        StrokeKind::Inside,
+    );
 
     for (idx, &color,) in (0..6).zip(&[100, 120, 140, 100, 80,],) {
         let border_rect = rect.expand(idx as f32,);
         let stroke = Stroke::new(1.0, Color32::from_gray(color as u8,),);
-        ui.painter().rect_stroke(border_rect, 5.0, stroke, StrokeKind::Inside,);
+        ui.painter()
+            .rect_stroke(border_rect, 5.0, stroke, StrokeKind::Inside,);
     }
 }
 
@@ -866,24 +1028,24 @@ fn player_rect(rect: &Rect, align: &Align2,) -> Rect {
 
     let rect = rect.shrink(20.0,);
     let x = match align.x() {
-        | Align::LEFT => rect.left(),
-        | Align::Center => rect.center().x - PLAYER_SIZE.x / 1.5,
-        | Align::RIGHT => rect.right() - PLAYER_SIZE.x,
+        Align::LEFT => rect.left(),
+        Align::Center => rect.center().x - PLAYER_SIZE.x / 1.5,
+        Align::RIGHT => rect.right() - PLAYER_SIZE.x,
     };
 
     let y = match (align.x(), align.y(),) {
-        | (Align::LEFT | Align::RIGHT, Align::TOP,) => {
+        (Align::LEFT | Align::RIGHT, Align::TOP,) => {
             rect.top() + rect.height() / 4.0 - PLAYER_SIZE.y / 2.0
         },
-        | (Align::LEFT | Align::RIGHT, Align::BOTTOM,) => {
+        (Align::LEFT | Align::RIGHT, Align::BOTTOM,) => {
             rect.bottom() - rect.height() / 4.0 - PLAYER_SIZE.y / 2.0
         },
-        | (Align::LEFT | Align::RIGHT, Align::Center,) => {
+        (Align::LEFT | Align::RIGHT, Align::Center,) => {
             rect.bottom() - rect.height() / 2.0 - PLAYER_SIZE.y / 2.0
         },
-        | (Align::Center, Align::TOP,) => rect.top(),
-        | (Align::Center, Align::BOTTOM,) => rect.bottom() - PLAYER_SIZE.y,
-        | _ => unreachable!(),
+        (Align::Center, Align::TOP,) => rect.top(),
+        (Align::Center, Align::BOTTOM,) => rect.bottom() - PLAYER_SIZE.y,
+        _ => unreachable!(),
     };
 
     Rect::from_min_size(pos2(x, y,), PLAYER_SIZE,)

@@ -17,7 +17,7 @@ type Entropy = [u8; ENTROPY_LENGTH];
 /// Private key used to sign messages.
 #[derive(Clone,)]
 pub struct SigningKey {
-    key: ed25519_dalek::SigningKey,
+    key:     ed25519_dalek::SigningKey,
     entropy: Zeroizing<Entropy,>,
 }
 
@@ -32,8 +32,13 @@ impl Default for SigningKey {
 }
 
 impl Serialize for SigningKey {
-    fn serialize<S,>(&self, serializer: S,) -> std::result::Result<S::Ok, S::Error,>
-    where S: Serializer {
+    fn serialize<S,>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error,>
+    where
+        S: Serializer,
+    {
         self.key.serialize(serializer,)
     }
 }
@@ -91,10 +96,7 @@ impl SigningKey {
         let key_hash = SignatureHasher::digest(entropy,);
         let key = ed25519_dalek::SigningKey::from_bytes(&key_hash.into(),);
         let entropy = Zeroizing::new(entropy,);
-        Self {
-            key,
-            entropy,
-        }
+        Self { key, entropy, }
     }
 }
 
@@ -139,7 +141,11 @@ impl VerifyingKey {
 
 impl fmt::Debug for VerifyingKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(f, "VerifyingKey({})", bs58::encode(self.0.as_bytes()).into_string())
+        write!(
+            f,
+            "VerifyingKey({})",
+            bs58::encode(self.0.as_bytes()).into_string()
+        )
     }
 }
 
@@ -151,10 +157,12 @@ impl PeerId {
     /// Return the hex-encoded identifier string.
     #[must_use]
     pub fn digits(&self,) -> String {
-        self.0.iter().fold(String::with_capacity(32,), |mut output, b| {
-            output.push_str(&format!("{b:02x}"),);
-            output
-        },)
+        self.0
+            .iter()
+            .fold(String::with_capacity(32,), |mut output, b| {
+                output.push_str(&format!("{b:02x}"),);
+                output
+            },)
     }
 }
 
@@ -177,8 +185,8 @@ mod tests {
     #[test]
     fn test_phrase_round_trip() {
         let sk = SigningKey::default();
-        let restored =
-            SigningKey::from_phrase(&sk.phrase(),).expect("Failed to recover key from phrase",);
+        let restored = SigningKey::from_phrase(&sk.phrase(),)
+            .expect("Failed to recover key from phrase",);
         assert_eq!(sk.key, restored.key);
     }
 
@@ -190,10 +198,7 @@ mod tests {
             y: f32,
         }
 
-        let msg = Point {
-            x: 10.2,
-            y: 4.3,
-        };
+        let msg = Point { x: 10.2, y: 4.3, };
         let sk = SigningKey::default();
         let signature = sk.sign(&msg,);
         let vk = sk.verifying_key();

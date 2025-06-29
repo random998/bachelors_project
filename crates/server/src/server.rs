@@ -36,15 +36,15 @@ use crate::tables_pool::{TablesPool, TablesPoolError};
 #[derive(Debug,)]
 pub struct ServerConfig {
     /// ip address of the server
-    pub address: String,
+    pub address:         String,
     /// port of the server
-    pub port: u16,
+    pub port:            u16,
     /// number of tables associated with the server
-    pub table_count: usize,
+    pub table_count:     usize,
     /// number of seats per table
     pub seats_per_table: usize,
-    pub data_path: Option<PathBuf,>,
-    pub key_path: Option<PathBuf,>,
+    pub data_path:       Option<PathBuf,>,
+    pub key_path:        Option<PathBuf,>,
     pub cert_chain_path: Option<PathBuf,>,
 }
 
@@ -60,8 +60,10 @@ pub async fn start_server(config: ServerConfig,) -> Result<(),> {
     let database = ConnectionHandler::open_database(&config.data_path,)?;
 
     let tls_acceptor = match (&config.key_path, &config.cert_chain_path,) {
-        | (Some(key,), Some(chain,),) => Some(ConnectionHandler::load_tls(key, chain,)?,),
-        | _ => {
+        (Some(key,), Some(chain,),) => {
+            Some(ConnectionHandler::load_tls(key, chain,)?,)
+        },
+        _ => {
             warn!("TLS not enabled, using fallback encryption");
             None
         },
@@ -111,12 +113,12 @@ pub async fn start_server(config: ServerConfig,) -> Result<(),> {
     Ok((),)
 }
 pub struct PokerServer {
-    listener: TcpListener,
-    signing_key: Arc<SigningKey,>,
-    database: Database,
-    tls_acceptor: Option<TlsAcceptor,>,
-    tables: TablesPool,
-    shutdown_tx: broadcast::Sender<(),>,
+    listener:         TcpListener,
+    signing_key:      Arc<SigningKey,>,
+    database:         Database,
+    tls_acceptor:     Option<TlsAcceptor,>,
+    tables:           TablesPool,
+    shutdown_tx:      broadcast::Sender<(),>,
     shutdown_done_tx: Sender<(),>,
 }
 
@@ -127,12 +129,12 @@ impl PokerServer {
             info!("New connection from {addr}");
 
             let mut handler = ConnectionHandler {
-                tables: self.tables.clone(),
-                signing_key: self.signing_key.clone(),
-                database: self.database.clone(),
-                table: None,
+                tables:                self.tables.clone(),
+                signing_key:           self.signing_key.clone(),
+                database:              self.database.clone(),
+                table:                 None,
                 shutdown_broadcast_rx: self.shutdown_tx.subscribe(),
-                shutdown_complete_tx: self.shutdown_done_tx.clone(),
+                shutdown_complete_tx:  self.shutdown_done_tx.clone(),
             };
 
             let tls_acceptor = self.tls_acceptor.clone();
@@ -141,8 +143,8 @@ impl PokerServer {
             tokio::spawn(async move {
                 let res = if let Some(acceptor,) = tls_acceptor {
                     match acceptor.accept(stream,).await {
-                        | Ok(stream,) => handler.run_tls(stream,).await,
-                        | Err(e,) => Err(e.into(),),
+                        Ok(stream,) => handler.run_tls(stream,).await,
+                        Err(e,) => Err(e.into(),),
                     }
                 } else {
                     handler.run_tcp(stream,).await
@@ -161,13 +163,13 @@ impl PokerServer {
         let mut retries = 0;
         loop {
             match self.listener.accept().await {
-                | Ok(conn,) => return Ok(conn,),
-                | Err(e,) if retries < 5 => {
+                Ok(conn,) => return Ok(conn,),
+                Err(e,) if retries < 5 => {
                     let wait = Duration::from_secs(1 << retries,);
                     time::sleep(wait,).await;
                     retries += 1;
                 },
-                | Err(e,) => return Err(e.into(),),
+                Err(e,) => return Err(e.into(),),
             }
         }
     }
@@ -175,17 +177,17 @@ impl PokerServer {
 /// client connection handler.
 struct ConnectionHandler {
     /// The tables on this server.
-    tables: TablesPool,
+    tables:                TablesPool,
     /// The server signing key shared by all connections.
-    signing_key: Arc<SigningKey,>,
+    signing_key:           Arc<SigningKey,>,
     /// The players Database.
-    database: Database,
+    database:              Database,
     /// This client table.
-    table: Option<Arc<Table,>,>,
+    table:                 Option<Arc<Table,>,>,
     /// Channel for listening shutdown notification.
     shutdown_broadcast_rx: broadcast::Receiver<(),>,
     /// Sender that drops when this connection is done.
-    shutdown_complete_tx: Sender<(),>,
+    shutdown_complete_tx:  Sender<(),>,
 }
 
 impl ConnectionHandler {
@@ -206,15 +208,24 @@ impl ConnectionHandler {
         conn.close().await;
         res
     }
-    async fn handle_connection<S,>(&mut self, conn: &mut SecureWebSocket<S,>,) -> Result<(),>
-    where S: AsyncRead + AsyncWrite + Unpin {
+    async fn handle_connection<S,>(
+        &mut self,
+        conn: &mut SecureWebSocket<S,>,
+    ) -> Result<(),>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
         self.connection_loop(conn,).await
     }
 
     async fn receive_initial_join<S,>(
-        &mut self, conn: &mut SecureWebSocket<S,>, table_tx: Sender<TableMessage,>,
+        &mut self,
+        conn: &mut SecureWebSocket<S,>,
+        table_tx: Sender<TableMessage,>,
     ) -> Result<(String, PeerId,),>
-    where S: AsyncRead + AsyncWrite + Unpin {
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
         let message = tokio::select! {
             result = conn.receive() => match result {
                 Some(Ok(msg)) => msg,
@@ -224,7 +235,7 @@ impl ConnectionHandler {
             _ = self.shutdown_broadcast_rx.recv() => return Err(anyhow!("Connection closed")),
         };
         let (nickname, player_id,) = match message.message() {
-            | Message::JoinServerRequest {
+            Message::JoinServerRequest {
                 nickname,
                 player_id,
             } => {
@@ -235,7 +246,11 @@ impl ConnectionHandler {
                 );
                 let player = self
                     .database
-                    .join_server(message.sender(), nickname, Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,)
+                    .join_server(
+                        message.sender(),
+                        nickname,
+                        Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,
+                    )
                     .await?;
 
                 // Notify client with the player account.
@@ -243,8 +258,8 @@ impl ConnectionHandler {
                     &self.signing_key,
                     Message::JoinedServerConfirmation {
                         player_id: *player_id,
-                        nickname: player.nickname,
-                        chips: player.chips,
+                        nickname:  player.nickname,
+                        chips:     player.chips,
                     },
                 );
 
@@ -252,16 +267,26 @@ impl ConnectionHandler {
 
                 (nickname.to_string(), message.sender(),)
             },
-            | _ => bail!("Invalid message from {} expecting a join server.", message.sender()),
+            _ => {
+                bail!(
+                    "Invalid message from {} expecting a join server.",
+                    message.sender()
+                )
+            },
         };
         Ok((nickname, player_id,),)
     }
 
     /// Handle connection messages.
-    async fn connection_loop<S,>(&mut self, conn: &mut SecureWebSocket<S,>,) -> Result<(),>
-    where S: AsyncRead + AsyncWrite + Unpin {
-        // Wait for a JoinServer message from the client to join this server and get
-        // the client nickname and player id.
+    async fn connection_loop<S,>(
+        &mut self,
+        conn: &mut SecureWebSocket<S,>,
+    ) -> Result<(),>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        // Wait for a JoinServer message from the client to join this server and
+        // get the client nickname and player id.
         let msg = tokio::select! {
             res = conn.receive() => match res {
                 Some(Ok(msg)) =>  msg,
@@ -274,13 +299,17 @@ impl ConnectionHandler {
         };
 
         let (nickname, player_id,) = match msg.message() {
-            | Message::JoinServerRequest {
+            Message::JoinServerRequest {
                 nickname,
                 player_id,
             } => {
                 let player = self
                     .database
-                    .join_server(msg.sender(), nickname, Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,)
+                    .join_server(
+                        msg.sender(),
+                        nickname,
+                        Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,
+                    )
                     .await?;
 
                 // Notify client with the player account.
@@ -288,8 +317,8 @@ impl ConnectionHandler {
                     &self.signing_key,
                     Message::JoinedServerConfirmation {
                         player_id: *player_id,
-                        nickname: player.nickname,
-                        chips: player.chips,
+                        nickname:  player.nickname,
+                        chips:     player.chips,
                     },
                 );
 
@@ -297,7 +326,12 @@ impl ConnectionHandler {
 
                 (nickname.to_string(), msg.sender(),)
             },
-            | _ => bail!("Invalid message from {} expecting a join server.", msg.sender()),
+            _ => {
+                bail!(
+                    "Invalid message from {} expecting a join server.",
+                    msg.sender()
+                )
+            },
         };
 
         // Create channel to get messages from a table.
@@ -327,41 +361,45 @@ impl ConnectionHandler {
             };
 
             match branch {
-                | Branch::Conn(msg,) => match msg.message() {
-                    | Message::JoinTableRequest {
-                        player_id,
-                        nickname,
-                    } => {
-                        // For now refill player chips if needed.
-                        self.get_or_refill_chips(player_id,).await?;
+                Branch::Conn(msg,) => {
+                    match msg.message() {
+                        Message::JoinTableRequest {
+                            player_id,
+                            nickname,
+                        } => {
+                            // For now refill player chips if needed.
+                            self.get_or_refill_chips(player_id,).await?;
 
-                        // Pay chips to joins a table.
-                        let has_chips = self
-                            .database
-                            .deduct_chips(*player_id, Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,)
-                            .await?;
-                        if has_chips {
-                            let res = self
-                                .tables
-                                .join(
-                                    player_id,
-                                    nickname,
+                            // Pay chips to joins a table.
+                            let has_chips = self
+                                .database
+                                .deduct_chips(
+                                    *player_id,
                                     Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,
-                                    table_tx.clone(),
                                 )
-                                .await;
-                            match res {
-                                | Ok(table,) => self.table = Some(table,),
-                                | Err(e,) => {
-                                    // Refund chips and notify client.
-                                    self.database
+                                .await?;
+                            if has_chips {
+                                let res = self
+                                    .tables
+                                    .join(
+                                        player_id,
+                                        nickname,
+                                        Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,
+                                        table_tx.clone(),
+                                    )
+                                    .await;
+                                match res {
+                                    Ok(table,) => self.table = Some(table,),
+                                    Err(e,) => {
+                                        // Refund chips and notify client.
+                                        self.database
                                         .credit_chips(
                                             *player_id,
                                             Self::JOIN_TABLE_INITIAL_CHIP_BALANCE,
                                         )
                                         .await?;
 
-                                    let msg = match e {
+                                        let msg = match e {
                                         | TablesPoolError::NoTablesLeft => {
                                             Message::NoTablesLeftNotification
                                         },
@@ -370,56 +408,67 @@ impl ConnectionHandler {
                                         },
                                     };
 
-                                    conn.send(&SignedMessage::new(&self.signing_key, msg,),)
-                                        .await?;
-                                },
-                            };
-                        } else {
-                            // If this player doesn't have enough chips to join a
-                            // table notify the client.
+                                        conn.send(&SignedMessage::new(
+                                            &self.signing_key,
+                                            msg,
+                                        ),)
+                                            .await?;
+                                    },
+                                };
+                            } else {
+                                // If this player doesn't have enough chips to
+                                // join a
+                                // table notify the client.
+                                conn.send(&SignedMessage::new(
+                                    &self.signing_key,
+                                    Message::NotEnoughChips,
+                                ),)
+                                    .await?;
+                            }
+                        },
+                        Message::PlayerLeftTable => {
+                            if let Some(table,) = &self.table {
+                                table.leave(&player_id,).await?
+                            }
+                        },
+                        _ => {
+                            if let Some(table,) = &self.table {
+                                table.handle_message(msg,).await;
+                            }
+                        },
+                    }
+                },
+                Branch::Table(msg,) => {
+                    match msg {
+                        TableMessage::Send(msg,) => {
+                            if let err @ Err(_,) = conn.send(&msg,).await {
+                                break err;
+                            }
+                        },
+                        TableMessage::PlayerLeave => {
+                            // If a player leaves the table reset the table and
+                            // send updated player
+                            // account information to the client.
+                            self.table = None;
+
+                            // Tell the client to show the account dialog.
+                            let chips =
+                                self.get_or_refill_chips(&player_id,).await?;
+                            let msg = Message::ShowAccount { chips, };
                             conn.send(&SignedMessage::new(
                                 &self.signing_key,
-                                Message::NotEnoughChips,
+                                msg,
                             ),)
                                 .await?;
-                        }
-                    },
-                    | Message::PlayerLeftTable => {
-                        if let Some(table,) = &self.table {
-                            table.leave(&player_id,).await?
-                        }
-                    },
-                    | _ => {
-                        if let Some(table,) = &self.table {
-                            table.handle_message(msg,).await;
-                        }
-                    },
-                },
-                | Branch::Table(msg,) => match msg {
-                    | TableMessage::Send(msg,) => {
-                        if let err @ Err(_,) = conn.send(&msg,).await {
-                            break err;
-                        }
-                    },
-                    | TableMessage::PlayerLeave => {
-                        // If a player leaves the table reset the table and send
-                        // updated player account information to the client.
-                        self.table = None;
-
-                        // Tell the client to show the account dialog.
-                        let chips = self.get_or_refill_chips(&player_id,).await?;
-                        let msg = Message::ShowAccount {
-                            chips,
-                        };
-                        conn.send(&SignedMessage::new(&self.signing_key, msg,),).await?;
-                    },
-                    | TableMessage::Throttle(dt,) => {
-                        time::sleep(dt,).await;
-                    },
-                    | TableMessage::Close => {
-                        info!("Connection closed by table message");
-                        break Ok((),);
-                    },
+                        },
+                        TableMessage::Throttle(dt,) => {
+                            time::sleep(dt,).await;
+                        },
+                        TableMessage::Close => {
+                            info!("Connection closed by table message");
+                            break Ok((),);
+                        },
+                    }
                 },
             }
         };
@@ -432,45 +481,58 @@ impl ConnectionHandler {
     }
 
     async fn handle_client_message<S,>(
-        &self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId, msg: SignedMessage,
+        &self,
+        conn: &mut SecureWebSocket<S,>,
+        player_id: &PeerId,
+        msg: SignedMessage,
         table_msg_tx: &ChannelNetTx,
     ) -> Result<(),>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
         match msg.message() {
-            | Message::JoinTableRequest {
+            Message::JoinTableRequest {
                 nickname,
                 player_id,
             } => {
-                let sufficient =
-                    self.database.deduct_chips(*player_id, Chips::new(1_000_000,),).await?;
+                let sufficient = self
+                    .database
+                    .deduct_chips(*player_id, Chips::new(1_000_000,),)
+                    .await?;
                 if !sufficient {
                     let notice = Message::NotEnoughChips;
-                    conn.send(&SignedMessage::new(&self.signing_key, notice,),).await?;
+                    conn.send(&SignedMessage::new(&self.signing_key, notice,),)
+                        .await?;
                     return Ok((),);
                 }
 
                 match self
                     .tables
-                    .join(player_id, nickname, Chips::new(1_000_000,), table_msg_tx.clone(),)
+                    .join(
+                        player_id,
+                        nickname,
+                        Chips::new(1_000_000,),
+                        table_msg_tx.clone(),
+                    )
                     .await
                 {
-                    | Ok(_,) => {},
-                    | Err(TablesPoolError::PlayerAlreadyJoined,) => {
+                    Ok(_,) => {},
+                    Err(TablesPoolError::PlayerAlreadyJoined,) => {
                         let msg = Message::PlayerAlreadyJoined;
-                        conn.send(&SignedMessage::new(&self.signing_key, msg,),).await?;
+                        conn.send(&SignedMessage::new(&self.signing_key, msg))
+                            .await?;
                     },
-                    | Err(TablesPoolError::NoTablesLeft,) => {
+                    Err(TablesPoolError::NoTablesLeft,) => {
                         let msg = Message::NoTablesLeftNotification;
-                        conn.send(&SignedMessage::new(&self.signing_key, msg,),).await?;
+                        conn.send(&SignedMessage::new(&self.signing_key, msg))
+                            .await?;
                     },
                 }
             },
-            | Message::PlayerLeftTable => {
+            Message::PlayerLeftTable => {
                 self.table.clone().unwrap().leave(player_id,).await?;
             },
-            | _ => {
+            _ => {
                 warn!("Unexpected message from {player_id}: {msg}");
             },
         }
@@ -478,24 +540,28 @@ impl ConnectionHandler {
     }
 
     async fn handle_table_message<S,>(
-        &mut self, conn: &mut SecureWebSocket<S,>, player_id: &PeerId, msg: TableMessage,
+        &mut self,
+        conn: &mut SecureWebSocket<S,>,
+        player_id: &PeerId,
+        msg: TableMessage,
     ) -> Result<(),>
-    where S: AsyncRead + AsyncWrite + Unpin {
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
         match msg {
-            | TableMessage::Send(signed_msg,) => {
+            TableMessage::Send(signed_msg,) => {
                 conn.send(&signed_msg,).await?;
             },
-            | TableMessage::PlayerLeave => {
+            TableMessage::PlayerLeave => {
                 let chips = self.get_or_refill_chips(player_id,).await?;
-                let msg = Message::ShowAccount {
-                    chips,
-                };
-                conn.send(&SignedMessage::new(&self.signing_key, msg,),).await?;
+                let msg = Message::ShowAccount { chips, };
+                conn.send(&SignedMessage::new(&self.signing_key, msg,),)
+                    .await?;
             },
-            | TableMessage::Throttle(duration,) => {
+            TableMessage::Throttle(duration,) => {
                 time::sleep(duration,).await;
             },
-            | TableMessage::Close => {
+            TableMessage::Close => {
                 info!("Connection closing due to table signal");
                 return Ok((),);
             },
@@ -503,7 +569,10 @@ impl ConnectionHandler {
         Ok((),)
     }
 
-    async fn get_or_refill_chips(&mut self, player_id: &PeerId,) -> Result<Chips,> {
+    async fn get_or_refill_chips(
+        &mut self,
+        player_id: &PeerId,
+    ) -> Result<Chips,> {
         let mut player = self.database.get_player_by_id(*player_id,).await?;
 
         // For now refill player to be able to join a table.
@@ -537,7 +606,9 @@ impl ConnectionHandler {
         if let Some(path,) = path {
             load_or_create(path,)
         } else {
-            let Some(proj_dirs,) = directories::ProjectDirs::from("", "", "zk_poker",) else {
+            let Some(proj_dirs,) =
+                directories::ProjectDirs::from("", "", "zk_poker",)
+            else {
                 bail!("Cannot find project dirs");
             };
 
@@ -561,26 +632,34 @@ impl ConnectionHandler {
         }
     }
     fn load_database(path: &Option<PathBuf,>,) -> Result<Database,> {
-        // Load database from user path or try to create one if it doesn't exist.
+        // Load database from user path or try to create one if it doesn't
+        // exist.
         if let Some(path,) = path {
             Self::load_or_create(path,)
         } else {
-            let Some(proj_dirs,) = directories::ProjectDirs::from("", "", "zk_poker",) else {
+            let Some(proj_dirs,) =
+                directories::ProjectDirs::from("", "", "zk_poker",)
+            else {
                 bail!("Cannot find project dirs");
             };
             Self::load_or_create(proj_dirs.config_dir(),)
         }
     }
 
-    fn load_tls(key_path: &PathBuf, chain_path: &PathBuf,) -> Result<TlsAcceptor,> {
+    fn load_tls(
+        key_path: &PathBuf,
+        chain_path: &PathBuf,
+    ) -> Result<TlsAcceptor,> {
         let key = PrivateKeyDer::from_pem_file(key_path,)?;
-        let chain = CertificateDer::pem_file_iter(chain_path,)?.collect::<Result<Vec<_,>, _,>>()?;
+        let chain = CertificateDer::pem_file_iter(chain_path,)?
+            .collect::<Result<Vec<_,>, _,>>()?;
 
         info!("Loaded TLS chain from {}", chain_path.display());
         info!("Loaded TLS key   from {}", key_path.display());
 
-        let config =
-            TlsServerConfig::builder().with_no_client_auth().with_single_cert(chain, key,)?;
+        let config = TlsServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(chain, key,)?;
 
         Ok(TlsAcceptor::from(Arc::new(config,),),)
     }

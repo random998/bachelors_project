@@ -4,3 +4,8 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
+poker-core      = { path = "../core"}
+p2p-net         = { path = "../p2p-net" }
+ahash           = "0.8"
+hashbrown       = "0.14"
+serde           = { workspace = true, features = ["derive", "rc"] }

@@ -11,7 +11,7 @@ use poker_eval::{Card, Deck, HandValue, Rank, Suit};
 
 #[derive(Default,)]
 struct Counter {
-    wins: AtomicU64,
+    wins:  AtomicU64,
     games: AtomicU64,
 }
 
@@ -43,7 +43,9 @@ fn run_sim(c1: Card, c2: Card, n_against: usize,) -> f64 {
     assert!(n_against > 0 && n_against < 7);
 
     // Create per task counters to avoid contention and boost performance.
-    let task_counters = (0..NUM_TASKS).map(|_| Counter::default(),).collect::<Vec<_,>>();
+    let task_counters = (0..NUM_TASKS)
+        .map(|_| Counter::default(),)
+        .collect::<Vec<_,>>();
 
     // Remove cards from the deck so that we don't sample them.
     let mut deck = Deck::default();
@@ -53,37 +55,43 @@ fn run_sim(c1: Card, c2: Card, n_against: usize,) -> f64 {
     // Two cards for each opponent player plus the board.
     let sample_size = n_against * 2 + BOARD_SIZE;
 
-    deck.par_sample(NUM_TASKS, SAMPLES_PER_TASK, sample_size, |task_id, sample| {
-        // The sample contains the two cards for each player and the board cards,
-        // copy the board cards to the end of the evaluation array.
-        let mut hand = [Card::default(); HAND_SIZE];
-        let board_start = n_against * 2;
-        hand[2..].copy_from_slice(&sample[board_start..],);
+    deck.par_sample(
+        NUM_TASKS,
+        SAMPLES_PER_TASK,
+        sample_size,
+        |task_id, sample| {
+            // The sample contains the two cards for each player and the board
+            // cards, copy the board cards to the end of the
+            // evaluation array.
+            let mut hand = [Card::default(); HAND_SIZE];
+            let board_start = n_against * 2;
+            hand[2..].copy_from_slice(&sample[board_start..],);
 
-        // Evaluate hero hand.
-        hand[0] = c1;
-        hand[1] = c2;
-        let hvalue = HandValue::eval(&hand,);
+            // Evaluate hero hand.
+            hand[0] = c1;
+            hand[1] = c2;
+            let hvalue = HandValue::eval(&hand,);
 
-        // Compare against other players hand.
-        let mut has_lost = false;
-        for player in 0..n_against {
-            hand[0] = sample[player * 2];
-            hand[1] = sample[player * 2 + 1];
-            let ovalue = HandValue::eval(&hand,);
-            if ovalue > hvalue {
-                has_lost = true;
-                break;
+            // Compare against other players hand.
+            let mut has_lost = false;
+            for player in 0..n_against {
+                hand[0] = sample[player * 2];
+                hand[1] = sample[player * 2 + 1];
+                let ovalue = HandValue::eval(&hand,);
+                if ovalue > hvalue {
+                    has_lost = true;
+                    break;
+                }
             }
-        }
 
-        let counter = &task_counters[task_id];
-        if !has_lost {
-            counter.inc_win();
-        }
+            let counter = &task_counters[task_id];
+            if !has_lost {
+                counter.inc_win();
+            }
 
-        counter.inc_game();
-    },);
+            counter.inc_game();
+        },
+    );
 
     // Aggregate counters.
     let wins = task_counters.iter().map(Counter::wins,).sum::<u64>();

@@ -31,13 +31,16 @@ pub struct TablesPool(Arc<Mutex<SharedTables,>,>,);
 #[derive(Debug,)]
 struct SharedTables {
     available: VecDeque<Arc<Table,>,>,
-    full: VecDeque<Arc<Table,>,>,
+    full:      VecDeque<Arc<Table,>,>,
 }
 
 impl TablesPool {
     pub fn new(
-        table_count: usize, seats_per_table: usize, signing_key: Arc<SigningKey,>,
-        database: Database, shutdown_tx: &broadcast::Sender<(),>,
+        table_count: usize,
+        seats_per_table: usize,
+        signing_key: Arc<SigningKey,>,
+        database: Database,
+        shutdown_tx: &broadcast::Sender<(),>,
         shutdown_complete_tx: &Sender<(),>,
     ) -> Self {
         let available = (0..table_count)
@@ -59,7 +62,11 @@ impl TablesPool {
     }
 
     pub async fn join(
-        &self, player_id: &PeerId, nickname: &str, chips: Chips, msg_tx: ChannelNetTx,
+        &self,
+        player_id: &PeerId,
+        nickname: &str,
+        chips: Chips,
+        msg_tx: ChannelNetTx,
     ) -> Result<Arc<Table,>, TablesPoolError,> {
         let mut pool = self.0.lock().await;
 
@@ -68,12 +75,16 @@ impl TablesPool {
         }
 
         if let Some(table,) = pool.available.front() {
-            let join_result = table.try_join(player_id, nickname, chips, msg_tx.clone(),).await;
+            let join_result = table
+                .try_join(player_id, nickname, chips, msg_tx.clone(),)
+                .await;
 
             match join_result {
-                | Err(TableJoinError::AlreadyJoined,) => Err(TablesPoolError::PlayerAlreadyJoined,),
-                | Err(_,) => Err(TablesPoolError::NoTablesLeft,),
-                | Ok(_,) => {
+                Err(TableJoinError::AlreadyJoined,) => {
+                    Err(TablesPoolError::PlayerAlreadyJoined,)
+                },
+                Err(_,) => Err(TablesPoolError::NoTablesLeft,),
+                Ok(_,) => {
                     if !table.can_player_join().await {
                         let full_table = pool.available.pop_front().unwrap();
                         pool.full.push_back(full_table.clone(),);
@@ -89,7 +100,9 @@ impl TablesPool {
     }
 
     pub async fn leave(
-        &self, table: Arc<Table,>, player_id: &PeerId,
+        &self,
+        table: Arc<Table,>,
+        player_id: &PeerId,
     ) -> Result<Arc<Table,>, TablesPoolError,> {
         // Ask the table to remove the player.
         let res = table.leave(player_id,).await;
@@ -97,8 +110,8 @@ impl TablesPool {
         let mut pool = self.0.lock().await;
         Self::rehydrate_available_tables(&mut pool,).await;
         match res {
-            | Err(_,) => Err(TablesPoolError::NoTablesLeft,),
-            | Ok(_,) => Ok(table,),
+            Err(_,) => Err(TablesPoolError::NoTablesLeft,),
+            Ok(_,) => Ok(table,),
         }
     }
 
@@ -124,16 +137,17 @@ mod tests {
     use super::*;
 
     struct TestPool {
-        pool: TablesPool,
+        pool:                   TablesPool,
         _shutdown_broadcast_tx: broadcast::Sender<(),>,
-        _shutdown_complete_rx: mpsc::Receiver<(),>,
+        _shutdown_complete_rx:  mpsc::Receiver<(),>,
     }
 
     impl TestPool {
         fn new(n: usize,) -> Self {
             let sk = SigningKey::default();
             let db = Database::open_in_memory().unwrap();
-            let (shutdown_complete_tx, shutdown_complete_rx,) = mpsc::channel(1,);
+            let (shutdown_complete_tx, shutdown_complete_rx,) =
+                mpsc::channel(1,);
             let (shutdown_broadcast_tx, _,) = broadcast::channel(1,);
             let pool = TablesPool::new(
                 n,
@@ -152,10 +166,22 @@ mod tests {
         }
 
         async fn join(&self, player: &TestPlayer,) -> Option<Arc<Table,>,> {
-            self.pool.join(&player.id, "nn", Chips::new(1_000_000,), player.tx.clone(),).await.ok()
+            self.pool
+                .join(
+                    &player.id,
+                    "nn",
+                    Chips::new(1_000_000,),
+                    player.tx.clone(),
+                )
+                .await
+                .ok()
         }
 
-        async fn leave(&self, table: Arc<Table,>, player: &TestPlayer,) -> Option<Arc<Table,>,> {
+        async fn leave(
+            &self,
+            table: Arc<Table,>,
+            player: &TestPlayer,
+        ) -> Option<Arc<Table,>,> {
             self.pool.leave(table, &player.id,).await.ok()
         }
 
@@ -181,9 +207,9 @@ mod tests {
     }
 
     struct TestPlayer {
-        tx: ChannelNetTx,
+        tx:  ChannelNetTx,
         _rx: mpsc::Receiver<TableMessage,>,
-        id: PeerId,
+        id:  PeerId,
     }
 
     impl TestPlayer {
@@ -232,9 +258,9 @@ mod tests {
         let player3 = TestPlayer::new();
         assert!(test_pool.join(&player3).await.is_none());
 
-        // Players 2 leaves table 1 that becomes ready because with one player left
-        // the game ends (2 seats per table), table 1 should move to the available
-        // queue when a player tries to join.
+        // Players 2 leaves table 1 that becomes ready because with one player
+        // left the game ends (2 seats per table), table 1 should move
+        // to the available queue when a player tries to join.
         let table1 = test_pool.leave(table1, &player2,).await;
 
         println!(
@@ -249,11 +275,14 @@ mod tests {
         );
 
         // check if table1 is in the available queue.
-        assert!(test_pool.avail_ids().await.contains(&table1.clone().unwrap().id()));
+        assert!(test_pool
+            .avail_ids()
+            .await
+            .contains(&table1.clone().unwrap().id()));
         assert!(!test_pool.full_ids().await.contains(&table1.unwrap().id()));
 
-        // Player 2 joins table 1, note that the join operation moves the tables between
-        // queue.
+        // Player 2 joins table 1, note that the join operation moves the tables
+        // between queue.
         let table_ids2 = test_pool.avail_ids().await;
         println!("table ids: {:?}", table_ids2);
         let table1 = test_pool.join(&player2,).await.unwrap();

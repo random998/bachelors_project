@@ -16,19 +16,19 @@ use crate::table::{Arc, Sender};
 /// Represents a single poker player at a table.
 #[derive(Clone,)]
 pub struct Player {
-    pub id: PeerId,
-    pub tx: ChannelNetTx,
-    pub net_tx: Arc<Mutex<dyn NetTx + Send,>,>,
-    pub nickname: String,
-    pub chips: Chips,
-    pub current_bet: Chips,
-    pub last_action: PlayerAction,
-    pub action_timer: Option<Instant,>,
-    pub public_cards: PlayerCards,
+    pub id:            PeerId,
+    pub tx:            ChannelNetTx,
+    pub net_tx:        Arc<Mutex<dyn NetTx + Send,>,>,
+    pub nickname:      String,
+    pub chips:         Chips,
+    pub current_bet:   Chips,
+    pub last_action:   PlayerAction,
+    pub action_timer:  Option<Instant,>,
+    pub public_cards:  PlayerCards,
     pub private_cards: PlayerCards,
     /// this player is active in the hand
-    pub active: bool,
-    pub dealer: bool,
+    pub active:        bool,
+    pub dealer:        bool,
 }
 
 impl fmt::Debug for Player {
@@ -47,7 +47,10 @@ impl fmt::Debug for Player {
 
 impl Player {
     pub fn new(
-        id: PeerId, nickname: String, chips: Chips, tx: ChannelNetTx,
+        id: PeerId,
+        nickname: String,
+        chips: Chips,
+        tx: ChannelNetTx,
         net_tx: Box<dyn NetTx + Send,>,
     ) -> Self {
         Self {
@@ -78,7 +81,9 @@ impl Player {
     }
 
     pub async fn send_throttle(&mut self, duration: Duration,) {
-        let _ = self.send_table_msg(TableMessage::Throttle(duration,),).await;
+        let _ = self
+            .send_table_msg(TableMessage::Throttle(duration,),)
+            .await;
     }
 
     pub fn place_bet(&mut self, action: PlayerAction, total_bet: Chips,) {
@@ -141,15 +146,20 @@ pub(crate) mod tests {
             Ok((),)
         }
 
-        async fn send_table(&mut self, msg: TableMessage,) -> anyhow::Result<(),> {
+        async fn send_table(
+            &mut self,
+            msg: TableMessage,
+        ) -> anyhow::Result<(),> {
             Ok((),)
         }
     }
 
     fn new_player(chips: Chips,) -> Player {
         let peer_id = SigningKey::default().verifying_key().peer_id();
-        let (table_tx, _table_rx,): (Sender<TableMessage,>, mpsc::Receiver<TableMessage,>,) =
-            mpsc::channel(10,);
+        let (table_tx, _table_rx,): (
+            Sender<TableMessage,>,
+            mpsc::Receiver<TableMessage,>,
+        ) = mpsc::channel(10,);
         let table_tx = ChannelNetTx {
             tx: table_tx.clone(),
         };
@@ -169,8 +179,8 @@ pub(crate) mod tests {
         assert_eq!(player.chips, init_chips - bet_size);
         assert!(matches!(player.last_action, PlayerAction::Bet));
 
-        // The bet amount is the total bet check chips paid are the new bet minus the
-        // previous bet.
+        // The bet amount is the total bet check chips paid are the new bet
+        // minus the previous bet.
         let bet_size = bet_size + Chips::new(20_000,);
         player.place_bet(PlayerAction::Bet, bet_size,);
         assert_eq!(player.current_bet, bet_size.clone());

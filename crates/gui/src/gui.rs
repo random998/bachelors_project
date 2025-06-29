@@ -24,23 +24,23 @@ pub struct AppData {
     /// The last saved passphrase.
     pub passphrase: String,
     /// The last saved nickname.
-    pub nickname: String,
+    pub nickname:   String,
 }
 
 /// The application state shared by all views.
 pub struct App {
     /// The application configuration.
-    pub config: Config,
+    pub config:   Config,
     /// The app textures.
     pub textures: Textures,
     /// The application message signing key.
-    sk: SigningKey,
+    sk:           SigningKey,
     /// This client player id.
-    player_id: PeerId,
+    player_id:    PeerId,
     /// This client nickname
-    nickname: String,
+    nickname:     String,
     /// This client connection.
-    connection: Option<Connection,>,
+    connection:   Option<Connection,>,
 }
 
 impl App {
@@ -59,7 +59,12 @@ impl App {
     }
 
     /// Connects to a server.
-    pub fn connect(&mut self, sk: SigningKey, nickname: &str, ctx: &Context,) -> Result<(),> {
+    pub fn connect(
+        &mut self,
+        sk: SigningKey,
+        nickname: &str,
+        ctx: &Context,
+    ) -> Result<(),> {
         let con = Connection::connect(&self.config.server_url, ctx.clone(),)?;
 
         if let Some(mut c,) = self.connection.take() {
@@ -118,12 +123,20 @@ impl App {
 
     /// Get a value from the app storage.
     #[must_use]
-    pub fn get_storage(&self, storage: Option<&dyn Storage,>,) -> Option<AppData,> {
-        storage.and_then(|s| eframe::get_value::<AppData,>(s, Self::STORAGE_KEY,),)
+    pub fn get_storage(
+        &self,
+        storage: Option<&dyn Storage,>,
+    ) -> Option<AppData,> {
+        storage
+            .and_then(|s| eframe::get_value::<AppData,>(s, Self::STORAGE_KEY,),)
     }
 
     /// Set a value in the app storage.
-    pub fn set_storage(&self, storage: Option<&mut (dyn Storage + 'static),>, data: &AppData,) {
+    pub fn set_storage(
+        &self,
+        storage: Option<&mut (dyn Storage + 'static),>,
+        data: &AppData,
+    ) {
         if let Some(s,) = storage {
             eframe::set_value::<AppData,>(s, Self::STORAGE_KEY, data,);
             s.flush();
@@ -134,17 +147,25 @@ impl App {
 /// Traits for UI views.
 pub trait View {
     /// Process a view update.
-    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame, app: &mut App,);
+    fn update(
+        &mut self,
+        ctx: &Context,
+        frame: &mut eframe::Frame,
+        app: &mut App,
+    );
 
     /// Returns the next view if any.
     fn next(
-        &mut self, ctx: &Context, frame: &mut eframe::Frame, app: &mut App,
+        &mut self,
+        ctx: &Context,
+        frame: &mut eframe::Frame,
+        app: &mut App,
     ) -> Option<Box<dyn View,>,>;
 }
 
 /// The UI main frame.
 pub struct AppFrame {
-    app: App,
+    app:   App,
     panel: Box<dyn View,>,
 }
 
@@ -158,10 +179,7 @@ impl AppFrame {
         let app = App::new(config, Textures::new(&cc.egui_ctx,),);
         let panel = Box::new(ConnectView::new(cc.storage, &app,),);
 
-        Self {
-            app,
-            panel,
-        }
+        Self { app, panel, }
     }
 }
 

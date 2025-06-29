@@ -18060,7 +18060,10 @@ fn h_n(k: u64, adj: u16,) -> usize {
 }
 
 pub fn hand_rank(hand: &[Card],) -> (u16, [u8; 3],) {
-    let hand_id = hand.iter().map(|c| u64::from(c.id() & 0xff,),).product::<u64>();
+    let hand_id = hand
+        .iter()
+        .map(|c| u64::from(c.id() & 0xff,),)
+        .product::<u64>();
     let bucket = h_0(hand_id,);
     let adj = HASH_ADJS[bucket];
     HAND_VALUES[h_n(hand_id, adj,)]
