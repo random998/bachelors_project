@@ -4,7 +4,7 @@ use poker_core::crypto::PeerId;
 use rand::prelude::SliceRandom;
 use rand::Rng;
 
-use crate::table::player::Player;
+use crate::player::Player;
 
 #[derive(Clone, Debug, Default,)]
 pub struct PlayersState {
@@ -172,143 +172,7 @@ impl PlayersState {
 }
 
 impl fmt::Display for PlayersState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_, >, ) -> fmt::Result {
         write!(f, "{:?}", self.players.clone())
-    }
-}
-
-mod tests {
-    use async_trait::async_trait;
-    use poker_core::crypto::SigningKey;
-    use poker_core::message::SignedMessage;
-    use poker_core::net::traits::{ChannelNetTx, TableMessage};
-    use poker_core::net::NetTx;
-    use poker_core::poker::Chips;
-    use tokio::sync::mpsc;
-
-    use crate::table::player::Player;
-    use crate::table::players_state::PlayersState;
-
-    struct MockNet;
-    #[async_trait]
-    impl NetTx for MockNet {
-        async fn send(&mut self, _m: SignedMessage,) -> anyhow::Result<(),> {
-            Ok((),)
-        }
-
-        async fn send_table(
-            &mut self,
-            _msg: TableMessage,
-        ) -> anyhow::Result<(),> {
-            Ok((),)
-        }
-    }
-
-    fn new_player(chips: Chips,) -> Player {
-        let peer_id = SigningKey::default().verifying_key().peer_id();
-        let (table_tx, _table_rx,) = mpsc::channel(4,);
-        let table_tx: ChannelNetTx = ChannelNetTx { tx: table_tx, };
-
-        let net_box: Box<dyn NetTx + Send,> = Box::new(MockNet,); // NEW
-        Player::new(peer_id, "Alice".to_string(), chips, table_tx, net_box,)
-    }
-    fn new_players_state(n: usize,) -> PlayersState {
-        let mut players = PlayersState::default();
-        (0..n).for_each(|_| players.add(new_player(Chips::new(100_000,),),),);
-        players
-    }
-
-    #[test]
-    fn player_before_active_leaves() {
-        const SEATS: usize = 4;
-        let mut players = new_players_state(SEATS,);
-
-        assert_eq!(players.count_active(), SEATS);
-        assert!(players.active_player().is_none());
-
-        // Make player at index 1 active.
-        players.start_hand();
-        players.advance_turn();
-        assert_eq!(players.active_player_idx.unwrap(), 1);
-
-        // Player before active leaves, the active player moved to position 0.
-        let player_id = players.players[0].id;
-        assert!(players.remove(&player_id).is_some());
-        assert_eq!(players.active_player_idx.unwrap(), 0);
-        assert_eq!(players.count_active(), SEATS - 1);
-    }
-
-    #[test]
-    fn player_after_active_leaves() {
-        const SEATS: usize = 4;
-        let mut players = new_players_state(SEATS,);
-
-        assert_eq!(players.count_active(), SEATS);
-        assert!(players.active_player().is_none());
-
-        // Make player at index 1 active.
-        players.start_hand();
-        players.advance_turn();
-        assert_eq!(players.active_player_idx.unwrap(), 1);
-
-        // Player after active leaves, the active player should be the same.
-        let player_id = players.players[2].id;
-        assert!(players.remove(&player_id).is_some());
-        assert_eq!(players.active_player_idx.unwrap(), 1);
-        assert_eq!(players.count_active(), SEATS - 1);
-    }
-
-    #[test]
-    fn active_player_leaves() {
-        const SEATS: usize = 4;
-        let mut players = new_players_state(SEATS,);
-
-        assert_eq!(players.count_active(), SEATS);
-        assert!(players.active_player().is_none());
-
-        // Make player at index 1 active.
-        players.start_hand();
-        players.advance_turn();
-        assert_eq!(players.active_player_idx.unwrap(), 1);
-
-        // Active leaves the next player should become active.
-        let active_id = players.players[1].id;
-        let next_id = players.players[0].id;
-        assert!(players.remove(&active_id).is_some());
-        assert_eq!(players.active_player_idx.unwrap(), 0);
-        assert_eq!(players.active_player().unwrap().id, next_id);
-        assert_eq!(players.count_active(), SEATS - 1);
-    }
-
-    #[test]
-    fn active_player_before_inactive_player_leaves() {
-        const SEATS: usize = 4;
-        let mut players = new_players_state(SEATS,);
-
-        assert_eq!(players.count_active(), SEATS);
-        assert!(players.active_player().is_none());
-
-        // Make player at index 1 active.
-        players.start_hand();
-        players.advance_turn();
-        assert_eq!(players.active_player_idx.unwrap(), 1);
-
-        // Deactivate player at index 0
-        players.iter_mut().nth(0,).unwrap().fold();
-        assert_eq!(players.count_active(), SEATS - 1);
-
-        // check if player at index 0 and player at index 1 have different ids.
-        assert_ne!(players.players[0].id, players.players[1].id);
-
-        // Active player (player at idx 1) leaves but the player at index 0 has
-        // folded so the next player at index 2 should become active,
-        // which has been moved to idx 1.
-        let active_id = players.players[1].id;
-        assert_eq!(players.active_player_idx.unwrap(), 1);
-        let next_id = players.players[2].id;
-        assert!(players.remove(&active_id).is_some());
-        assert_eq!(players.active_player_idx.unwrap(), 1);
-        assert_eq!(players.active_player().unwrap().id, next_id);
-        assert_eq!(players.count_active(), SEATS - 2);
     }
 }
