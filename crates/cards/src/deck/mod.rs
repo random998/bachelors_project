@@ -1,9 +1,10 @@
 // code inspired by https://github.com/vincev/freezeout
 
 use std::fmt;
-
+use rand::prelude::{SliceRandom, *};
+use rand::rngs::SmallRng;
+use rand::{rng, Rng, SeedableRng, TryRngCore};
 /// Poker cards definition
-use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "parallel")]
@@ -244,7 +245,7 @@ impl Deck {
     where F: FnMut(&[Card],) {
         assert!(k > 0 && k < self.cards.len());
         let mut h = vec![Card::new(Rank::Ace, Suit::Hearts); k];
-        let mut rng = SmallRng::from_os_rng(); //TODO: webasm os possible???
+        let mut rng = SmallRng::from_rng(&mut rng());
 
         for _ in 0..n {
             for (pos, c,) in
@@ -347,13 +348,13 @@ impl IntoIterator for Deck {
 #[cfg(test)]
 mod tests {
     use ahash::HashSet;
-
+    use rand::{rng};
     use super::*;
 
     #[test]
     fn card_encoding() {
         let mut cards = HashSet::default();
-        let mut deck = Deck::shuffled(&mut rand::rng(),);
+        let mut deck = Deck::shuffled(&mut rng(),);
 
         while !deck.is_empty() {
             let card = deck.deal();
