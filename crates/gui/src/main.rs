@@ -11,7 +11,10 @@ fn main() {
     eframe::WebLogger::init(log::LevelFilter::Debug,).ok();
 
     wasm_bindgen_futures::spawn_local(async {
-        let document = web_sys::window().expect("No window",).document().expect("No document",);
+        let document = web_sys::window()
+            .expect("No window",)
+            .document()
+            .expect("No document",);
         let canvas = document
             .get_element_by_id("canvas",)
             .expect("Failed to find Canvas Element",)
@@ -22,14 +25,14 @@ fn main() {
             .expect("Failed to find server-address element",)
             .inner_html();
 
-        let config = poker_gui::gui::Config {
-            server_url,
-        };
+        let config = poker_gui::gui::Config { server_url, };
         eframe::WebRunner::new()
             .start(
                 canvas,
                 Default::default(),
-                Box::new(|cc| Ok(Box::new(poker_gui::gui::AppFrame::new(config, cc,),),),),
+                Box::new(|cc| {
+                    Ok(Box::new(poker_gui::gui::AppFrame::new(config, cc,),),)
+                },),
             )
             .await
             .expect("failed to start eframe",)
@@ -44,7 +47,7 @@ fn main() -> eframe::Result<(),> {
     struct Cli {
         /// The server WebSocket url.
         #[arg(long, short, default_value = "ws://127.0.0.1:9871")]
-        url: String,
+        url:     String,
         /// The configuration storage key.
         #[arg(long, short)]
         storage: Option<String,>,
@@ -76,8 +79,9 @@ fn main() -> eframe::Result<(),> {
         server_url: cli.url,
     };
 
-    let app_name =
-        cli.storage.map_or_else(|| "freezeout".to_string(), |s| format!("freezeout-{s}"),);
+    let app_name = cli
+        .storage
+        .map_or_else(|| "freezeout".to_string(), |s| format!("freezeout-{s}"),);
 
     eframe::run_native(
         &app_name,

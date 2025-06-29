@@ -47,9 +47,7 @@ pub struct ChannelNetTx {
 impl ChannelNetTx {
     #[must_use]
     pub const fn new(tx: Sender<TableMessage,>,) -> Self {
-        Self {
-            tx,
-        }
+        Self { tx, }
     }
 }
 
@@ -64,6 +62,9 @@ impl NetTx for ChannelNetTx {
     }
 
     async fn send_table(&mut self, msg: TableMessage,) -> anyhow::Result<(),> {
-        self.tx.send(msg,).await.map_err(|e| anyhow::anyhow!("channel closed: {e}"),)
+        self.tx
+            .send(msg,)
+            .await
+            .map_err(|e| anyhow::anyhow!("channel closed: {e}"),)
     }
 }

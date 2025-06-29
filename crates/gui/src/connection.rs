@@ -13,11 +13,11 @@ static NOISE_PARAMS: LazyLock<NoiseParams,> =
 
 /// Connection to game server.
 pub struct Connection {
-    ws_sender: WsSender,
-    ws_receiver: WsReceiver,
+    ws_sender:       WsSender,
+    ws_receiver:     WsReceiver,
     noise_handshake: Option<HandshakeState,>,
     noise_transport: Option<TransportState,>,
-    noise_buf: Vec<u8,>,
+    noise_buf:       Vec<u8,>,
 }
 
 /// Connection event.
@@ -39,14 +39,16 @@ impl Connection {
         // Wake up UI thread on new message
         let wakeup = move || ctx.request_repaint();
         match ewebsock::connect_with_wakeup(url, Default::default(), wakeup,) {
-            | Ok((ws_sender, ws_receiver,),) => Ok(Self {
-                ws_sender,
-                ws_receiver,
-                noise_handshake: None,
-                noise_transport: None,
-                noise_buf: vec![0u8; 8192],
-            },),
-            | Err(e,) => bail!("Connection error {e}"),
+            Ok((ws_sender, ws_receiver,),) => {
+                Ok(Self {
+                    ws_sender,
+                    ws_receiver,
+                    noise_handshake: None,
+                    noise_transport: None,
+                    noise_buf: vec![0u8; 8192],
+                },)
+            },
+            Err(e,) => bail!("Connection error {e}"),
         }
     }
 
@@ -61,7 +63,8 @@ impl Connection {
             let len = noise
                 .write_message(&msg.serialize(), &mut self.noise_buf,)
                 .expect("Cannot write noise message",);
-            self.ws_sender.send(WsMessage::Binary(self.noise_buf[..len].to_vec(),),);
+            self.ws_sender
+                .send(WsMessage::Binary(self.noise_buf[..len].to_vec(),),);
         }
     }
 
@@ -69,7 +72,7 @@ impl Connection {
     pub fn poll(&mut self,) -> Option<ConnectionEvent,> {
         if let Some(event,) = self.ws_receiver.try_recv() {
             match event {
-                | WsEvent::Opened => {
+                WsEvent::Opened => {
                     let mut noise = snow::Builder::new(NOISE_PARAMS.clone(),)
                         .build_initiator()
                         .expect("Cannot initiate noise protocol",);
@@ -80,23 +83,30 @@ impl Connection {
                         .write_message(&[], &mut self.noise_buf,)
                         .expect("Cannot initiate noise handshake",);
 
-                    self.ws_sender.send(WsMessage::Binary(self.noise_buf[..len].to_vec(),),);
+                    self.ws_sender.send(WsMessage::Binary(
+                        self.noise_buf[..len].to_vec(),
+                    ),);
 
                     self.noise_handshake = Some(noise,);
                     None
                 },
-                | WsEvent::Message(msg,) => {
+                WsEvent::Message(msg,) => {
                     if let WsMessage::Binary(bytes,) = msg {
                         if let Some(mut noise,) = self.noise_handshake.take() {
                             // Complete noise handshake.
                             // <- e, ee
-                            if noise.read_message(&bytes, &mut self.noise_buf,).is_err() {
+                            if noise
+                                .read_message(&bytes, &mut self.noise_buf,)
+                                .is_err()
+                            {
                                 return Some(ConnectionEvent::Error(
-                                    "Cannot complete noise handshake".to_string(),
+                                    "Cannot complete noise handshake"
+                                        .to_string(),
                                 ),);
                             }
 
-                            let Ok(transport,) = noise.into_transport_mode() else {
+                            let Ok(transport,) = noise.into_transport_mode()
+                            else {
                                 return Some(ConnectionEvent::Error(
                                     "Cannot create noise transport".to_string(),
                                 ),);
@@ -104,17 +114,25 @@ impl Connection {
 
                             self.noise_transport = Some(transport,);
                             Some(ConnectionEvent::Open,)
-                        } else if let Some(noise,) = self.noise_transport.as_mut() {
+                        } else if let Some(noise,) =
+                            self.noise_transport.as_mut()
+                        {
                             let res = noise
                                 .read_message(&bytes, &mut self.noise_buf,)
                                 .map_err(anyhow::Error::from,)
                                 .and_then(|len| {
-                                    SignedMessage::deserialize_and_verify(&self.noise_buf[..len],)
+                                    SignedMessage::deserialize_and_verify(
+                                        &self.noise_buf[..len],
+                                    )
                                 },);
 
                             match res {
-                                | Ok(msg,) => Some(ConnectionEvent::Message(msg,),),
-                                | Err(e,) => Some(ConnectionEvent::Error(e.to_string(),),),
+                                Ok(msg,) => {
+                                    Some(ConnectionEvent::Message(msg,),)
+                                },
+                                Err(e,) => {
+                                    Some(ConnectionEvent::Error(e.to_string(),),)
+                                },
                             }
                         } else {
                             self.ws_sender.close();
@@ -124,8 +142,8 @@ impl Connection {
                         None
                     }
                 },
-                | WsEvent::Error(e,) => Some(ConnectionEvent::Error(e,),),
-                | WsEvent::Closed => Some(ConnectionEvent::Close,),
+                WsEvent::Error(e,) => Some(ConnectionEvent::Error(e,),),
+                WsEvent::Closed => Some(ConnectionEvent::Close,),
             }
         } else {
             None
