@@ -14,8 +14,8 @@ use rusqlite::{params, Connection};
 #[derive(Debug,)]
 pub struct Player {
     pub player_id: PeerId,
-    pub nickname: String,
-    pub chips: Chips,
+    pub nickname:  String,
+    pub chips:     Chips,
 }
 
 /// Persistent database for storing player state.
@@ -44,7 +44,9 @@ impl Database {
     }
 
     fn initialize_schema(conn: &Connection,) -> Result<(),> {
-        conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;",)?;
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;",
+        )?;
         conn.execute(
             "CREATE TABLE IF NOT EXISTS players (
             id TEXT PRIMARY KEY,
@@ -66,7 +68,10 @@ impl Database {
 
     /// Insert or update a player joining the server.
     pub async fn upsert_player(
-        &self, player_id: PeerId, nickname: &str, initial_chips: Chips,
+        &self,
+        player_id: PeerId,
+        nickname: &str,
+        initial_chips: Chips,
     ) -> Result<Player,> {
         let db = self.connection.clone();
         let nickname = nickname.to_string();
@@ -138,7 +143,11 @@ impl Database {
 
     /// Attempt to deduct chips from a player. Returns `false` if player has
     /// insufficient chips.
-    pub async fn deduct_chips(&self, player_id: PeerId, amount: Chips,) -> Result<bool,> {
+    pub async fn deduct_chips(
+        &self,
+        player_id: PeerId,
+        amount: Chips,
+    ) -> Result<bool,> {
         let db = self.connection.clone();
 
         tokio::task::spawn_blocking(move || {
@@ -169,7 +178,11 @@ impl Database {
     }
 
     /// Credit chips to a player.
-    pub async fn credit_chips(&self, player_id: PeerId, amount: Chips,) -> Result<(),> {
+    pub async fn credit_chips(
+        &self,
+        player_id: PeerId,
+        amount: Chips,
+    ) -> Result<(),> {
         let db = self.connection.clone();
 
         tokio::task::spawn_blocking(move || {
@@ -192,13 +205,17 @@ impl Database {
     }
 
     /// Fetch a player by ID.
-    pub async fn get_player_by_id(&self, player_id: PeerId,) -> Result<Player,> {
+    pub async fn get_player_by_id(
+        &self, player_id: PeerId,
+    ) -> Result<Player,> {
         let db = self.connection.clone();
 
         tokio::task::spawn_blocking(move || {
             let conn = db.lock();
 
-            let mut stmt = conn.prepare("SELECT id, nickname, chips FROM players WHERE id = ?1",)?;
+            let mut stmt = conn.prepare(
+                "SELECT id, nickname, chips FROM players WHERE id = ?1",
+            )?;
             stmt.query_row(params![player_id.digits()], |row| {
                 Ok(Player {
                     player_id,
@@ -221,7 +238,10 @@ impl Database {
     /// if the player exists but has fewer chips than join chips the chips
     /// are updated so that the player has enough chips to join.
     pub async fn join_server(
-        &self, player_id: PeerId, nickname: &str, join_chips: Chips,
+        &self,
+        player_id: PeerId,
+        nickname: &str,
+        join_chips: Chips,
     ) -> Result<Player,> {
         let conn = self.connection.clone();
         let nickname = nickname.to_string();
@@ -244,7 +264,7 @@ impl Database {
             },);
 
             match res {
-                | Ok(mut player,) => {
+                Ok(mut player,) => {
                     let mut do_update = false;
 
                     // Reset player chips if less than join chips.
@@ -253,7 +273,8 @@ impl Database {
                         do_update = true;
                     }
 
-                    // Update nickname if the player joined with a different one.
+                    // Update nickname if the player joined with a different
+                    // one.
                     if player.nickname != nickname {
                         player.nickname = nickname.to_string();
                         do_update = true;
@@ -276,7 +297,7 @@ impl Database {
 
                     Ok(player,)
                 },
-                | Err(rusqlite::Error::QueryReturnedNoRows,) => {
+                Err(rusqlite::Error::QueryReturnedNoRows,) => {
                     // If this is a new player add it to the database.
                     let player = Player {
                         player_id,
@@ -287,12 +308,16 @@ impl Database {
                     conn.execute(
                         "INSERT INTO players (id, nickname, chips, last_update)
                          VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
-                        params![player.player_id.digits(), nickname, player.chips.amount()],
+                        params![
+                            player.player_id.digits(),
+                            nickname,
+                            player.chips.amount()
+                        ],
                     )?;
 
                     Ok(player,)
                 },
-                | Err(e,) => Err(e.into(),),
+                Err(e,) => Err(e.into(),),
             }
         },)
         .await?
@@ -307,34 +332,60 @@ mod tests {
 
     #[tokio::test]
     async fn test_player_lifecycle() {
-        let db = Database::open_in_memory().expect("Failed to open in-memory database",);
+        let db = Database::open_in_memory()
+            .expect("Failed to open in-memory database",);
         let player_id = SigningKey::default().verifying_key().peer_id();
         let chips = Chips::new(1_000,);
 
-        let player = db.upsert_player(player_id, "Alice", chips,).await.expect("Join failed",);
+        let player = db
+            .upsert_player(player_id, "Alice", chips,)
+            .await
+            .expect("Join failed",);
         assert_eq!(player.nickname, "Alice");
         assert_eq!(player.chips, chips);
 
-        let updated_player =
-            db.upsert_player(player_id, "Bob", chips * 2,).await.expect("Update failed",);
+        let updated_player = db
+            .upsert_player(player_id, "Bob", chips * 2,)
+            .await
+            .expect("Update failed",);
         assert_eq!(updated_player.nickname, "Bob");
         assert_eq!(updated_player.chips, chips * 2);
 
-        db.credit_chips(player_id, chips,).await.expect("Credit failed",);
-        let post_credit = db.get_player_by_id(player_id,).await.expect("Fetch failed",);
+        db.credit_chips(player_id, chips,)
+            .await
+            .expect("Credit failed",);
+        let post_credit = db
+            .get_player_by_id(player_id,)
+            .await
+            .expect("Fetch failed",);
         assert_eq!(post_credit.chips, chips * 3);
 
-        let can_deduct = db.deduct_chips(player_id, chips,).await.expect("Deduct failed",);
+        let can_deduct = db
+            .deduct_chips(player_id, chips,)
+            .await
+            .expect("Deduct failed",);
         assert!(can_deduct);
-        let post_deduct = db.get_player_by_id(player_id,).await.expect("Fetch failed",);
+        let post_deduct = db
+            .get_player_by_id(player_id,)
+            .await
+            .expect("Fetch failed",);
         assert_eq!(post_deduct.chips, chips * 2);
 
-        let can_deduct = db.deduct_chips(player_id, chips * 2,).await.expect("Deduct failed",);
+        let can_deduct = db
+            .deduct_chips(player_id, chips * 2,)
+            .await
+            .expect("Deduct failed",);
         assert!(can_deduct);
-        let zero_balance = db.get_player_by_id(player_id,).await.expect("Fetch failed",);
+        let zero_balance = db
+            .get_player_by_id(player_id,)
+            .await
+            .expect("Fetch failed",);
         assert_eq!(zero_balance.chips, Chips::new(0));
 
-        let cannot_deduct = db.deduct_chips(player_id, chips,).await.expect("Deduct failed",);
+        let cannot_deduct = db
+            .deduct_chips(player_id, chips,)
+            .await
+            .expect("Deduct failed",);
         assert!(!cannot_deduct);
     }
 }

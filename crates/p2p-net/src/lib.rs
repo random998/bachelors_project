@@ -39,8 +39,8 @@ impl NetTx for P2pTx {
 impl NetRx for P2pRx {
     async fn next_msg(&mut self,) -> Result<SignedMessage,> {
         match self.receiver.recv().await {
-            | Some(msg,) => Ok(msg,),
-            | None => Err(anyhow!("P2pRx closed"),),
+            Some(msg,) => Ok(msg,),
+            None => Err(anyhow!("P2pRx closed"),),
         }
     }
 }

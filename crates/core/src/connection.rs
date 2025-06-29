@@ -28,7 +28,7 @@ pub type ClientConnection = SecureWebSocket<MaybeTlsStream<TcpStream,>,>;
 
 /// A Noise-encrypted WebSocket connection that exchanges `SignedMessages`.
 pub struct SecureWebSocket<S,> {
-    stream: WebSocketStream<S,>,
+    stream:          WebSocketStream<S,>,
     noise_transport: TransportState,
 }
 
@@ -38,9 +38,13 @@ where S: AsyncRead + AsyncWrite + Unpin
     /// Send a signed message securely.
     pub async fn send(&mut self, message: &SignedMessage,) -> Result<(),> {
         let mut buffer = BytesMut::zeroed(MAX_MESSAGE_SIZE,);
-        let message_len = self.noise_transport.write_message(&message.serialize(), &mut buffer,)?;
+        let message_len = self
+            .noise_transport
+            .write_message(&message.serialize(), &mut buffer,)?;
 
-        self.stream.send(WsMessage::Binary(buffer.freeze().slice(..message_len,),),).await?;
+        self.stream
+            .send(WsMessage::Binary(buffer.freeze().slice(..message_len,),),)
+            .await?;
 
         Ok((),)
     }
@@ -54,16 +58,20 @@ where S: AsyncRead + AsyncWrite + Unpin
 
         while let Some(msg_result,) = self.stream.next().await {
             match msg_result {
-                | Ok(WsMessage::Binary(payload,),) => {
+                Ok(WsMessage::Binary(payload,),) => {
                     return Some(
                         self.noise_transport
-                            .read_message(&payload, &mut buffer)
-                            .map_err(anyhow::Error::from)
-                            .and_then(|len| SignedMessage::deserialize_and_verify(&buffer[..len])),
+                            .read_message(&payload, &mut buffer,)
+                            .map_err(anyhow::Error::from,)
+                            .and_then(|len| {
+                                SignedMessage::deserialize_and_verify(
+                                    &buffer[..len],
+                                )
+                            },),
                     );
                 },
-                | Ok(_,) => continue, // Ignore non-binary messages
-                | Err(e,) => return Some(Err(anyhow!("WebSocket error: {e}"),),),
+                Ok(_,) => continue, // Ignore non-binary messages
+                Err(e,) => return Some(Err(anyhow!("WebSocket error: {e}"),),),
             }
         }
 
@@ -77,25 +85,32 @@ where S: AsyncRead + AsyncWrite + Unpin
 
     /// Accept an inbound encrypted WebSocket connection.
     pub async fn accept_connection(stream: S,) -> Result<Self,> {
-        let config = WebSocketConfig::default().max_message_size(Some(MAX_MESSAGE_SIZE,),);
-        let mut stream = websocket::accept_async_with_config(stream, Some(config,),).await?;
+        let config = WebSocketConfig::default()
+            .max_message_size(Some(MAX_MESSAGE_SIZE,),);
+        let mut stream =
+            websocket::accept_async_with_config(stream, Some(config,),).await?;
 
-        let mut responder = snow::Builder::new(NOISE_PARAMETERS.clone(),).build_responder()?;
+        let mut responder =
+            snow::Builder::new(NOISE_PARAMETERS.clone(),).build_responder()?;
         let mut buffer = BytesMut::zeroed(MAX_MESSAGE_SIZE,);
 
         match stream.next().await {
-            | Some(Ok(WsMessage::Binary(payload,),),) => {
+            Some(Ok(WsMessage::Binary(payload,),),) => {
                 responder
                     .read_message(&payload, &mut buffer,)
                     .map_err(|e| anyhow!("Noise responder error: {e}"),)?;
             },
-            | Some(Ok(_,),) => bail!("Expected binary message during Noise handshake"),
-            | Some(Err(e,),) => bail!("WebSocket error during handshake: {e}"),
-            | None => bail!("Connection closed during Noise handshake"),
+            Some(Ok(_,),) => {
+                bail!("Expected binary message during Noise handshake")
+            },
+            Some(Err(e,),) => bail!("WebSocket error during handshake: {e}"),
+            None => bail!("Connection closed during Noise handshake"),
         }
 
         let message_len = responder.write_message(&[], &mut buffer,)?;
-        stream.send(WsMessage::Binary(buffer.freeze().slice(..message_len,),),).await?;
+        stream
+            .send(WsMessage::Binary(buffer.freeze().slice(..message_len,),),)
+            .await?;
 
         Ok(Self {
             stream,
@@ -105,27 +120,34 @@ where S: AsyncRead + AsyncWrite + Unpin
 
     /// Establish an outbound encrypted WebSocket connection.
     pub async fn connect_to(url: &str,) -> Result<ClientConnection,> {
-        let config = WebSocketConfig::default().max_message_size(Some(MAX_MESSAGE_SIZE,),);
+        let config = WebSocketConfig::default()
+            .max_message_size(Some(MAX_MESSAGE_SIZE,),);
 
         let (mut stream, _,) =
-            websocket::connect_async_with_config(url, Some(config,), false,).await?;
+            websocket::connect_async_with_config(url, Some(config,), false,)
+                .await?;
 
-        let mut initiator = snow::Builder::new(NOISE_PARAMETERS.clone(),).build_initiator()?;
+        let mut initiator =
+            snow::Builder::new(NOISE_PARAMETERS.clone(),).build_initiator()?;
         let mut buffer = BytesMut::zeroed(MAX_MESSAGE_SIZE,);
 
         let len = initiator.write_message(&[], &mut buffer,)?;
-        stream.send(WsMessage::Binary(buffer.freeze().slice(..len,),),).await?;
+        stream
+            .send(WsMessage::Binary(buffer.freeze().slice(..len,),),)
+            .await?;
 
         match stream.next().await {
-            | Some(Ok(WsMessage::Binary(payload,),),) => {
+            Some(Ok(WsMessage::Binary(payload,),),) => {
                 let mut response_buf = BytesMut::zeroed(MAX_MESSAGE_SIZE,);
                 initiator
                     .read_message(&payload, &mut response_buf,)
                     .map_err(|e| anyhow!("Noise initiator error: {e}"),)?;
             },
-            | Some(Ok(_,),) => bail!("Expected binary message during Noise handshake"),
-            | Some(Err(e,),) => bail!("WebSocket error during handshake: {e}"),
-            | None => bail!("Connection closed during Noise handshake"),
+            Some(Ok(_,),) => {
+                bail!("Expected binary message during Noise handshake")
+            },
+            Some(Err(e,),) => bail!("WebSocket error during handshake: {e}"),
+            None => bail!("Connection closed during Noise handshake"),
         }
 
         Ok(SecureWebSocket {
@@ -154,8 +176,10 @@ where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
 {
     async fn next_msg(&mut self,) -> anyhow::Result<SignedMessage,> {
         match Self::receive(self,).await {
-            | Some(res,) => res,
-            | None => Err(anyhow!("Noise WebSocket error during receiving message"),),
+            Some(res,) => res,
+            None => {
+                Err(anyhow!("Noise WebSocket error during receiving message"),)
+            },
         }
     }
 }
@@ -177,7 +201,8 @@ mod tests {
         let listener = TcpListener::bind(addr,).await.unwrap();
         tokio::spawn(async move {
             let (stream, _,) = listener.accept().await.unwrap();
-            let mut con = SecureWebSocket::accept_connection(stream,).await.unwrap();
+            let mut con =
+                SecureWebSocket::accept_connection(stream,).await.unwrap();
 
             let msg = con.receive().await.unwrap().unwrap();
             assert!(matches!(
@@ -192,25 +217,20 @@ mod tests {
         },);
 
         let url = format!("ws://{addr}");
-        let mut con: ClientConnection = ClientConnection::connect_to(&url,).await.unwrap();
+        let mut con: ClientConnection =
+            ClientConnection::connect_to(&url,).await.unwrap();
         let keypair = SigningKey::default();
         let peer_id = keypair.verifying_key().peer_id();
 
-        let msg = SignedMessage::new(
-            &keypair,
-            Message::JoinTableRequest {
-                player_id: peer_id,
-                nickname: "Bob".to_string(),
-            },
-        );
+        let msg = SignedMessage::new(&keypair, Message::JoinTableRequest {
+            player_id: peer_id,
+            nickname:  "Bob".to_string(),
+        },);
         con.send(&msg,).await.unwrap();
 
-        let msg = SignedMessage::new(
-            &keypair,
-            Message::ShowAccount {
-                chips: Chips::ZERO,
-            },
-        );
+        let msg = SignedMessage::new(&keypair, Message::ShowAccount {
+            chips: Chips::ZERO,
+        },);
         con.send(&msg,).await.unwrap();
 
         rx.await.unwrap();

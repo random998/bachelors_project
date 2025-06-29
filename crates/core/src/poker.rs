@@ -8,7 +8,18 @@ pub use poker_eval::eval::{HandRank, HandValue};
 use serde::{Deserialize, Serialize};
 
 // a unique table identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
 /// table id
 pub struct TableId(pub u32,);
 
@@ -36,7 +47,18 @@ impl fmt::Display for TableId {
 }
 
 /// data structure for storing the amount of chips for a given table.
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Copy, Clone,)]
+#[derive(
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    Copy,
+    Clone,
+)]
 pub struct Chips(u32,);
 
 impl Chips {
@@ -151,9 +173,9 @@ pub enum PlayerCards {
 impl fmt::Display for PlayerCards {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         let string = match self {
-            | Self::None => "None".to_string(),
-            | Self::Cards(card1, card2,) => format!("{card1}, {card2}"),
-            | Self::Covered => "Covered".to_string(),
+            Self::None => "None".to_string(),
+            Self::Cards(card1, card2,) => format!("{card1}, {card2}"),
+            Self::Covered => "Covered".to_string(),
         };
         write!(f, "{string}")
     }
