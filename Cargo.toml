@@ -20,7 +20,6 @@ clap = { version = "4.5.23", features = ["derive"] }
 eframe = { version = "0.31.1", features = ["ron", "serde"]}
 env_logger = "0.11.5"
 log = "0.4.22"
-parking_lot = "0.12.3"
 rand       = { version = "0.9.1", default-features = false, features = ["std", "small_rng", "thread_rng"] }
 serde = { version = "1.0.216", features = ["derive"] }
 snow = { version = "0.9.6"} 
@@ -34,8 +33,6 @@ futures = "0.3"
 poker-cards = { version = "0.0.1", path = "crates/cards", default-features = false }
 poker-core = { version = "0.0.1", path = "crates/core", default-features = false }
 poker-eval = { version = "0.0.1", path = "crates/eval", default-features = false }
-poker-gui = { version = "0.0.1", path = "crates/gui", default-features = false }
-p2p-net = { version = "0.0.1", path = "crates/p2p-net", default-features = false }
 
 [profile.release]
 opt-level = 3

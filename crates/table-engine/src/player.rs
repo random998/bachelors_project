@@ -2,10 +2,10 @@
 //! Table player types and player state management.
 
 use std::fmt;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use poker_core::crypto::PeerId;
-use poker_core::message::{PlayerAction, SignedMessage};
+use poker_core::message::PlayerAction;
 use poker_core::poker::{Chips, PlayerCards};
 
 /// Represents a single poker player at a table.
