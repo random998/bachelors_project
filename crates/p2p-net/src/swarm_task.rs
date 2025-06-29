@@ -8,7 +8,7 @@ use libp2p::{gossipsub, identify, noise, tcp, yamux, SwarmBuilder, Transport};
 use poker_core::crypto::SigningKey;
 use tokio::sync::mpsc;
 
-use super::{Result, P2pTransport, SignedMessage, NetTx, P2pTx, P2pRx};
+use super::{NetTx, P2pRx, P2pTransport, P2pTx, Result, SignedMessage};
 // ------------------------------------------------------------------
 // 1  Types & Behaviour ---------------------------------------------
 
