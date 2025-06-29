@@ -3,6 +3,7 @@
 
 use std::fmt;
 use std::time::{Duration, Instant};
+
 use poker_core::crypto::PeerId;
 use poker_core::message::{PlayerAction, SignedMessage};
 use poker_core::poker::{Chips, PlayerCards};
@@ -38,11 +39,7 @@ impl fmt::Debug for Player {
 }
 
 impl Player {
-    pub fn new(
-        id: PeerId,
-        nickname: String,
-        chips: Chips,
-    ) -> Self {
+    pub fn new(id: PeerId, nickname: String, chips: Chips,) -> Self {
         Self {
             id,
             nickname,

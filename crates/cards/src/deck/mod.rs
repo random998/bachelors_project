@@ -1,9 +1,10 @@
 // code inspired by https://github.com/vincev/freezeout
 
 use std::fmt;
+
 use rand::prelude::{SliceRandom, *};
 use rand::rngs::SmallRng;
-use rand::{rng, Rng, SeedableRng, TryRngCore};
+use rand::{Rng, SeedableRng, rng};
 /// Poker cards definition
 use serde::{Deserialize, Serialize};
 
@@ -245,7 +246,7 @@ impl Deck {
     where F: FnMut(&[Card],) {
         assert!(k > 0 && k < self.cards.len());
         let mut h = vec![Card::new(Rank::Ace, Suit::Hearts); k];
-        let mut rng = SmallRng::from_rng(&mut rng());
+        let mut rng = SmallRng::from_rng(&mut rng(),);
 
         for _ in 0..n {
             for (pos, c,) in
@@ -348,7 +349,8 @@ impl IntoIterator for Deck {
 #[cfg(test)]
 mod tests {
     use ahash::HashSet;
-    use rand::{rng};
+    use rand::rng;
+
     use super::*;
 
     #[test]
