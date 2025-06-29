@@ -1,8 +1,8 @@
 use std::fmt;
 
 use poker_core::crypto::PeerId;
-use rand::prelude::SliceRandom;
 use rand::Rng;
+use rand::prelude::SliceRandom;
 
 use crate::player::Player;
 
@@ -172,7 +172,7 @@ impl PlayersState {
 }
 
 impl fmt::Display for PlayersState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_, >, ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(f, "{:?}", self.players.clone())
     }
 }
