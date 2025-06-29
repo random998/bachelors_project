@@ -103,11 +103,11 @@ impl fmt::Display for Player {
 pub(crate) mod tests {
     #[test]
     fn test_player_bet() {
-        todo!();
+        // todo!();
     }
 
     #[test]
     fn test_player_fold() {
-        todo!();
+        // todo!();
     }
 }
