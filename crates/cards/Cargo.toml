@@ -8,10 +8,10 @@ version = { workspace = true }
 ahash = { workspace = true }
 eframe = { workspace = true, optional = true }
 image = { version = "0.25.5", optional = true, default-features = false, features = ["png"] }
-rand = { workspace = true }
 serde = { workspace = true }
+rand = {workspace = true}
+
 
 [features]
 parallel = []
 egui = ["eframe", "image"]
-
