@@ -8,7 +8,7 @@ use crate::table::player::Player;
 
 #[derive(Clone, Debug, Default,)]
 pub struct PlayersState {
-    players: Vec<Player,>,
+    players:           Vec<Player,>,
     active_player_idx: Option<usize,>,
 }
 
@@ -30,21 +30,24 @@ impl PlayersState {
         if let Some(pos,) = self.players.iter().position(|p| &p.id == id,) {
             let removed = self.players.remove(pos,);
 
-            // if the removed player was active, then active_player_idx should be none.
+            // if the removed player was active, then active_player_idx should
+            // be none.
             assert!(
                 self.active_player_idx.is_none()
-                    || (old_active_player_idx == self.active_player_idx.unwrap()
+                    || (old_active_player_idx
+                        == self.active_player_idx.unwrap()
                         && self.active_player_idx.is_some())
             );
 
             match self.active_player_idx {
-                | Some(idx,) if idx == pos => {
-                    self.active_player_idx = self.players.iter().position(|p| p.active,);
+                Some(idx,) if idx == pos => {
+                    self.active_player_idx =
+                        self.players.iter().position(|p| p.active,);
                 },
-                | Some(idx,) if pos < idx => {
+                Some(idx,) if pos < idx => {
                     self.active_player_idx = Some(idx - 1,);
                 },
-                | _ => {},
+                _ => {},
             }
 
             Some(removed,)
@@ -75,11 +78,16 @@ impl PlayersState {
     }
 
     pub fn count_active_with_chips(&self,) -> usize {
-        self.players.iter().filter(|p| p.active && p.has_chips(),).count()
+        self.players
+            .iter()
+            .filter(|p| p.active && p.has_chips(),)
+            .count()
     }
 
     pub fn active_player(&mut self,) -> Option<&mut Player,> {
-        self.active_player_idx.and_then(move |i| self.players.get_mut(i,),).filter(|p| p.active,)
+        self.active_player_idx
+            .and_then(move |i| self.players.get_mut(i,),)
+            .filter(|p| p.active,)
     }
 
     pub fn is_active(&self, id: &PeerId,) -> bool {
@@ -98,13 +106,20 @@ impl PlayersState {
     }
 
     pub fn advance_turn(&mut self,) {
-        if self.count_active_with_chips() <= 1 || self.active_player_idx.is_none() {
+        if self.count_active_with_chips() <= 1
+            || self.active_player_idx.is_none()
+        {
             return;
         }
 
         let current = self.active_player_idx.unwrap();
-        for (i, player,) in
-            self.players.iter().enumerate().cycle().skip(current + 1,).take(self.players.len(),)
+        for (i, player,) in self
+            .players
+            .iter()
+            .enumerate()
+            .cycle()
+            .skip(current + 1,)
+            .take(self.players.len(),)
         {
             if player.active && player.has_chips() {
                 self.active_player_idx = Some(i,);
@@ -119,8 +134,13 @@ impl PlayersState {
         }
 
         if self.count_active() > 1 {
-            self.players.iter_mut().rev().find(|p| p.active,).map(|p| p.dealer = true,);
-            self.active_player_idx = self.players.iter().position(|p| p.active,);
+            self.players
+                .iter_mut()
+                .rev()
+                .find(|p| p.active,)
+                .map(|p| p.dealer = true,);
+            self.active_player_idx =
+                self.players.iter().position(|p| p.active,);
         } else {
             self.active_player_idx = None;
         }
@@ -129,7 +149,8 @@ impl PlayersState {
     pub fn start_round(&mut self,) {
         self.active_player_idx = None;
         if self.count_active_with_chips() > 1 {
-            self.active_player_idx = self.players.iter().position(|p| p.active && p.has_chips(),);
+            self.active_player_idx =
+                self.players.iter().position(|p| p.active && p.has_chips(),);
         }
     }
 
@@ -175,7 +196,10 @@ mod tests {
             Ok((),)
         }
 
-        async fn send_table(&mut self, _msg: TableMessage,) -> anyhow::Result<(),> {
+        async fn send_table(
+            &mut self,
+            _msg: TableMessage,
+        ) -> anyhow::Result<(),> {
             Ok((),)
         }
     }
@@ -183,9 +207,7 @@ mod tests {
     fn new_player(chips: Chips,) -> Player {
         let peer_id = SigningKey::default().verifying_key().peer_id();
         let (table_tx, _table_rx,) = mpsc::channel(4,);
-        let table_tx: ChannelNetTx = ChannelNetTx {
-            tx: table_tx,
-        };
+        let table_tx: ChannelNetTx = ChannelNetTx { tx: table_tx, };
 
         let net_box: Box<dyn NetTx + Send,> = Box::new(MockNet,); // NEW
         Player::new(peer_id, "Alice".to_string(), chips, table_tx, net_box,)
@@ -278,9 +300,9 @@ mod tests {
         // check if player at index 0 and player at index 1 have different ids.
         assert_ne!(players.players[0].id, players.players[1].id);
 
-        // Active player (player at idx 1) leaves but the player at index 0 has folded
-        // so the next player at index 2 should become active, which has been
-        // moved to idx 1.
+        // Active player (player at idx 1) leaves but the player at index 0 has
+        // folded so the next player at index 2 should become active,
+        // which has been moved to idx 1.
         let active_id = players.players[1].id;
         assert_eq!(players.active_player_idx.unwrap(), 1);
         let next_id = players.players[2].id;

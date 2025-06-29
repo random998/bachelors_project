@@ -65,8 +65,15 @@ fn nth_k_subset(mut n: usize, k: usize,) -> [usize; 7] {
 }
 
 // Calls the given closure for count k-subsets starting from the nth k-subset.
-fn for_each_k_subset<F,>(n: usize, k: usize, nth: usize, count: usize, mut f: F,)
-where F: FnMut(&[usize],) {
+fn for_each_k_subset<F,>(
+    n: usize,
+    k: usize,
+    nth: usize,
+    count: usize,
+    mut f: F,
+) where
+    F: FnMut(&[usize],),
+{
     // Algorithm L from TAOCP 4a
     let mut c = vec![0usize; k + 3];
 
@@ -140,8 +147,15 @@ impl Deck {
 
     /// Calls the given closure from `num_tasks` parallel tasks generating
     /// `samples_per_task` samples of size k.
-    pub fn par_sample<F,>(&self, num_tasks: usize, samples_per_task: usize, k: usize, f: F,)
-    where F: Fn(usize, &[Card],) + Send + Sync {
+    pub fn par_sample<F,>(
+        &self,
+        num_tasks: usize,
+        samples_per_task: usize,
+        k: usize,
+        f: F,
+    ) where
+        F: Fn(usize, &[Card],) + Send + Sync,
+    {
         assert!(k > 0 && k < self.cards.len());
         assert!(num_tasks > 0);
         assert!(samples_per_task > 0);
@@ -158,7 +172,9 @@ impl Deck {
                     let mut rng = SmallRng::from_os_rng();
 
                     for _ in 0..samples_per_task {
-                        for (pos, c,) in self.cards.choose_multiple(&mut rng, k,).enumerate() {
+                        for (pos, c,) in
+                            self.cards.choose_multiple(&mut rng, k,).enumerate()
+                        {
                             h[pos] = *c;
                         }
 

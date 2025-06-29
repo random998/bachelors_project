@@ -15,7 +15,11 @@ fn main() {
 
     // Create per task counters to avoid contention and boost performance.
     let task_counters = (0..NUM_TASKS)
-        .map(|_| (0..NUM_RANKS).map(|_| AtomicU64::new(0,),).collect::<Vec<_,>>(),)
+        .map(|_| {
+            (0..NUM_RANKS)
+                .map(|_| AtomicU64::new(0,),)
+                .collect::<Vec<_,>>()
+        },)
         .collect::<Vec<_,>>();
 
     let now = Instant::now();
@@ -30,7 +34,12 @@ fn main() {
 
     // Aggregate counters.
     let agg = (0..NUM_RANKS)
-        .map(|r| task_counters.iter().map(|counts| counts[r].load(Ordering::Relaxed,),).sum(),)
+        .map(|r| {
+            task_counters
+                .iter()
+                .map(|counts| counts[r].load(Ordering::Relaxed,),)
+                .sum()
+        },)
         .collect::<Vec<_,>>();
 
     let total = agg.iter().sum::<u64>();

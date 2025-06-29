@@ -48,15 +48,17 @@ impl Card {
     pub fn suit(&self,) -> Suit {
         let suit_bits = self.suit_bits();
         match suit_bits {
-            | 0x8 => Suit::Clubs,
-            | 0x4 => Suit::Diamonds,
-            | 0x2 => Suit::Hearts,
-            | 0x1 => Suit::Spades,
-            | _ => panic!("Invalid suit value 0x{:x}", self.0), /* Panics the current thread.
-                                                                 * This allows a program to
-                                                                 * terminate immediately and
-                                                                 * provide feedback to the caller
-                                                                 * of the program. */
+            0x8 => Suit::Clubs,
+            0x4 => Suit::Diamonds,
+            0x2 => Suit::Hearts,
+            0x1 => Suit::Spades,
+            _ => panic!("Invalid suit value 0x{:x}", self.0), /* Panics the
+                                                               * current thread.
+                                                               *
+                                                               * This allows a program to
+                                                               * terminate immediately and
+                                                               * provide feedback to the caller
+                                                               * of the program. */
         }
     }
 
@@ -65,20 +67,20 @@ impl Card {
     pub fn rank(&self,) -> Rank {
         let rank_bits = self.rank_bits();
         match rank_bits {
-            | 0 => Rank::Deuce,
-            | 1 => Rank::Trey,
-            | 2 => Rank::Four,
-            | 3 => Rank::Five,
-            | 4 => Rank::Six,
-            | 5 => Rank::Seven,
-            | 6 => Rank::Eight,
-            | 7 => Rank::Nine,
-            | 8 => Rank::Ten,
-            | 9 => Rank::Jack,
-            | 10 => Rank::Queen,
-            | 11 => Rank::King,
-            | 12 => Rank::Ace,
-            | _ => panic!("Invalid rank value 0x{:x}", self.0),
+            0 => Rank::Deuce,
+            1 => Rank::Trey,
+            2 => Rank::Four,
+            3 => Rank::Five,
+            4 => Rank::Six,
+            5 => Rank::Seven,
+            6 => Rank::Eight,
+            7 => Rank::Nine,
+            8 => Rank::Ten,
+            9 => Rank::Jack,
+            10 => Rank::Queen,
+            11 => Rank::King,
+            12 => Rank::Ace,
+            _ => panic!("Invalid rank value 0x{:x}", self.0),
         }
     }
 
@@ -137,27 +139,34 @@ pub enum Rank {
 impl Rank {
     #[must_use]
     pub fn ranks() -> impl DoubleEndedIterator<Item = Self,> {
-        use Rank::{Ace, Deuce, Eight, Five, Four, Jack, King, Nine, Queen, Seven, Six, Ten, Trey};
-        [Deuce, Trey, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace,].into_iter()
+        use Rank::{
+            Ace, Deuce, Eight, Five, Four, Jack, King, Nine, Queen, Seven, Six,
+            Ten, Trey,
+        };
+        [
+            Deuce, Trey, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen,
+            King, Ace,
+        ]
+        .into_iter()
     }
 }
 
 impl fmt::Display for Rank {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         let rank = match self {
-            | Self::Deuce => "2",
-            | Self::Trey => "3",
-            | Self::Four => "4",
-            | Self::Five => "5",
-            | Self::Six => "6",
-            | Self::Seven => "7",
-            | Self::Eight => "8",
-            | Self::Nine => "9",
-            | Self::Ten => "10",
-            | Self::Jack => "J",
-            | Self::Queen => "Q",
-            | Self::King => "K",
-            | Self::Ace => "A",
+            Self::Deuce => "2",
+            Self::Trey => "3",
+            Self::Four => "4",
+            Self::Five => "5",
+            Self::Six => "6",
+            Self::Seven => "7",
+            Self::Eight => "8",
+            Self::Nine => "9",
+            Self::Ten => "10",
+            Self::Jack => "J",
+            Self::Queen => "Q",
+            Self::King => "K",
+            Self::Ace => "A",
         };
         write!(f, "{rank}")
     }
@@ -165,19 +174,19 @@ impl fmt::Display for Rank {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord,)]
 pub enum Suit {
-    Clubs = 8,
+    Clubs    = 8,
     Diamonds = 4,
-    Hearts = 2,
-    Spades = 1,
+    Hearts   = 2,
+    Spades   = 1,
 }
 
 impl fmt::Display for Suit {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         let suit = match self {
-            | Self::Clubs => 'C',
-            | Self::Diamonds => 'D',
-            | Self::Hearts => 'H',
-            | Self::Spades => 'S',
+            Self::Clubs => 'C',
+            Self::Diamonds => 'D',
+            Self::Hearts => 'H',
+            Self::Spades => 'S',
         };
         write!(f, "{suit}")
     }
@@ -238,7 +247,9 @@ impl Deck {
         let mut rng = SmallRng::from_os_rng(); //TODO: webasm os possible???
 
         for _ in 0..n {
-            for (pos, c,) in self.cards.choose_multiple(&mut rng, k,).enumerate() {
+            for (pos, c,) in
+                self.cards.choose_multiple(&mut rng, k,).enumerate()
+            {
                 h[pos] = *c;
             }
             f(&h,);
@@ -320,9 +331,7 @@ impl Default for Deck {
         let cards = Suit::suits()
             .flat_map(|s| Rank::ranks().map(move |r| Card::new(r, s,),),)
             .collect::<Vec<_,>>();
-        Self {
-            cards,
-        }
+        Self { cards, }
     }
 }
 

@@ -2373,6 +2373,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 dependencies = [
  "ahash",
+ "allocator-api2",
 ]
 
 [[package]]
@@ -5947,6 +5948,13 @@ dependencies = [
 [[package]]
 name = "table-engine"
 version = "0.0.1"
+dependencies = [
+ "ahash",
+ "hashbrown 0.14.5",
+ "p2p-net",
+ "poker-core",
+ "serde",
+]
 
 [[package]]
 name = "tagptr"

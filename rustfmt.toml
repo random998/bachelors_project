@@ -1,40 +1,49 @@
-edition = "2021"
+################################
+#  Aggressive rustfmt profile  #
+################################
 
-# General strictness
-max_width = 100
-hard_tabs = false
-tab_spaces = 4
-newline_style = "Unix"
-use_small_heuristics = "Off"
+########## general ##########
+edition                       = "2021"
+newline_style                 = "Unix"
+hard_tabs                     = false
+tab_spaces                    = 4
+max_width                     = 80          # keep lines readable in diffs
+use_small_heuristics          = "Max"       # no heuristic escapes
+blank_lines_upper_bound       = 1
+blank_lines_lower_bound       = 0
+merge_derives                 = true
 
-# Enforce consistent formatting
-format_code_in_doc_comments = true
-normalize_comments = true
-normalize_doc_attributes = true
-format_macro_matchers = true
-format_macro_bodies = true
-format_strings = true
+########## imports ##########
+reorder_imports               = true
+imports_granularity           = "Module"    # `use std::{fs, io};`
+group_imports                 = "StdExternalCrate"
+normalize_doc_attributes      = true
 
-# Group imports strictly
-group_imports = "StdExternalCrate"
-imports_granularity = "Module"
-reorder_imports = true
-reorder_modules = true
+########## comments ##########
+wrap_comments                 = true
+comment_width                 = 80
+normalize_comments            = true
+format_code_in_doc_comments   = true
 
-# Force control brace style and match arms
-control_brace_style = "AlwaysSameLine"
-match_block_trailing_comma = true
-match_arm_leading_pipes = "Always"
+########## macros ##########
+format_macro_bodies           = true
+format_macro_matchers         = true
+force_multiline_blocks        = true
 
-# Misc strictness
-blank_lines_lower_bound = 0
-blank_lines_upper_bound = 1
-wrap_comments = true
-comment_width = 80
-condense_wildcard_suffixes = true
-fn_params_layout = "Compressed"
-where_single_line = true
-struct_field_align_threshold = 0
-trailing_semicolon = true
-trailing_comma = "Always"
+########## alignment / layout ##########
+struct_field_align_threshold  = 40          # align struct fields
+enum_discrim_align_threshold  = 20
+chain_width                   = 60
+struct_lit_width              = 18
+struct_variant_width          = 35
+single_line_if_else_max_width = 40
+single_line_let_else_max_width= 40
+where_single_line             = true
+condense_wildcard_suffixes    = true
 
+########## trailing commas ##########
+match_block_trailing_comma    = true
+trailing_comma                = "Always"
+
+########## miscellaneous ##########
+overflow_delimited_expr       = true

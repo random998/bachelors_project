@@ -18,7 +18,7 @@ pub type SignedMsgBlob = Vec<u8,>;
 // derives an enum called `BehaviourEvent` automatically
 struct Behaviour {
     gossipsub: gossipsub::Behaviour,
-    identify: identify::Behaviour,
+    identify:  identify::Behaviour,
 }
 
 // ------------------------------------------------------------------
@@ -30,11 +30,12 @@ pub fn new(table_id: &str, signing_key: &SigningKey,) -> P2pTransport {
     let peer_id = kp.public().to_peer_id();
 
     // transport -----------------------------------------------------
-    let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true,),)
-        .upgrade(upgrade::Version::V1,)
-        .authenticate(noise::Config::new(&kp,).unwrap(),)
-        .multiplex(yamux::Config::default(),)
-        .boxed();
+    let transport =
+        tcp::tokio::Transport::new(tcp::Config::default().nodelay(true,),)
+            .upgrade(upgrade::Version::V1,)
+            .authenticate(noise::Config::new(&kp,).unwrap(),)
+            .multiplex(yamux::Config::default(),)
+            .boxed();
 
     // behaviour -----------------------------------------------------
     let topic = gossipsub::IdentTopic::new(format!("poker/{table_id}"),);
@@ -46,7 +47,7 @@ pub fn new(table_id: &str, signing_key: &SigningKey,) -> P2pTransport {
 
     let behaviour = Behaviour {
         gossipsub: gossip,
-        identify: identify::Behaviour::new(identify::Config::new(
+        identify:  identify::Behaviour::new(identify::Config::new(
             "zk-poker/0.1".into(),
             kp.public(),
         ),),
@@ -66,7 +67,9 @@ pub fn new(table_id: &str, signing_key: &SigningKey,) -> P2pTransport {
         .build(); // finish
 
     // Listen on all local interfaces – port chosen by OS
-    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap(),).unwrap();
+    swarm
+        .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap(),)
+        .unwrap();
     // Subscribe to the gossipsub topic
     swarm.behaviour_mut().gossipsub.subscribe(&topic,).unwrap();
 

@@ -23,15 +23,15 @@ pub use state::TableJoinError;
 #[derive(Debug,)]
 pub struct Table {
     command_sender: Sender<TableCommand,>,
-    table_id: TableId,
+    table_id:       TableId,
 }
 
 enum TableCommand {
     TryJoin {
-        player_id: PeerId,
-        nickname: String,
-        join_chips: Chips,
-        table_tx: ChannelNetTx,
+        player_id:   PeerId,
+        nickname:    String,
+        join_chips:  Chips,
+        table_tx:    ChannelNetTx,
         response_tx: oneshot::Sender<Result<(), TableJoinError,>,>,
     },
     CanPlayerJoin {
@@ -43,12 +43,16 @@ enum TableCommand {
 
 impl Table {
     pub fn new(
-        seats: usize, signing_key: Arc<SigningKey,>, database: Database,
-        shutdown_rx: broadcast::Receiver<(),>, shutdown_complete_tx: Sender<(),>,
+        seats: usize,
+        signing_key: Arc<SigningKey,>,
+        database: Database,
+        shutdown_rx: broadcast::Receiver<(),>,
+        shutdown_complete_tx: Sender<(),>,
     ) -> Self {
         assert!(seats > 1, "A table must have at least two seats");
 
-        let (command_sender, command_receiver,) = mpsc::channel::<TableCommand,>(128,);
+        let (command_sender, command_receiver,) =
+            mpsc::channel::<TableCommand,>(128,);
         let table_id = TableId::new_id();
 
         let mut task = TableTask {
@@ -82,16 +86,18 @@ impl Table {
         let (response_tx, response_rx,) = oneshot::channel();
         let sent = self
             .command_sender
-            .send(TableCommand::CanPlayerJoin {
-                response_tx,
-            },)
+            .send(TableCommand::CanPlayerJoin { response_tx, },)
             .await
             .is_ok();
         sent && response_rx.await.unwrap_or(false,)
     }
 
     pub async fn try_join(
-        &self, player_id: &PeerId, nickname: &str, chips: Chips, table_tx: ChannelNetTx,
+        &self,
+        player_id: &PeerId,
+        nickname: &str,
+        chips: Chips,
+        table_tx: ChannelNetTx,
     ) -> Result<(), TableJoinError,> {
         let (response_tx, response_rx,) = oneshot::channel();
 
@@ -110,7 +116,10 @@ impl Table {
         response_rx.await.map_err(|_| TableJoinError::Unknown,)?
     }
 
-    pub async fn leave(&self, player_id: &PeerId,) -> Result<(), TableJoinError,> {
+    pub async fn leave(
+        &self,
+        player_id: &PeerId,
+    ) -> Result<(), TableJoinError,> {
         self.command_sender
             .send(TableCommand::Leave(*player_id,),)
             .await
@@ -118,17 +127,20 @@ impl Table {
     }
 
     pub async fn handle_message(&self, msg: SignedMessage,) {
-        let _ = self.command_sender.send(TableCommand::HandleMessage(msg,),).await;
+        let _ = self
+            .command_sender
+            .send(TableCommand::HandleMessage(msg,),)
+            .await;
     }
 }
 
 struct TableTask {
-    table_id: TableId,
-    seats: usize,
-    signing_key: Arc<SigningKey,>,
-    database: Database,
-    command_receiver: mpsc::Receiver<TableCommand,>,
-    shutdown_rx: broadcast::Receiver<(),>,
+    table_id:             TableId,
+    seats:                usize,
+    signing_key:          Arc<SigningKey,>,
+    database:             Database,
+    command_receiver:     mpsc::Receiver<TableCommand,>,
+    shutdown_rx:          broadcast::Receiver<(),>,
     shutdown_complete_tx: Sender<(),>,
 }
 

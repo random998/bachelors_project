@@ -4,7 +4,9 @@
 use tracing::info;
 
 use crate::crypto::PeerId;
-use crate::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
+use crate::message::{
+    HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
+};
 use crate::poker::{Card, Chips, PlayerCards, TableId};
 
 /// Represents the complete state of a single poker game during a game session.
@@ -40,7 +42,8 @@ pub struct Player {
     /// Indicates whether this player currently holds the dealer button.
     pub is_dealer: bool,
 
-    /// Indicates whether the player is still participating in the current hand.
+    /// Indicates whether the player is still participating in the current
+    /// hand.
     pub participating_in_hand: bool,
 }
 
@@ -80,8 +83,8 @@ pub struct ActionRequest {
     /// Set of valid actions the player may choose from at this point.
     pub available_actions: Vec<PlayerAction,>,
 
-    /// Minimum raise amount allowed in the current betting round (based on game
-    /// rules).
+    /// Minimum raise amount allowed in the current betting round (based on
+    /// game rules).
     pub minimum_raise: Chips,
 
     /// Big blind value for the current hand, used for validation and context.
@@ -126,28 +129,28 @@ impl ActionRequest {
 #[derive(Debug,)]
 pub struct ClientGameState {
     /// ID of this local player.
-    player_id: PeerId,
+    player_id:         PeerId,
     /// Nickname associated with this peer.
-    nickname: String,
+    nickname:          String,
     /// Identifier of the host key or session authority (may be removed in P2P
     /// mode).
     legacy_server_key: String, // TODO: remove when switching fully to p2p.
     /// Unique identifier for the poker table instance.
-    table_id: TableId,
+    table_id:          TableId,
     /// Number of player seats at the table.
-    num_seats: usize,
+    num_seats:         usize,
     /// Number taken player seats at the table.
-    num_taken_seats: usize,
+    num_taken_seats:   usize,
     /// Whether the game has started.
-    game_started: bool,
+    game_started:      bool,
     /// List of all players currently seated at the table.
-    players: Vec<Player,>,
+    players:           Vec<Player,>,
     /// Action request currently directed to this player, if any.
-    action_request: Option<ActionRequest,>,
+    action_request:    Option<ActionRequest,>,
     /// Community cards on the board (flop, turn, river).
-    community_cards: Vec<Card,>,
+    community_cards:   Vec<Card,>,
     /// Total amount of chips currently in the pot.
-    pot: Chips,
+    pot:               Chips,
 }
 
 impl ClientGameState {
@@ -171,9 +174,12 @@ impl ClientGameState {
 
     /// Handle an incoming server (legacy, wanted: peer) message.
     pub fn handle_message(&mut self, msg: SignedMessage,) {
-        info!("client handling incoming message: {:?}", msg.message().to_string());
+        info!(
+            "client handling incoming message: {:?}",
+            msg.message().to_string()
+        );
         match msg.message() {
-            | Message::PlayerJoined {
+            Message::PlayerJoined {
                 player_id,
                 nickname,
                 chips,
@@ -183,15 +189,18 @@ impl ClientGameState {
                 self.num_taken_seats += 1usize;
                 self.legacy_server_key = msg.sender().digits();
 
-                // Add the joined player as the first player in the players list.
-                self.players.push(Player::new(*player_id, nickname.clone(), *chips,),);
+                // Add the joined player as the first player in the players
+                // list.
+                self.players.push(Player::new(
+                    *player_id,
+                    nickname.clone(),
+                    *chips,
+                ),);
             },
-            | Message::PlayerLeftNotification {
-                player_id,
-            } => {
+            Message::PlayerLeftNotification { player_id, } => {
                 self.players.retain(|p| &p.id != player_id,);
             },
-            | Message::StartGame(seats,) => {
+            Message::StartGame(seats,) => {
                 // Reorder seats according to the new order.
                 println!("handling incoming server message StartGame");
                 println!("current seats list: {seats:?}");
@@ -219,7 +228,7 @@ impl ClientGameState {
 
                 self.game_started = true;
             },
-            | Message::StartHand => {
+            Message::StartHand => {
                 // Prepare for a new hand.
                 for player in &mut self.players {
                     player.hole_cards = PlayerCards::None;
@@ -227,10 +236,7 @@ impl ClientGameState {
                     player.hand_payoff = None;
                 }
             },
-            | Message::EndHand {
-                payoffs,
-                ..
-            } => {
+            Message::EndHand { payoffs, .. } => {
                 self.action_request = None;
                 self.pot = Chips::ZERO;
 
@@ -245,15 +251,18 @@ impl ClientGameState {
                     }
                 }
             },
-            | Message::DealCards(c1, c2,) => {
+            Message::DealCards(c1, c2,) => {
                 // This client player should be in first position.
                 assert!(!self.players.is_empty());
-                assert_eq!(self.players[0].id.digits(), self.player_id.digits());
+                assert_eq!(
+                    self.players[0].id.digits(),
+                    self.player_id.digits()
+                );
 
                 self.players[0].hole_cards = PlayerCards::Cards(*c1, *c2,);
                 info!("hole cards of player {}", self.players[0].hole_cards);
             },
-            | Message::GameStateUpdate {
+            Message::GameStateUpdate {
                 players,
                 community_cards,
                 pot,
@@ -262,7 +271,7 @@ impl ClientGameState {
                 self.community_cards = community_cards.clone();
                 self.pot = *pot;
             },
-            | Message::ActionRequest {
+            Message::ActionRequest {
                 player_id,
                 min_raise,
                 big_blind,
@@ -272,22 +281,22 @@ impl ClientGameState {
                 if self.player_id == *player_id {
                     self.action_request = Some(ActionRequest {
                         available_actions: actions.clone(),
-                        minimum_raise: *min_raise,
-                        big_blind_amount: *big_blind,
+                        minimum_raise:     *min_raise,
+                        big_blind_amount:  *big_blind,
                     },);
                 }
             },
-            | _ => {},
+            _ => {},
         }
     }
     fn update_players(&mut self, updates: &[PlayerUpdate],) {
         for player_update in updates {
             let player_update = player_update.clone(); // Clone once
 
-            if let Some(pos,) = self
-                .players
-                .iter_mut()
-                .position(|p| p.id.digits() == player_update.player_id.digits(),)
+            if let Some(pos,) =
+                self.players.iter_mut().position(|p| {
+                    p.id.digits() == player_update.player_id.digits()
+                },)
             {
                 let player = &mut self.players[pos];
                 player.chips = player_update.chips;
@@ -297,8 +306,8 @@ impl ClientGameState {
                 player.is_dealer = player_update.is_dealer;
                 player.participating_in_hand = player_update.is_active;
 
-                // Do not override cards for the local player as they are updated
-                // when we get a DealCards message.
+                // Do not override cards for the local player as they are
+                // updated when we get a DealCards message.
                 if pos != 0 {
                     player.hole_cards = player_update.hole_cards;
                 }

@@ -8,8 +8,8 @@ use poker_cards::{Card, Deck, Suit};
 use poker_eval::eval::HandValue;
 
 struct Sim {
-    pair: Vec<Card,>,
-    board: Vec<Card,>,
+    pair:        Vec<Card,>,
+    board:       Vec<Card,>,
     num_players: usize,
 }
 
@@ -41,8 +41,9 @@ impl Sim {
         let mut games = 0;
 
         deck.sample(SAMPLES, sample_size, |sample| {
-            // The sample contains the two cards for each player and the board cards,
-            // copy the board cards to the end of the evaluation array.
+            // The sample contains the two cards for each player and the board
+            // cards, copy the board cards to the end of the
+            // evaluation array.
             let mut hand = [Card::default(); BOARD_SIZE + 2];
             let board_start = self.num_players * BOARD_IDX;
             hand[2..].copy_from_slice(&sample[board_start..],);
@@ -80,15 +81,15 @@ impl Sim {
 }
 
 struct App {
-    textures: Textures,
+    textures:     Textures,
     player_cards: Vec<Card,>,
-    board_cards: Vec<Card,>,
-    deck: Vec<(Card, bool,),>,
-    num_players: usize,
-    win_prob: Option<f64,>,
-    task_tx: Option<mpsc::Sender<Sim,>,>,
-    task_rx: mpsc::Receiver<f64,>,
-    task: Option<thread::JoinHandle<(),>,>,
+    board_cards:  Vec<Card,>,
+    deck:         Vec<(Card, bool,),>,
+    num_players:  usize,
+    win_prob:     Option<f64,>,
+    task_tx:      Option<mpsc::Sender<Sim,>,>,
+    task_rx:      mpsc::Receiver<f64,>,
+    task:         Option<thread::JoinHandle<(),>,>,
 }
 
 impl App {
@@ -144,21 +145,32 @@ impl App {
         row_pos.y += Self::CARD_SIZE.y + 10.0;
         self.paint_deck_row(ui, row_pos, Suit::Spades,);
 
-        let sz = vec2(Self::DECK_ROW_LX, row_pos.y + Self::CARD_SIZE.y - pos.y,);
+        let sz =
+            vec2(Self::DECK_ROW_LX, row_pos.y + Self::CARD_SIZE.y - pos.y,);
         let r = egui::Rect::from_min_size(pos, sz,).expand2(vec2(15.0, 20.0,),);
         paint_frame(ui, r, "Select cards for the player and the board",);
     }
 
-    fn paint_deck_row(&mut self, ui: &mut egui::Ui, pos: egui::Pos2, suit: Suit,) {
+    fn paint_deck_row(
+        &mut self,
+        ui: &mut egui::Ui,
+        pos: egui::Pos2,
+        suit: Suit,
+    ) {
         let mut pos = pos;
         let mut deck_changed = false;
 
-        for (c, v,) in self.deck.iter_mut().filter(|(c, _,)| c.suit() == suit,) {
+        for (c, v,) in self.deck.iter_mut().filter(|(c, _,)| c.suit() == suit,)
+        {
             if *v {
                 let tx = self.textures.card(*c,);
-                let img = egui::Image::new(&tx,).max_size(Self::CARD_SIZE,).corner_radius(2.0,);
+                let img = egui::Image::new(&tx,)
+                    .max_size(Self::CARD_SIZE,)
+                    .corner_radius(2.0,);
 
-                let card_rect = egui::Rect::from_min_size(pos, Self::CARD_SIZE,).expand(2.0,);
+                let card_rect =
+                    egui::Rect::from_min_size(pos, Self::CARD_SIZE,)
+                        .expand(2.0,);
                 // Move card to the player or the board.
                 if ui.put(card_rect, egui::Button::image(img,),).clicked() {
                     if self.player_cards.len() < 2 {
@@ -197,13 +209,22 @@ impl App {
         paint_frame(ui, r, "Board cards",);
     }
 
-    fn paint_cards_row(&self, ui: &mut egui::Ui, pos: egui::Pos2, cards: &[Card],) {
+    fn paint_cards_row(
+        &self,
+        ui: &mut egui::Ui,
+        pos: egui::Pos2,
+        cards: &[Card],
+    ) {
         let mut row_pos = pos;
         for c in cards {
             let tx = self.textures.card(*c,);
-            let img = egui::Image::new(&tx,).max_size(Self::CARD_SIZE,).corner_radius(2.0,);
+            let img = egui::Image::new(&tx,)
+                .max_size(Self::CARD_SIZE,)
+                .corner_radius(2.0,);
 
-            let card_rect = egui::Rect::from_min_size(row_pos, Self::CARD_SIZE,).expand(2.0,);
+            let card_rect =
+                egui::Rect::from_min_size(row_pos, Self::CARD_SIZE,)
+                    .expand(2.0,);
             ui.put(card_rect, img,);
             row_pos.x += Self::CARD_SIZE.x + 10.0;
         }
@@ -231,8 +252,12 @@ impl App {
 
         for n in 1..=6 {
             let btn_size = vec2(BTN_LX, Self::BTN_LY,);
-            let btn_rect = egui::Rect::from_min_size(btn_pos, btn_size,).expand(2.0,);
-            let label = egui::SelectableLabel::new(n == self.num_players, n.to_string(),);
+            let btn_rect =
+                egui::Rect::from_min_size(btn_pos, btn_size,).expand(2.0,);
+            let label = egui::SelectableLabel::new(
+                n == self.num_players,
+                n.to_string(),
+            );
             if ui.put(btn_rect, label,).clicked() {
                 self.num_players = n;
                 self.send_sim();
@@ -302,8 +327,8 @@ impl App {
         // Need at least player cards.
         if self.player_cards.len() == 2 {
             let sim = Sim {
-                pair: self.player_cards.clone(),
-                board: self.board_cards.clone(),
+                pair:        self.player_cards.clone(),
+                board:       self.board_cards.clone(),
                 num_players: self.num_players,
             };
 
@@ -316,7 +341,12 @@ impl App {
 
 fn paint_frame(ui: &mut egui::Ui, rect: egui::Rect, label: &str,) {
     let color = egui::Color32::from_gray(180,);
-    ui.painter().rect_stroke(rect, 5.0, egui::Stroke::new(2.0, color,), egui::StrokeKind::Outside,);
+    ui.painter().rect_stroke(
+        rect,
+        5.0,
+        egui::Stroke::new(2.0, color,),
+        egui::StrokeKind::Outside,
+    );
 
     if !label.is_empty() {
         let color = egui::Color32::from_gray(100,);
@@ -327,7 +357,8 @@ fn paint_frame(ui: &mut egui::Ui, rect: egui::Rect, label: &str,) {
         );
 
         let pos = rect.left_top() + vec2(30.0, -galley.size().y / 2.0,);
-        let bg_rect = egui::Rect::from_min_size(pos, galley.size(),).expand(5.0,);
+        let bg_rect =
+            egui::Rect::from_min_size(pos, galley.size(),).expand(5.0,);
         let bg_color = ui.style().visuals.window_fill;
         ui.painter().rect_filled(bg_rect, 5.0, bg_color,);
         ui.painter().galley(pos, galley, color,);
@@ -335,18 +366,26 @@ fn paint_frame(ui: &mut egui::Ui, rect: egui::Rect, label: &str,) {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame,) {
+    fn update(
+        &mut self,
+        ctx: &eframe::egui::Context,
+        _frame: &mut eframe::Frame,
+    ) {
         if let Ok(win_prob,) = self.task_rx.try_recv() {
             self.win_prob = Some(win_prob,);
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let (rect, _,) = ui.allocate_exact_size(Self::FRAME_SIZE, egui::Sense::hover(),);
+            let (rect, _,) =
+                ui.allocate_exact_size(Self::FRAME_SIZE, egui::Sense::hover(),);
 
             let start_x = (rect.width() - Self::DECK_ROW_LX) / 2.0;
             let mut pos = pos2(start_x, 40.0,);
             self.paint_player(ui, pos,);
-            self.paint_win_prob(ui, pos + vec2(Self::BOARD_ROW_LX + 60.0, 0.0,),);
+            self.paint_win_prob(
+                ui,
+                pos + vec2(Self::BOARD_ROW_LX + 60.0, 0.0,),
+            );
 
             pos.y += Self::CARD_SIZE.y + 60.0;
             self.paint_board(ui, pos,);
@@ -378,5 +417,9 @@ fn main() -> eframe::Result<(),> {
         ..Default::default()
     };
 
-    eframe::run_native("board", native_options, Box::new(|cc| Ok(Box::new(App::new(cc,),),),),)
+    eframe::run_native(
+        "board",
+        native_options,
+        Box::new(|cc| Ok(Box::new(App::new(cc,),),),),
+    )
 }
