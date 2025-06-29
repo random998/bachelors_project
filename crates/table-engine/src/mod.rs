@@ -7,7 +7,8 @@ use p2p_net::{P2pTx, P2pRx};
 use poker_core::message::{SignedMessage, Message};
 use ahash::AHashSet;
 
-pub struct Engine {
+pub struct TableEngine<Cb: EngineCallbacks> {
+    callbacks: Cb,
     // config
     f: usize,
     threshold: usize,
@@ -22,3 +23,9 @@ pub struct Engine {
     net_rx: P2pRx,
 }
 
+/// Notifications that the host application must implement.
+pub trait EngineCallbacks: Send + Sync + 'static {
+    fn send(&self, player_id: PeerId, msg: SignedMessage);
+    fn disconnect(&self, player_id: PeerId);
+    fn credit_chips(&self, player_id: PeerId, amount: Chips);
+}

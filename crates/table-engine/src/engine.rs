@@ -9,21 +9,26 @@ use ahash::AHashSet;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use log::{error, info};
+use rand::prelude::StdRng;
+use rand::{rng, SeedableRng};
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{
     HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
 };
-use poker_core::net::traits::ChannelNetTx;
-use poker_core::net::NetTx;
-use poker_core::poker::{Card, Chips, Deck, HandValue, PlayerCards, TableId};
-use rand::rngs::StdRng;
-use rand::SeedableRng;
+use poker_core::poker::{Card, Chips, Deck, PlayerCards, TableId};
+use poker_eval::HandValue;
 use thiserror::Error;
 
 use super::player::Player;
 use super::players_state::PlayersState;
-use super::TableMessage;
-use crate::db::Database;
+
+pub trait EngineCallbacks: Send + Sync + 'static {
+    fn send(&self, player: PeerId, msg: SignedMessage);
+    fn throttle(&self, player: PeerId, dt: Duration);           // NEW helper
+    fn disconnect(&self, player: PeerId);
+    fn credit_chips(&self, player: PeerId, amount: Chips) -> Result<(), anyhow::Error>;
+}
+
 
 /// Represents the current phase of a hand being played.
 #[derive(Debug, Eq, PartialEq,)]
@@ -87,11 +92,11 @@ pub enum TableJoinError {
 
 /// Core state of a poker table instance.
 #[derive(Debug,)]
-pub struct InternalTableState {
+pub struct InternalTableState<Cb: EngineCallbacks> {
+    callbacks: Cb,
     table_id:    TableId,
     num_seats:   usize,
     signing_key: Arc<SigningKey,>,
-    database:    Database,
 
     phase:       HandPhase,
     hand_number: usize,
@@ -111,33 +116,33 @@ pub struct InternalTableState {
     hand_start_timer: Option<Instant,>,
     hand_start_delay: Duration,
 }
-impl InternalTableState {
+impl<Cb: EngineCallbacks> InternalTableState<Cb> {
     const ACTION_TIMEOUT: Duration = Duration::from_secs(15,);
     const INITIAL_SMALL_BLIND: Chips = Chips::new(10_000,);
     const INITIAL_BIG_BLIND: Chips = Chips::new(20_000,);
 
     pub fn new(
+        callbacks: Cb,
         table_id: TableId,
         max_seats: usize,
         signing_key: Arc<SigningKey,>,
-        database: Database,
     ) -> Self {
-        let rng = StdRng::from_os_rng();
-        Self::with_rng(table_id, max_seats, signing_key, database, rng,)
+        let rng = StdRng::from_rng(&mut rng());
+        Self::with_rng(callbacks, table_id, max_seats, signing_key, rng,)
     }
 
     fn with_rng(
+        callbacks: Cb,
         table_id: TableId,
         max_seats: usize,
         signing_key: Arc<SigningKey,>,
-        database: Database,
         mut rng: StdRng,
     ) -> Self {
         Self {
+            callbacks,
             table_id,
             num_seats: max_seats,
             signing_key,
-            database,
             phase: HandPhase::WaitingForPlayers,
             hand_number: 0,
             small_blind: Self::INITIAL_SMALL_BLIND,
@@ -165,9 +170,7 @@ impl InternalTableState {
         player_id: &PeerId,
         nickname: &str,
         starting_chips: Chips,
-        channel: ChannelNetTx,
     ) -> Result<(), TableJoinError,> {
-        let net_tx: Box<dyn NetTx + Send,> = Box::new(channel.clone(),);
 
         if self.players.count() >= self.num_seats {
             return Err(TableJoinError::TableFull,);
@@ -181,12 +184,10 @@ impl InternalTableState {
             return Err(TableJoinError::AlreadyJoined,);
         }
 
-        let mut new_player: Player = Player::new(
+        let new_player: Player = Player::new(
             *player_id,
             nickname.to_string(),
             starting_chips,
-            channel,
-            net_tx,
         );
 
         let confirmation_message = Message::PlayerJoined {
@@ -199,7 +200,7 @@ impl InternalTableState {
         let signed_message =
             SignedMessage::new(&self.signing_key, confirmation_message,);
 
-        let _ = new_player.send(signed_message,).await;
+        let _ = self.callbacks.send(new_player.id, signed_message,);
 
         // for each existing player, send a player joined message to the newly
         // joined player.
@@ -212,7 +213,7 @@ impl InternalTableState {
             };
 
             let signed = SignedMessage::new(&self.signing_key, join_msg,);
-            let _ = new_player.send(signed,).await;
+            let _ = self.callbacks.send(new_player.id, signed);
         }
 
         info!("Player {player_id} joined table {}", self.table_id);
@@ -237,7 +238,7 @@ impl InternalTableState {
     }
     pub async fn leave(&mut self, player_id: &PeerId,) {
         let active_is_leaving = self.players.is_active(player_id,);
-        if let Some(mut leaver,) = self.players.remove(player_id,) {
+        if let Some(leaver,) = self.players.remove(player_id,) {
             // add player bets to the pot.
             if let Some(pot,) = self.pots.last_mut() {
                 pot.total_chips += leaver.current_bet;
@@ -257,14 +258,13 @@ impl InternalTableState {
             };
 
             self.broadcast(msg,).await;
-            leaver.notify_left().await;
         }
     }
 
     async fn broadcast(&mut self, msg: Message,) {
         let signed = SignedMessage::new(&self.signing_key, msg,);
         for player in self.players.iter_mut() {
-            let _ = player.send(signed.clone(),).await;
+            let _ = self.callbacks.send(player.id, signed.clone());
         }
     }
     /// handle incoming message from a player.
@@ -493,7 +493,7 @@ impl InternalTableState {
                 let msg = Message::DealCards(c1, c2,);
                 let signed_message =
                     SignedMessage::new(&self.signing_key, msg,);
-                player.send(signed_message,).await;
+                self.callbacks.send(player.id, signed_message,);
             }
         }
 
@@ -597,7 +597,7 @@ impl InternalTableState {
     /// Broadcast a throttle message to all players at the table.
     async fn broadcast_throttle(&mut self, dt: Duration,) {
         for player in self.players.iter_mut() {
-            player.send_throttle(dt,).await;
+            self.callbacks.throttle(player.id, dt);
         }
     }
 
@@ -639,7 +639,7 @@ impl InternalTableState {
         };
         let signed_message = SignedMessage::new(&self.signing_key, msg,);
         for player in self.players.iter_mut() {
-            player.send(signed_message.clone(),).await;
+            self.callbacks.send(player.id, signed_message.clone());
         }
     }
     /// Request action to the active player.
@@ -730,11 +730,7 @@ impl InternalTableState {
 
         for player_id in broke {
             if let Some(player,) = self.players.get(&player_id,) {
-                let _ = player
-                    .clone()
-                    .tx
-                    .send_table(TableMessage::PlayerLeave,)
-                    .await;
+                let _ = self.callbacks.disconnect(player.id);
                 let msg = Message::PlayerLeftTable;
                 self.broadcast(msg,).await;
             }
@@ -752,12 +748,12 @@ impl InternalTableState {
         // Payout remaining chips to each player, notify and remove them.
         for player in self.players.iter_mut() {
             if let Err(err,) =
-                self.database.credit_chips(player.id, player.chips,).await
+                self.callbacks.credit_chips(player.id, player.chips,)
             {
                 error!("Failed to pay player {}: {}", player.id, err);
                 println!("error enter_end_game: {err}");
             }
-            let _ = player.tx.send_table(TableMessage::PlayerLeave,).await;
+            let _ = self.callbacks.disconnect(player.id);
         }
         self.players.clear();
         self.hand_number = 0;

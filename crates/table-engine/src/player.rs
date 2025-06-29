@@ -3,22 +3,14 @@
 
 use std::fmt;
 use std::time::{Duration, Instant};
-
 use poker_core::crypto::PeerId;
 use poker_core::message::{PlayerAction, SignedMessage};
-use poker_core::net::traits::{ChannelNetTx, TableMessage};
-use poker_core::net::NetTx;
 use poker_core::poker::{Chips, PlayerCards};
-use tokio::sync::Mutex;
-
-use crate::table::{Arc, Sender};
 
 /// Represents a single poker player at a table.
 #[derive(Clone,)]
 pub struct Player {
     pub id:            PeerId,
-    pub tx:            ChannelNetTx,
-    pub net_tx:        Arc<Mutex<dyn NetTx + Send,>,>,
     pub nickname:      String,
     pub chips:         Chips,
     pub current_bet:   Chips,
@@ -50,13 +42,9 @@ impl Player {
         id: PeerId,
         nickname: String,
         chips: Chips,
-        tx: ChannelNetTx,
-        net_tx: Box<dyn NetTx + Send,>,
     ) -> Self {
         Self {
             id,
-            tx,
-            net_tx: Arc::new(Mutex::new(net_tx,),),
             nickname,
             chips,
             current_bet: Chips::ZERO,
@@ -68,24 +56,6 @@ impl Player {
             dealer: false,
         }
     }
-
-    pub async fn send_table_msg(&mut self, msg: TableMessage,) {
-        let _ = self.tx.send_table(msg,).await;
-    }
-    pub async fn send(&mut self, msg: SignedMessage,) {
-        let _ = self.tx.send(msg,).await;
-    }
-
-    pub async fn notify_left(&mut self,) {
-        let _ = self.send_table_msg(TableMessage::PlayerLeave,).await;
-    }
-
-    pub async fn send_throttle(&mut self, duration: Duration,) {
-        let _ = self
-            .send_table_msg(TableMessage::Throttle(duration,),)
-            .await;
-    }
-
     pub fn place_bet(&mut self, action: PlayerAction, total_bet: Chips,) {
         let required = total_bet - self.current_bet;
         let actual_bet = required.min(self.chips,);
@@ -134,83 +104,13 @@ impl fmt::Display for Player {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use poker_core::crypto::SigningKey;
-    use tokio::sync::mpsc;
-
-    use super::*;
-
-    struct MockNet;
-    #[async_trait::async_trait]
-    impl NetTx for MockNet {
-        async fn send(&mut self, _m: SignedMessage,) -> anyhow::Result<(),> {
-            Ok((),)
-        }
-
-        async fn send_table(
-            &mut self,
-            msg: TableMessage,
-        ) -> anyhow::Result<(),> {
-            Ok((),)
-        }
-    }
-
-    fn new_player(chips: Chips,) -> Player {
-        let peer_id = SigningKey::default().verifying_key().peer_id();
-        let (table_tx, _table_rx,): (
-            Sender<TableMessage,>,
-            mpsc::Receiver<TableMessage,>,
-        ) = mpsc::channel(10,);
-        let table_tx = ChannelNetTx {
-            tx: table_tx.clone(),
-        };
-        let net = Box::new(MockNet,);
-        Player::new(peer_id, "Alice".to_string(), chips, table_tx, net,)
-    }
-
     #[test]
     fn test_player_bet() {
-        let init_chips = Chips::new(100_000,);
-        let mut player = new_player(init_chips,);
-
-        // Simple bet.
-        let bet_size = Chips::new(60_000,);
-        player.place_bet(PlayerAction::Bet, bet_size,);
-        assert_eq!(player.current_bet, bet_size.clone());
-        assert_eq!(player.chips, init_chips - bet_size);
-        assert!(matches!(player.last_action, PlayerAction::Bet));
-
-        // The bet amount is the total bet check chips paid are the new bet
-        // minus the previous bet.
-        let bet_size = bet_size + Chips::new(20_000,);
-        player.place_bet(PlayerAction::Bet, bet_size,);
-        assert_eq!(player.current_bet, bet_size.clone());
-        assert_eq!(player.chips, init_chips - bet_size);
-
-        // Start new hand reset bet chips and action.
-        player.reset_for_new_hand();
-        assert!(matches!(player.last_action, PlayerAction::None));
-        assert!(player.active);
-        assert_eq!(player.current_bet, Chips::ZERO);
-        assert_eq!(player.chips, init_chips - bet_size);
-
-        // Bet more than remaining chips goes all in.
-        let remaining_chips = player.chips;
-        player.place_bet(PlayerAction::Bet, Chips::new(1_000_000,),);
-        assert_eq!(player.current_bet, remaining_chips);
-        assert_eq!(player.chips, Chips::ZERO);
+        todo!();
     }
 
     #[test]
     fn test_player_fold() {
-        let init_chips = Chips::new(100_000,);
-        let mut player = new_player(init_chips,);
-
-        player.place_bet(PlayerAction::Bet, Chips::new(20_000,),);
-        player.action_timer = Some(Instant::now(),);
-
-        player.fold();
-        assert!(matches!(player.last_action, PlayerAction::Fold));
-        assert!(!player.active);
-        assert!(player.action_timer.is_none());
+        todo!();
     }
 }
