@@ -4,7 +4,6 @@ pub mod swarm_task;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use poker_core::message::SignedMessage;
-use poker_core::net::traits::TableMessage;
 use poker_core::net::{NetRx, NetTx};
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -27,10 +26,6 @@ impl NetTx for P2pTx {
         self.sender.send(msg,).await?;
         Ok((),)
     }
-
-    async fn send_table(&mut self, msg: TableMessage,) -> Result<(),> {
-        todo!()
-    }
 }
 
 /// ------------- NetRx implementation -----------------
@@ -52,7 +47,7 @@ pub struct P2pTransport {
 
 
 impl P2pTransport {
-    
+
     pub async fn new(sender: Sender<SignedMessage>, receiver: Receiver<SignedMessage>) -> P2pTransport {
         P2pTransport {
             tx: P2pTx {
@@ -64,3 +59,5 @@ impl P2pTransport {
         }
     }
 }
+
+pub use crate::swarm_task::new as new_transport;
