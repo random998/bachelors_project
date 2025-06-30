@@ -3,20 +3,20 @@
 use std::sync::LazyLock;
 
 /// TLS and Noise protocol encrypted WebSocket connection types.
-use anyhow::{Result, anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
-use snow::TransportState;
 use snow::params::NoiseParams;
+use snow::TransportState;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
-use tokio_tungstenite::tungstenite::Message as WsMessage;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+use tokio_tungstenite::tungstenite::Message as WsMessage;
 use tokio_tungstenite::{self as websocket, MaybeTlsStream, WebSocketStream};
 
+
 use crate::message::SignedMessage;
-use crate::net::traits::TableMessage;
 use crate::net::{NetRx, NetTx};
 
 static NOISE_PARAMETERS: LazyLock<NoiseParams,> =
@@ -49,9 +49,6 @@ where S: AsyncRead + AsyncWrite + Unpin
         Ok((),)
     }
 
-    pub async fn send_table(&mut self, message: &TableMessage,) -> Result<(),> {
-        Err(anyhow!("tried to send table message to another player"),)
-    }
     /// Receive a signed message securely.
     pub async fn receive(&mut self,) -> Option<Result<SignedMessage,>,> {
         let mut buffer = BytesMut::zeroed(MAX_MESSAGE_SIZE,);
@@ -65,7 +62,8 @@ where S: AsyncRead + AsyncWrite + Unpin
                             .map_err(anyhow::Error::from,)
                             .and_then(|len| {
                                 SignedMessage::deserialize_and_verify(
-                                    &buffer[..len],
+                                    Vec::from(buffer),
+                                        
                                 )
                             },),
                     );
@@ -171,7 +169,7 @@ where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
 impl<S,> NetRx for SecureWebSocket<S,>
 where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
 {
-    async fn try_recv(&mut self,) -> anyhow::Result<SignedMessage,> {
+    async fn try_recv(&mut self,) -> Result<SignedMessage,> {
         Self::receive(self,).await.unwrap_or_else(|| {
             Err(anyhow!("Noise WebSocket error during receiving message"),)
         },)
