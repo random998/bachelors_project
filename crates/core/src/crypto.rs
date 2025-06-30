@@ -2,11 +2,11 @@
 //! A *working* rewrite that uses `libp2p-identity` instead of `ed25519-dalek`.
 
 use std::{convert::TryInto, fmt};
-
+use std::ops::Deref;
 use anyhow::{bail, Result};
 use bip39::Mnemonic;
 use blake2::{digest::consts, Blake2s, Digest};
-use ed25519_dalek::ed25519::signature::digest::typenum::ToInt;
+use blake2::digest::typenum::ToInt;
 use libp2p_identity::ed25519;
 use rand::{rngs::StdRng, SeedableRng};
 use rand_core::{CryptoRng, RngCore};
@@ -46,8 +46,8 @@ impl SigningKey {
     /// Deterministic constructor from fixed entropy.
     fn generate_from_entropy(entropy: Entropy) -> Self {
         // Hash the entropy → 32-byte seed, then into Keypair
-        let mut binding = SigHasher::digest(entropy).clone();
-        let kp   = ed25519::Keypair::try_from_bytes(&mut binding).expect("invalid Ed25519 keypair");
+        let binding = SigHasher::digest(entropy).clone();
+        let kp   : ed25519::Keypair = libp2p_identity::Keypair::ed25519_from_bytes(binding).expect("error").try_into().unwrap();
         Self { kp, entropy: Zeroizing::new(entropy) }
     }
 
@@ -108,7 +108,6 @@ impl Serialize for SigningKey {
         s.serialize_bytes(&self.secret_bytes())
     }
 }
-
 impl Serialize for VerifyingKey {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -124,9 +123,7 @@ impl<'de> Deserialize<'de> for SigningKey {
         D: Deserializer<'de>,
     {
         let bytes: Vec<u8> = <&[u8]>::deserialize(d)?.to_vec();
-        if bytes.len() != SECRET_LEN {
-            return Err(serde::de::Error::custom("ed25519 secret must be 32 B"));
-        }
+        
         let kp       = ed25519::Keypair::try_from_bytes(&mut bytes.clone())
             .map_err(|e| serde::de::Error::custom(e.to_string()))?;
         let entropy  = Zeroizing::new([0u8; ENTROPY_LEN]); // unknown
@@ -141,13 +138,9 @@ impl<'de> Deserialize<'de> for VerifyingKey {
         D: Deserializer<'de>,
     {
         let bytes: Vec<u8> = <&[u8]>::deserialize(d)?.to_vec();
-        if bytes.len() != SECRET_LEN {
-            return Err(serde::de::Error::custom("ed25519 vk must be 32 B"));
-        }
-        let kp       = ed25519::Keypair::try_from_bytes(&mut bytes.clone())
-            .map_err(|e| serde::de::Error::custom(e.to_string()))?;
-        let pk = kp.public();
-        Ok(VerifyingKey(pk))
+        let kp       = ed25519::PublicKey::try_from_bytes(bytes.deref()).expect("error");
+        
+        Ok(VerifyingKey(kp))
     }
 }
 
@@ -165,7 +158,7 @@ impl fmt::Debug for SigningKey {
 #[derive(Clone)]
 pub struct VerifyingKey(pub ed25519::PublicKey);
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Signature(Vec<u8>);
 
 impl VerifyingKey {
@@ -198,11 +191,35 @@ impl fmt::Debug for Signature {
     }
 }
 
+impl Serialize for Signature {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        Vec::serialize(&self.0, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Signature {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Vec::deserialize(d).map(|v| Self(v))
+    }
+}
+
 /* -------------------------------------------------------------------- */
 /*  PeerId                                                              */
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PeerId([u8; consts::U16::INT]);
+
+impl PeerId {
+    pub fn digits(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
 
 impl fmt::Debug for PeerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

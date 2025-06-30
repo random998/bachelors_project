@@ -58,7 +58,7 @@ impl Player {
     fn new(peer_id: PeerId, nickname: String, chips: Chips,) -> Self {
         Self {
             id: peer_id,
-            id_digits: peer_id.digits(),
+            id_digits: peer_id.to_string(),
             nickname,
             chips,
             current_bet: Chips::ZERO,
@@ -187,7 +187,7 @@ impl ClientGameState {
             } => {
                 self.table_id = *table_id;
                 self.num_taken_seats += 1usize;
-                self.legacy_server_key = msg.sender().digits();
+                self.legacy_server_key = msg.sender().to_string();
 
                 // Add the joined player as the first player in the players
                 // list.
