@@ -3,18 +3,17 @@
 use std::sync::LazyLock;
 
 /// TLS and Noise protocol encrypted WebSocket connection types.
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use async_trait::async_trait;
 use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
-use snow::params::NoiseParams;
 use snow::TransportState;
+use snow::params::NoiseParams;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
-use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::{self as websocket, MaybeTlsStream, WebSocketStream};
-
 
 use crate::message::SignedMessage;
 use crate::net::{NetRx, NetTx};
@@ -62,8 +61,7 @@ where S: AsyncRead + AsyncWrite + Unpin
                             .map_err(anyhow::Error::from,)
                             .and_then(|len| {
                                 SignedMessage::deserialize_and_verify(
-                                    Vec::from(buffer),
-                                        
+                                    Vec::from(buffer,),
                                 )
                             },),
                     );
