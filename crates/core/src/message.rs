@@ -240,11 +240,10 @@ impl SignedMessage {
     }
 
     /// Deserializes this message and verifies its signature.
-    pub fn deserialize_and_verify(buf: Vec<u8>,) -> Result<Self,> {
-        let payload = bincode::deserialize::<Payload>(&buf)?;
+    pub fn deserialize_and_verify(buf: Vec<u8,>,) -> Result<Self,> {
+        let payload = bincode::deserialize::<Payload,>(&buf,)?;
         let sm = Self {
-            
-            payload: Arc::new(payload)
+            payload: Arc::new(payload,),
         };
 
         if !sm.payload.vk.verify(&sm.payload.msg, &sm.payload.sig,) {
@@ -258,7 +257,7 @@ impl SignedMessage {
     #[must_use]
     pub fn serialize(&self,) -> Vec<u8,> {
         let payload = self.payload.clone();
-        bincode::serialize(payload.as_ref())
+        bincode::serialize(payload.as_ref(),)
             .expect("Failed to serialize signed message",)
     }
 
