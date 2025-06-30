@@ -240,9 +240,11 @@ impl SignedMessage {
     }
 
     /// Deserializes this message and verifies its signature.
-    pub fn deserialize_and_verify(buf: &[u8],) -> Result<Self,> {
+    pub fn deserialize_and_verify(buf: Vec<u8>,) -> Result<Self,> {
+        let payload = bincode::deserialize::<Payload>(&buf)?;
         let sm = Self {
-            payload: Arc::new(bincode::deserialize::<Payload,>(buf,)?,),
+            
+            payload: Arc::new(payload)
         };
 
         if !sm.payload.vk.verify(&sm.payload.msg, &sm.payload.sig,) {
@@ -255,7 +257,8 @@ impl SignedMessage {
     /// Serializes this message.
     #[must_use]
     pub fn serialize(&self,) -> Vec<u8,> {
-        bincode::serialize(self.payload.as_ref(),)
+        let payload = self.payload.clone();
+        bincode::serialize(payload.as_ref())
             .expect("Failed to serialize signed message",)
     }
 
@@ -296,7 +299,7 @@ mod tests {
         let bytes = signed_message.serialize();
 
         let deserialized_msg =
-            SignedMessage::deserialize_and_verify(&bytes,).unwrap();
+            SignedMessage::deserialize_and_verify(bytes,).unwrap();
         assert!(
             matches!(deserialized_msg.message(), Message::JoinTableRequest{nickname, player_id } if nickname == "Alice" && peer_id == *player_id)
         );
