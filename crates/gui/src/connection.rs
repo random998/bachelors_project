@@ -122,7 +122,7 @@ impl Connection {
                                 .map_err(anyhow::Error::from,)
                                 .and_then(|len| {
                                     SignedMessage::deserialize_and_verify(
-                                        &self.noise_buf[..len],
+                                        self.noise_buf.clone(),
                                     )
                                 },);
 
