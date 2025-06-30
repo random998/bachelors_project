@@ -218,7 +218,7 @@ pub struct SignedMessage {
 }
 
 /// Private signed message payload.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
+#[derive(Debug, Clone, Serialize, Deserialize,)]
 struct Payload {
     msg: Message,
     sig: Signature,

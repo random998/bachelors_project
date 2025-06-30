@@ -1,9 +1,10 @@
-// crates/peer-node/src/main.rs
 use std::path::PathBuf;
+// crates/peer-node/src/main.rs
 use std::time::Duration;
 
 use anyhow::Result;
 use clap::Parser;
+use log::trace;
 use p2p_net::P2pTransport;
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::SignedMessage;
@@ -41,8 +42,13 @@ async fn main() -> Result<(),> {
     let opt = Options::parse();
     let signing_key = load_or_generate_key(&opt.key,)?;
     let peer_id = signing_key.verifying_key().peer_id();
-
     println!("peer-id = {peer_id}");
+
+    // init logger
+    env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or("info",),
+    )
+    .init();
 
     // ---------- P2P transport --------------------------------------
     let transport = p2p_net::swarm_task::new(&opt.table_id(), &signing_key,);
@@ -75,9 +81,11 @@ fn load_or_generate_key(path: &std::path::Path,) -> Result<SigningKey,> {
     use std::fs;
     use std::io::Write;
     if path.exists() {
+        trace!("loading key from path: {} ...", path.display());
         let bytes = fs::read(path,)?;
         Ok(bincode::deserialize(&bytes,)?,)
     } else {
+        trace!("loading default key...");
         let key = SigningKey::default();
         fs::File::create(path,)?
             .write_all(bincode::serialize(&key,)?.as_slice(),)?;
