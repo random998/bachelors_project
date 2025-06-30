@@ -127,5 +127,5 @@ pub fn new(table_id: &TableId, signing_key: &SigningKey,) -> P2pTransport {
 fn identity_from_signing_key(key: &SigningKey,) -> Keypair {
     let mut bytes = bincode::serialize(key,).unwrap();
     let bytes_arr = bytes.as_mut_slice();
-    Keypair::ed25519_from_bytes(bytes_arr).unwrap()
+    Keypair::ed25519_from_bytes(bytes_arr,).unwrap()
 }
