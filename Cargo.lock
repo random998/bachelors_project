@@ -4565,6 +4565,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "peer-node"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "clap",
+ "p2p-net",
+ "poker-core",
+ "table-engine",
+ "tokio",
+]
+
+[[package]]
 name = "pem"
 version = "3.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4688,6 +4701,7 @@ dependencies = [
  "poker-cards",
  "poker-eval",
  "rand 0.9.1",
+ "rand_core 0.9.3",
  "serde",
  "serde_json",
  "snow",

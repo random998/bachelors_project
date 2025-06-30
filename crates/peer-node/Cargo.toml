@@ -1,0 +1,13 @@
+[package]
+name = "peer-node"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+tokio          = { version = "1.37", features = ["macros", "rt-multi-thread"] }
+clap           = { version = "4", features = ["derive"] }
+anyhow         = "1"
+bincode        = "1"
+p2p-net        = { path = "../p2p-net" }
+table-engine   = { path = "../table-engine" }
+poker-core     = { path = "../core" }
