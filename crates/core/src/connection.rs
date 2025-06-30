@@ -172,9 +172,9 @@ impl<S,> NetRx for SecureWebSocket<S,>
 where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
 {
     async fn try_recv(&mut self,) -> anyhow::Result<SignedMessage,> {
-        Self::receive(self, ).await.unwrap_or_else(|| {
-            Err(anyhow!("Noise WebSocket error during receiving message"), )
-        })
+        Self::receive(self,).await.unwrap_or_else(|| {
+            Err(anyhow!("Noise WebSocket error during receiving message"),)
+        },)
     }
 }
 
