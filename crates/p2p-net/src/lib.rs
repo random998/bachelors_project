@@ -48,8 +48,8 @@ impl P2pTransport {
     pub async fn new(
         sender: Sender<SignedMessage,>,
         receiver: Receiver<SignedMessage,>,
-    ) -> P2pTransport {
-        P2pTransport {
+    ) -> Self {
+        Self {
             tx: P2pTx { sender, },
             rx: P2pRx { receiver, },
         }

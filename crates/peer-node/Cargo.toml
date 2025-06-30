@@ -11,3 +11,5 @@ bincode        = "1"
 p2p-net        = { path = "../p2p-net" }
 table-engine   = { path = "../table-engine" }
 poker-core     = { path = "../core" }
+env_logger = "0.11"
+log = "0.4.27"
