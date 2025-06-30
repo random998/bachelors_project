@@ -5,8 +5,9 @@ members = [
     "crates/core",
     "crates/eval",
     "crates/gui",
-    "crates/p2p-net",
+    "crates/p2p-net", "crates/peer-node",
     "crates/table-engine",
+    "crates/peer-node"
 ]
 
 [workspace.package]

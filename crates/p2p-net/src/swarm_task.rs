@@ -7,7 +7,7 @@ use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
 use libp2p::{gossipsub, identify, noise, tcp, yamux, SwarmBuilder, Transport};
 use poker_core::crypto::SigningKey;
 use tokio::sync::mpsc;
-
+use poker_core::poker::TableId;
 use super::{NetTx, P2pRx, P2pTransport, P2pTx, Result, SignedMessage};
 // ------------------------------------------------------------------
 // 1  Types & Behaviour ---------------------------------------------
@@ -24,7 +24,7 @@ struct Behaviour {
 // ------------------------------------------------------------------
 // 2  Constructor ----------------------------------------------------
 
-pub fn new(table_id: &str, signing_key: &SigningKey,) -> P2pTransport {
+pub fn new(table_id: &TableId, signing_key: &SigningKey,) -> P2pTransport {
     // identity ------------------------------------------------------
     let kp = identity_from_signing_key(signing_key,);
     let peer_id = kp.public().to_peer_id();
@@ -74,7 +74,7 @@ pub fn new(table_id: &str, signing_key: &SigningKey,) -> P2pTransport {
     swarm.behaviour_mut().gossipsub.subscribe(&topic,).unwrap();
 
     // mpsc pipes ---------------------------------------------------
-    let (to_swarm_tx, mut to_swarm_rx,) = mpsc::channel::<SignedMsgBlob,>(64,);
+    let (to_swarm_tx, mut to_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
     let (from_swarm_tx, from_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
 
     // background task ---------------------------------------------
@@ -83,8 +83,13 @@ pub fn new(table_id: &str, signing_key: &SigningKey,) -> P2pTransport {
             tokio::select! {
                 /* outbound messages from game → swarm -------------- */
                 Some(blob) = to_swarm_rx.recv() => {
+                    // convert the typed message into bytes just before publish
+                    let bytes = match bincode::serialize(&blob) {
+                       Ok(b)=> b,
+                        Err(e) => { log::error!("serialize: {e}"); continue; }
+                    };
                     if let Err(e) =
-                        swarm.behaviour_mut().gossipsub.publish(topic.clone(), blob)
+                        swarm.behaviour_mut().gossipsub.publish(topic.clone(), bytes)
                     {
                         log::warn!("publish error: {e}");
                     }

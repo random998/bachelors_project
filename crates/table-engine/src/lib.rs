@@ -2,4 +2,6 @@
 
 pub mod engine;
 pub mod player;
-pub mod players_state; // the old `state.rs`
+pub mod players_state;
+
+pub use engine::{InternalTableState, EngineCallbacks};

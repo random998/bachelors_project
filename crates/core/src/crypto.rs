@@ -1,49 +1,79 @@
 use std::fmt;
 
 /// Cryptographic types and utilities for signing and verifying messages.
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use bip39::Mnemonic;
 use blake2::digest::typenum::ToInt;
-use blake2::{Blake2s, Digest, digest};
+use blake2::{digest, Blake2s, Digest};
 use ed25519_dalek::{Signer, Verifier};
+use rand::{SeedableRng};
 use rand::rngs::StdRng;
-use rand::{CryptoRng, RngCore, SeedableRng};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use zeroize::Zeroizing;
+use rand_core::{CryptoRng, RngCore};
+
 
 const ENTROPY_LENGTH: usize = 16;
 type Entropy = [u8; ENTROPY_LENGTH];
 
 /// Private key used to sign messages.
-#[derive(Clone,)]
+#[derive(Clone)]
 pub struct SigningKey {
     key:     ed25519_dalek::SigningKey,
     entropy: Zeroizing<Entropy,>,
 }
 
+
 /// Hasher used to hash messages before signing or verification.
 type SignatureHasher = Blake2s<digest::consts::U32,>;
 
-impl Default for SigningKey {
-    fn default() -> Self {
-        let mut rng = StdRng::from_os_rng();
-        Self::generate_from_rng(&mut rng,)
+    impl Default for SigningKey {
+        fn default() -> Self {
+            let mut rng = StdRng::from_os_rng();
+            Self::generate_from_rng(&mut rng)
+        }
+    }
+
+
+impl<'de> Deserialize<'de> for SigningKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // expect exactly 32 bytes
+        let bytes: &[u8] = <&[u8]>::deserialize(deserializer)?;
+        if bytes.len() != ed25519_dalek::SECRET_KEY_LENGTH {
+            return Err(serde::de::Error::custom("invalid secret length"));
+        }
+
+        // copy into fixed array
+        let mut secret = [0u8; ed25519_dalek::SECRET_KEY_LENGTH];
+        secret.copy_from_slice(bytes);
+
+        // rebuild the signing key & fake entropy (we don’t know it)
+        let key     = ed25519_dalek::SigningKey::from_bytes(&secret);
+        let entropy = Zeroizing::new([0u8; ENTROPY_LENGTH]);
+        Ok(SigningKey { key, entropy })
     }
 }
 
 impl Serialize for SigningKey {
-    fn serialize<S,>(
-        &self,
-        serializer: S,
-    ) -> std::result::Result<S::Ok, S::Error,>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        self.key.serialize(serializer,)
+        // serialise just the raw 32-byte secret
+        serializer.serialize_bytes(self.key.to_bytes().as_slice())
     }
 }
-
 impl SigningKey {
+    pub fn new(key: ed25519_dalek::SigningKey, entropy: Entropy) -> SigningKey {
+        Self {
+            key,
+            entropy: Zeroizing::from(entropy)
+        }
+    }
+
     /// Create a signing key from a BIP39 mnemonic phrase.
     pub fn from_phrase(phrase: &str,) -> Result<Self,> {
         let mnemonic = Mnemonic::from_phrase(phrase, Default::default(),)?;
@@ -97,6 +127,10 @@ impl SigningKey {
         let key = ed25519_dalek::SigningKey::from_bytes(&key_hash.into(),);
         let entropy = Zeroizing::new(entropy,);
         Self { key, entropy, }
+    }
+
+    fn from_bytes(bytes: Vec<u8>) -> Self {
+        bincode::deserialize(&bytes[..]).expect("Failed to deserialize entropy")
     }
 }
 

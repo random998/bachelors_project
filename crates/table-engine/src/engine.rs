@@ -23,11 +23,11 @@ use super::player::Player;
 use super::players_state::PlayersState;
 
 pub trait EngineCallbacks: Send + Sync + 'static {
-    fn send(&self, player: PeerId, msg: SignedMessage,);
-    fn throttle(&self, player: PeerId, dt: Duration,); // NEW helper
-    fn disconnect(&self, player: PeerId,);
+    fn send(&mut self, player: PeerId, msg: SignedMessage,);
+    fn throttle(&mut self, player: PeerId, dt: Duration,); // NEW helper
+    fn disconnect(&mut self, player: PeerId,);
     fn credit_chips(
-        &self,
+        &mut self,
         player: PeerId,
         amount: Chips,
     ) -> Result<(), anyhow::Error,>;
