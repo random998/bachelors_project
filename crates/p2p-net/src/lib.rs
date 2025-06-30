@@ -8,11 +8,11 @@ use poker_core::net::traits::TableMessage;
 use poker_core::net::{NetRx, NetTx};
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::swarm_task::SignedMsgBlob;
 
 /// Outbound half
+#[derive(Clone)]
 pub struct P2pTx {
-    sender: Sender<SignedMsgBlob,>,
+    sender: Sender<SignedMessage,>,
 }
 
 /// Inbound half
@@ -24,8 +24,7 @@ pub struct P2pRx {
 #[async_trait]
 impl NetTx for P2pTx {
     async fn send(&mut self, msg: SignedMessage,) -> Result<(),> {
-        let blob = msg.serialize();
-        self.sender.send(blob,).await?;
+        self.sender.send(msg,).await?;
         Ok((),)
     }
 
@@ -37,7 +36,7 @@ impl NetTx for P2pTx {
 /// ------------- NetRx implementation -----------------
 #[async_trait]
 impl NetRx for P2pRx {
-    async fn next_msg(&mut self,) -> Result<SignedMessage,> {
+    async fn try_recv(&mut self,) -> Result<SignedMessage,> {
         match self.receiver.recv().await {
             Some(msg,) => Ok(msg,),
             None => Err(anyhow!("P2pRx closed"),),
@@ -49,4 +48,19 @@ impl NetRx for P2pRx {
 pub struct P2pTransport {
     pub tx: P2pTx,
     pub rx: P2pRx,
+}
+
+
+impl P2pTransport {
+    
+    pub async fn new(sender: Sender<SignedMessage>, receiver: Receiver<SignedMessage>) -> P2pTransport {
+        P2pTransport {
+            tx: P2pTx {
+                sender
+            },
+            rx: P2pRx {
+                receiver
+            }
+        }
+    }
 }
