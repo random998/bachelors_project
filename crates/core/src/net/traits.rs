@@ -14,7 +14,7 @@ pub trait NetTx: Send + Sync {
 #[async_trait]
 pub trait NetRx: Send + Sync {
     /// Returns `None` when the stream is closed.
-    async fn next_msg(&mut self,) -> anyhow::Result<SignedMessage,>;
+    async fn try_recv(&mut self,) -> anyhow::Result<SignedMessage,>;
 }
 
 #[async_trait]
