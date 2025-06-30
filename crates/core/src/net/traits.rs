@@ -1,4 +1,5 @@
 use std::time::Duration;
+use std::convert::TryFrom;
 
 use async_trait::async_trait;
 use tokio::sync::mpsc::Sender;
@@ -8,7 +9,6 @@ use crate::message::SignedMessage;
 #[async_trait]
 pub trait NetTx: Send + Sync {
     async fn send(&mut self, msg: SignedMessage,) -> anyhow::Result<(),>;
-    async fn send_table(&mut self, msg: TableMessage,) -> anyhow::Result<(),>;
 }
 
 #[async_trait]
@@ -23,10 +23,6 @@ where T: NetTx + ?Sized + Send /* forward to any NetTx */
 {
     async fn send(&mut self, msg: SignedMessage,) -> anyhow::Result<(),> {
         (**self).send(msg,).await
-    }
-
-    async fn send_table(&mut self, msg: TableMessage,) -> anyhow::Result<(),> {
-        (**self).send_table(msg,).await
     }
 }
 
@@ -60,11 +56,18 @@ impl NetTx for ChannelNetTx {
             .await
             .map_err(|e| anyhow::anyhow!("channel closed: {e}"),)
     }
+}
 
-    async fn send_table(&mut self, msg: TableMessage,) -> anyhow::Result<(),> {
-        self.tx
-            .send(msg,)
-            .await
-            .map_err(|e| anyhow::anyhow!("channel closed: {e}"),)
+
+impl TryFrom<TableMessage> for SignedMessage {
+    type Error = &'static str;
+
+    fn try_from(value: TableMessage) -> Result<Self, Self::Error> {
+        match value {
+            TableMessage::Send(msg) => Ok(msg),
+            TableMessage::PlayerLeave
+            | TableMessage::Throttle(_)
+            | TableMessage::Close => Err("control TableMessage – no SignedMessage"),
+        }
     }
 }
