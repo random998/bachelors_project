@@ -165,22 +165,16 @@ where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
         // re-use the existing method
         Self::send(self, &msg,).await
     }
-    async fn send_table(&mut self, msg: TableMessage,) -> Result<(),> {
-        Err(anyhow!("tried to send table message to another player"),)
-    }
 }
 
 #[async_trait]
 impl<S,> NetRx for SecureWebSocket<S,>
 where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
 {
-    async fn next_msg(&mut self,) -> anyhow::Result<SignedMessage,> {
-        match Self::receive(self,).await {
-            Some(res,) => res,
-            None => {
-                Err(anyhow!("Noise WebSocket error during receiving message"),)
-            },
-        }
+    async fn try_recv(&mut self,) -> anyhow::Result<SignedMessage,> {
+        Self::receive(self, ).await.unwrap_or_else(|| {
+            Err(anyhow!("Noise WebSocket error during receiving message"), )
+        })
     }
 }
 
