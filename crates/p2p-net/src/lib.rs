@@ -7,9 +7,8 @@ use poker_core::message::SignedMessage;
 use poker_core::net::{NetRx, NetTx};
 use tokio::sync::mpsc::{Receiver, Sender};
 
-
 /// Outbound half
-#[derive(Clone)]
+#[derive(Clone,)]
 pub struct P2pTx {
     sender: Sender<SignedMessage,>,
 }
@@ -45,17 +44,14 @@ pub struct P2pTransport {
     pub rx: P2pRx,
 }
 
-
 impl P2pTransport {
-
-    pub async fn new(sender: Sender<SignedMessage>, receiver: Receiver<SignedMessage>) -> P2pTransport {
+    pub async fn new(
+        sender: Sender<SignedMessage,>,
+        receiver: Receiver<SignedMessage,>,
+    ) -> P2pTransport {
         P2pTransport {
-            tx: P2pTx {
-                sender
-            },
-            rx: P2pRx {
-                receiver
-            }
+            tx: P2pTx { sender, },
+            rx: P2pRx { receiver, },
         }
     }
 }
