@@ -29,6 +29,8 @@ tokio-rustls = "0.26.2"
 tokio-tungstenite = "0.26.0"
 getrandom = { version = "0.2.16", features = ["js"], default-features = false}
 futures = "0.3"
+libp2p = { version = "0.55", default-features = false, features = [ "full"] }
+libp2p-identity= {  version = "0.2.12", default-features = false, features = ["ed25519"] }
 
 # crates
 poker-cards = { version = "0.0.1", path = "crates/cards", default-features = false }

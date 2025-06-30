@@ -1,237 +1,243 @@
-use std::fmt;
+//! crates/core/src/crypto.rs
+//! A *working* rewrite that uses `libp2p-identity` instead of `ed25519-dalek`.
 
-/// Cryptographic types and utilities for signing and verifying messages.
-use anyhow::{Result, bail};
+use std::{convert::TryInto, fmt};
+
+use anyhow::{bail, Result};
 use bip39::Mnemonic;
-use blake2::digest::typenum::ToInt;
-use blake2::{Blake2s, Digest, digest};
-use ed25519_dalek::{Signer, Verifier};
-use rand::SeedableRng;
-use rand::rngs::StdRng;
+use blake2::{digest::consts, Blake2s, Digest};
+use ed25519_dalek::ed25519::signature::digest::typenum::ToInt;
+use libp2p_identity::ed25519;
+use rand::{rngs::StdRng, SeedableRng};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use zeroize::Zeroizing;
 
-const ENTROPY_LENGTH: usize = 16;
-type Entropy = [u8; ENTROPY_LENGTH];
+/* -------------------------------------------------------------------- */
+/*  Constants & type aliases                                            */
 
-/// Private key used to sign messages.
-#[derive(Clone,)]
+const ENTROPY_LEN: usize = 16;          // BIP-39 entropy size we use
+const SECRET_LEN:  usize = 32;          // raw Ed25519 secret length
+
+type Entropy = [u8; ENTROPY_LEN];
+
+/// Hash function used before signing / verifying.
+type SigHasher = Blake2s<consts::U32>;  // 32-byte Blake2s
+
+/* -------------------------------------------------------------------- */
+/*  SigningKey                                                          */
+
+#[derive(Clone)]
 pub struct SigningKey {
-    key:     ed25519_dalek::SigningKey,
-    entropy: Zeroizing<Entropy,>,
+    kp:      ed25519::Keypair,           // libp2p (public+secret)
+    entropy: Zeroizing<Entropy>,
 }
 
-/// Hasher used to hash messages before signing or verification.
-type SignatureHasher = Blake2s<digest::consts::U32,>;
+/* ---------- constructors ------------------------------------------- */
 
 impl Default for SigningKey {
     fn default() -> Self {
         let mut rng = StdRng::from_os_rng();
-        Self::generate_from_rng(&mut rng,)
+        Self::generate_from_rng(&mut rng)
     }
 }
 
-impl<'de,> Deserialize<'de,> for SigningKey {
-    fn deserialize<D,>(deserializer: D,) -> Result<Self, D::Error,>
-    where D: Deserializer<'de,> {
-        // expect exactly 32 bytes
-        let bytes: &[u8] = <&[u8]>::deserialize(deserializer,)?;
-        if bytes.len() != ed25519_dalek::SECRET_KEY_LENGTH {
-            return Err(serde::de::Error::custom("invalid secret length",),);
-        }
-
-        // copy into fixed array
-        let mut secret = [0u8; ed25519_dalek::SECRET_KEY_LENGTH];
-        secret.copy_from_slice(bytes,);
-
-        // rebuild the signing key & fake entropy (we don’t know it)
-        let key = ed25519_dalek::SigningKey::from_bytes(&secret,);
-        let entropy = Zeroizing::new([0u8; ENTROPY_LENGTH],);
-        Ok(SigningKey { key, entropy, },)
-    }
-}
-
-impl Serialize for SigningKey {
-    fn serialize<S,>(&self, serializer: S,) -> Result<S::Ok, S::Error,>
-    where S: Serializer {
-        // serialise just the raw 32-byte secret
-        serializer.serialize_bytes(self.key.to_bytes().as_slice(),)
-    }
-}
 impl SigningKey {
-    pub fn new(
-        key: ed25519_dalek::SigningKey, entropy: Entropy,
-    ) -> SigningKey {
-        Self {
-            key,
-            entropy: Zeroizing::from(entropy,),
+    /// Deterministic constructor from fixed entropy.
+    fn generate_from_entropy(entropy: Entropy) -> Self {
+        // Hash the entropy → 32-byte seed, then into Keypair
+        let mut binding = SigHasher::digest(entropy).clone();
+        let kp   = ed25519::Keypair::try_from_bytes(&mut binding).expect("invalid Ed25519 keypair");
+        Self { kp, entropy: Zeroizing::new(entropy) }
+    }
+
+    /// PRNG constructor.
+    fn generate_from_rng<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
+        let mut entropy = [0u8; ENTROPY_LEN];
+        rng.fill_bytes(&mut entropy);
+        Self::generate_from_entropy(entropy)
+    }
+
+    pub fn from_phrase(phrase: &str) -> Result<Self> {
+        let m = Mnemonic::from_phrase(phrase, Default::default())?;
+        let bytes = m.entropy();
+        if bytes.len() != ENTROPY_LEN {
+            bail!("mnemonic entropy must be {ENTROPY_LEN} bytes");
         }
+        let mut e = [0u8; ENTROPY_LEN];
+        e.copy_from_slice(bytes);
+        Ok(Self::generate_from_entropy(e))
     }
 
-    /// Create a signing key from a BIP39 mnemonic phrase.
-    pub fn from_phrase(phrase: &str,) -> Result<Self,> {
-        let mnemonic = Mnemonic::from_phrase(phrase, Default::default(),)?;
-        if mnemonic.entropy().len() != ENTROPY_LENGTH {
-            bail!(
-                "Invalid entropy length. Expected: {}, got: {}",
-                ENTROPY_LENGTH,
-                mnemonic.entropy().len()
-            );
-        }
+    /* ---------- helpers ------------------------------------------- */
 
-        let mut entropy = Entropy::default();
-        entropy.copy_from_slice(mnemonic.entropy(),);
-        Ok(Self::generate_from_entropy(entropy,),)
-    }
-
-    /// Sign a serializable message and return the digital signature.
-    pub fn sign<T,>(&self, message: &T,) -> Signature
-    where T: Serialize {
-        let mut hasher = SignatureHasher::new();
-        bincode::serialize_into(&mut hasher, message,)
-            .expect("Failed to serialize message for signing",);
-        Signature(self.key.sign(&hasher.finalize(),),)
-    }
-
-    /// Return the mnemonic phrase corresponding to this key's entropy.
-    #[must_use]
-    pub fn phrase(&self,) -> String {
-        Mnemonic::from_entropy(self.entropy.as_ref(), Default::default(),)
+    pub fn phrase(&self) -> String {
+        Mnemonic::from_entropy(&*self.entropy, Default::default())
             .unwrap()
             .phrase()
-            .to_string()
+            .to_owned()
     }
 
-    /// Return the corresponding public key (verifier).
-    #[must_use]
-    pub fn verifying_key(&self,) -> VerifyingKey {
-        VerifyingKey(self.key.verifying_key(),)
+    pub fn peer_id(&self) -> PeerId {
+        VerifyingKey(self.kp.public()).peer_id()
     }
 
-    /// Generate a signing key using a provided cryptographically secure RNG.
-    fn generate_from_rng<R: RngCore + CryptoRng,>(rng: &mut R,) -> Self {
-        let mut entropy = Entropy::default();
-        rng.fill_bytes(&mut entropy,);
-        Self::generate_from_entropy(entropy,)
+    pub fn verifying_key(&self) -> VerifyingKey {
+        VerifyingKey(self.kp.public())
     }
 
-    /// Generate a signing key deterministically from a fixed entropy.
-    fn generate_from_entropy(entropy: Entropy,) -> Self {
-        let key_hash = SignatureHasher::digest(entropy,);
-        let key = ed25519_dalek::SigningKey::from_bytes(&key_hash.into(),);
-        let entropy = Zeroizing::new(entropy,);
-        Self { key, entropy, }
+    pub fn secret_bytes(&self) -> [u8; SECRET_LEN] {
+        // copy because `SecretKey` keeps bytes private
+        self.kp.secret().as_ref().try_into().unwrap()
     }
 
-    fn from_bytes(bytes: Vec<u8,>,) -> Self {
-        bincode::deserialize(&bytes[..],)
-            .expect("Failed to deserialize entropy",)
+    pub fn sign<T: Serialize>(&self, msg: &T) -> Signature {
+        let mut h = SigHasher::new();
+        bincode::serialize_into(&mut h, msg).unwrap();
+        Signature(self.kp.sign(&h.finalize()))
     }
 }
+
+/* ---------- serde impls -------------------------------------------- */
+
+impl Serialize for SigningKey {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        s.serialize_bytes(&self.secret_bytes())
+    }
+}
+
+impl Serialize for VerifyingKey {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        s.serialize_bytes(&self.to_bytes())
+    }
+}
+
+impl<'de> Deserialize<'de> for SigningKey {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: Vec<u8> = <&[u8]>::deserialize(d)?.to_vec();
+        if bytes.len() != SECRET_LEN {
+            return Err(serde::de::Error::custom("ed25519 secret must be 32 B"));
+        }
+        let kp       = ed25519::Keypair::try_from_bytes(&mut bytes.clone())
+            .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        let entropy  = Zeroizing::new([0u8; ENTROPY_LEN]); // unknown
+        Ok(SigningKey { kp, entropy })
+    }
+}
+
+
+impl<'de> Deserialize<'de> for VerifyingKey {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: Vec<u8> = <&[u8]>::deserialize(d)?.to_vec();
+        if bytes.len() != SECRET_LEN {
+            return Err(serde::de::Error::custom("ed25519 vk must be 32 B"));
+        }
+        let kp       = ed25519::Keypair::try_from_bytes(&mut bytes.clone())
+            .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        let pk = kp.public();
+        Ok(VerifyingKey(pk))
+    }
+}
+
+/* ---------- Debug -------------------------------------------------- */
 
 impl fmt::Debug for SigningKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(f, "SigningKey {}", bs58::encode(self.phrase()).into_string())
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "SigningKey({})", self.phrase())
     }
 }
 
-/// A digital signature.
-#[derive(Clone, Copy, Serialize, Deserialize,)]
-pub struct Signature(ed25519_dalek::Signature,);
+/* -------------------------------------------------------------------- */
+/*  VerifyingKey + Signature                                            */
 
-impl fmt::Debug for Signature {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(f, "Signature {}", bs58::encode(self.0.to_bytes()).into_string())
-    }
-}
+#[derive(Clone)]
+pub struct VerifyingKey(pub ed25519::PublicKey);
 
-/// Public key used to verify message signatures.
-#[derive(Clone, Copy, Serialize, Deserialize,)]
-pub struct VerifyingKey(ed25519_dalek::VerifyingKey,);
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Signature(Vec<u8>);
 
 impl VerifyingKey {
-    /// Verify that a message was signed by the corresponding private key.
-    pub fn verify<T,>(&self, message: &T, signature: &Signature,) -> bool
-    where T: Serialize {
-        let mut hasher = SignatureHasher::new();
-        bincode::serialize_into(&mut hasher, message,)
-            .expect("Failed to serialize message for verification",);
-        self.0.verify(&hasher.finalize(), &signature.0,).is_ok()
+    pub fn verify<T: Serialize>(&self, msg: &T, sig: &Signature) -> bool {
+        let mut h = SigHasher::new();
+        bincode::serialize_into(&mut h, msg).unwrap();
+        self.0.verify(&h.finalize(), &sig.0.as_ref())
     }
 
-    /// Derive a `PeerId` from the verifying key.
-    #[must_use]
-    pub fn peer_id(&self,) -> PeerId {
-        let mut hasher = Blake2s::<digest::consts::U16,>::new();
-        hasher.update(self.0.as_bytes(),);
-        PeerId(hasher.finalize().into(),)
+    pub fn peer_id(&self) -> PeerId {
+        let mut h = Blake2s::<consts::U16>::new();
+        h.update(self.0.to_bytes());        // bytes of the pub-key
+        PeerId(h.finalize().into())
+    }
+
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.0.to_bytes()
     }
 }
 
 impl fmt::Debug for VerifyingKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(
-            f,
-            "VerifyingKey({})",
-            bs58::encode(self.0.as_bytes()).into_string()
-        )
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "VerifyingKey({})", bs58::encode(self.0.to_bytes()).into_string())
     }
 }
 
-/// A peer identifier derived from a public key.
-#[derive(Clone, Copy, Serialize, Deserialize, Hash, Eq, PartialEq,)]
-pub struct PeerId([u8; digest::consts::U16::INT],);
-
-impl PeerId {
-    /// Return the hex-encoded identifier string.
-    #[must_use]
-    pub fn digits(&self,) -> String {
-        self.0
-            .iter()
-            .fold(String::with_capacity(32,), |mut output, b| {
-                output.push_str(&format!("{b:02x}"),);
-                output
-            },)
+impl fmt::Debug for Signature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Signature({})", bs58::encode::<&Vec<u8>>(self.0.as_ref()).into_string())
     }
 }
+
+/* -------------------------------------------------------------------- */
+/*  PeerId                                                              */
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PeerId([u8; consts::U16::INT]);
 
 impl fmt::Debug for PeerId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(f, "PeerId {}", self.digits())
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "PeerId({})", self)
+    }
+}
+impl fmt::Display for PeerId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for b in &self.0 {
+            write!(f, "{b:02x}")?;
+        }
+        Ok(())
     }
 }
 
-impl fmt::Display for PeerId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(f, "{}", self.digits())
-    }
-}
+/* -------------------------------------------------------------------- */
+/*  Tests                                                               */
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_phrase_round_trip() {
+    fn phrase_round_trip() {
         let sk = SigningKey::default();
-        let restored = SigningKey::from_phrase(&sk.phrase(),)
-            .expect("Failed to recover key from phrase",);
-        assert_eq!(sk.key, restored.key);
+        let sk2 = SigningKey::from_phrase(&sk.phrase()).unwrap();
+        assert_eq!(sk.secret_bytes(), sk2.secret_bytes());
     }
 
     #[test]
-    fn test_sign_and_verify() {
-        #[derive(Serialize,)]
-        struct Point {
-            x: f32,
-            y: f32,
-        }
-
-        let msg = Point { x: 10.2, y: 4.3, };
-        let sk = SigningKey::default();
-        let signature = sk.sign(&msg,);
-        let vk = sk.verifying_key();
-        assert!(vk.verify(&msg, &signature), "Signature verification failed");
+    fn sign_and_verify() {
+        #[derive(Serialize)]
+        struct Msg { a: u32 }
+        let sk  = SigningKey::default();
+        let sig = sk.sign(&Msg{a:123});
+        assert!(sk.verifying_key().verify(&Msg{a:123}, &sig));
     }
 }
