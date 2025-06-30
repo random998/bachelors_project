@@ -1,5 +1,5 @@
-use std::time::Duration;
 use std::convert::TryFrom;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::sync::mpsc::Sender;
@@ -58,16 +58,17 @@ impl NetTx for ChannelNetTx {
     }
 }
 
-
-impl TryFrom<TableMessage> for SignedMessage {
+impl TryFrom<TableMessage,> for SignedMessage {
     type Error = &'static str;
 
-    fn try_from(value: TableMessage) -> Result<Self, Self::Error> {
+    fn try_from(value: TableMessage,) -> Result<Self, Self::Error,> {
         match value {
-            TableMessage::Send(msg) => Ok(msg),
+            TableMessage::Send(msg,) => Ok(msg,),
             TableMessage::PlayerLeave
-            | TableMessage::Throttle(_)
-            | TableMessage::Close => Err("control TableMessage – no SignedMessage"),
+            | TableMessage::Throttle(_,)
+            | TableMessage::Close => {
+                Err("control TableMessage – no SignedMessage",)
+            },
         }
     }
 }

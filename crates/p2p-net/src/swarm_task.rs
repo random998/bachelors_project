@@ -6,8 +6,9 @@ use libp2p::identity::Keypair;
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
 use libp2p::{gossipsub, identify, noise, tcp, yamux, SwarmBuilder, Transport};
 use poker_core::crypto::SigningKey;
-use tokio::sync::mpsc;
 use poker_core::poker::TableId;
+use tokio::sync::mpsc;
+
 use super::{NetTx, P2pRx, P2pTransport, P2pTx, Result, SignedMessage};
 // ------------------------------------------------------------------
 // 1  Types & Behaviour ---------------------------------------------
