@@ -8,7 +8,6 @@ use std::ops::Deref;
 use anyhow::{Result, bail};
 use bip39::Mnemonic;
 use blake2::digest::consts;
-use blake2::digest::typenum::ToInt;
 use blake2::{Blake2s, Digest};
 use libp2p_identity::ed25519;
 use rand::SeedableRng;
@@ -43,6 +42,13 @@ impl Default for SigningKey {
     fn default() -> Self {
         let mut rng = StdRng::from_os_rng();
         Self::generate_from_rng(&mut rng,)
+    }
+}
+
+impl SigningKey {
+    pub fn new(key_pair: &KeyPair) -> Self {
+        let entropy = Zeroizing::new([0u8; ENTROPY_LEN]);
+        Self { kp: key_pair.0.clone(), entropy }
     }
 }
 
@@ -90,7 +96,7 @@ impl SigningKey {
     }
 
     pub fn peer_id(&self,) -> PeerId {
-        VerifyingKey(self.kp.public(),).peer_id()
+        VerifyingKey(self.kp.public(),).to_peer_id()
     }
 
     pub fn verifying_key(&self,) -> VerifyingKey {
@@ -161,8 +167,34 @@ impl fmt::Debug for SigningKey {
 #[derive(Clone,)]
 pub struct VerifyingKey(pub ed25519::PublicKey,);
 
-#[derive(Clone,)]
+#[derive(Clone)]
 pub struct Signature(Vec<u8,>,);
+
+#[derive(Clone, Debug)]
+pub struct KeyPair(pub ed25519::Keypair);
+
+impl KeyPair {
+
+    pub fn default() -> Self {
+        let kp : ed25519::Keypair = ed25519::Keypair::generate();
+        KeyPair(kp)
+    }
+    pub fn from_bytes(bytes: &[u8],) -> Self {
+        let mut bytes: [u8; 64] = bytes.try_into().unwrap();
+        let kp = ed25519::Keypair::try_from_bytes(&mut bytes).expect("error");
+        KeyPair::new(kp)
+    }
+
+    pub fn new(kp: ed25519::Keypair) -> Self {
+        KeyPair(kp)
+    }
+
+    pub fn to_peer_id(self) -> PeerId
+    {
+        let pubk : libp2p_identity::PublicKey = self.0.public().into();
+        PeerId(pubk.to_peer_id())
+    }
+}
 
 impl VerifyingKey {
     pub fn verify<T: Serialize,>(&self, msg: &T, sig: &Signature,) -> bool {
@@ -171,10 +203,9 @@ impl VerifyingKey {
         self.0.verify(&h.finalize(), &sig.0.as_ref(),)
     }
 
-    pub fn peer_id(&self,) -> PeerId {
-        let mut h = Blake2s::<consts::U16,>::new();
-        h.update(self.0.to_bytes(),); // bytes of the pub-key
-        PeerId(h.finalize().into(),)
+    pub fn to_peer_id(&self,) -> PeerId {
+        let pubk : libp2p_identity::PublicKey = self.0.clone().into();
+        PeerId(pubk.to_peer_id())
     }
 
     pub fn to_bytes(&self,) -> [u8; 32] {
@@ -224,12 +255,29 @@ impl<'de,> Deserialize<'de,> for Signature {
 // --------------------------------------------------------------------
 // PeerId
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize,)]
-pub struct PeerId([u8; consts::U16::INT],);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PeerId(libp2p_identity::PeerId);
+
+impl Serialize for PeerId {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> where S: Serializer {
+        self.0.to_bytes().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PeerId {
+    fn deserialize<D,>(d: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: &[u8] = <&[u8]>::deserialize(d,)?;
+        let peer_id = libp2p_identity::PeerId::from_bytes(bytes).expect("error");
+        Ok(PeerId(peer_id))
+    }
+}
 
 impl PeerId {
-    pub fn digits(&self,) -> &[u8] {
-        self.0.as_ref()
+    pub fn digits(&self,) -> Vec<u8> {
+        self.0.to_bytes()
     }
 }
 
@@ -240,10 +288,31 @@ impl fmt::Debug for PeerId {
 }
 impl fmt::Display for PeerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        for b in &self.0 {
-            write!(f, "{b:02x}")?;
-        }
-        Ok((),)
+        self.0.to_string().fmt(f)
+    }
+}
+
+// -- keypair
+impl Serialize for KeyPair {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer<>,
+    {
+        let keypair = self.0.clone();
+        keypair.to_bytes().serialize(serializer)
+    }
+
+}
+
+impl<'de,> Deserialize<'de,> for KeyPair {
+    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = <&[u8]>::deserialize(d)?;
+        let keypair = KeyPair::from_bytes(bytes,);
+        Ok(keypair)
+
     }
 }
 
