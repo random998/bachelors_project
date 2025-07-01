@@ -46,9 +46,12 @@ impl Default for SigningKey {
 }
 
 impl SigningKey {
-    pub fn new(key_pair: &KeyPair) -> Self {
-        let entropy = Zeroizing::new([0u8; ENTROPY_LEN]);
-        Self { kp: key_pair.0.clone(), entropy }
+    pub fn new(key_pair: &KeyPair,) -> Self {
+        let entropy = Zeroizing::new([0u8; ENTROPY_LEN],);
+        Self {
+            kp: key_pair.0.clone(),
+            entropy,
+        }
     }
 }
 
@@ -167,32 +170,30 @@ impl fmt::Debug for SigningKey {
 #[derive(Clone,)]
 pub struct VerifyingKey(pub ed25519::PublicKey,);
 
-#[derive(Clone)]
+#[derive(Clone,)]
 pub struct Signature(Vec<u8,>,);
 
-#[derive(Clone, Debug)]
-pub struct KeyPair(pub ed25519::Keypair);
+#[derive(Clone, Debug,)]
+pub struct KeyPair(pub ed25519::Keypair,);
 
 impl KeyPair {
-
     pub fn default() -> Self {
-        let kp : ed25519::Keypair = ed25519::Keypair::generate();
-        KeyPair(kp)
+        let kp: ed25519::Keypair = ed25519::Keypair::generate();
+        KeyPair(kp,)
     }
     pub fn from_bytes(bytes: &[u8],) -> Self {
         let mut bytes: [u8; 64] = bytes.try_into().unwrap();
-        let kp = ed25519::Keypair::try_from_bytes(&mut bytes).expect("error");
-        KeyPair::new(kp)
+        let kp = ed25519::Keypair::try_from_bytes(&mut bytes,).expect("error",);
+        KeyPair::new(kp,)
     }
 
-    pub fn new(kp: ed25519::Keypair) -> Self {
-        KeyPair(kp)
+    pub fn new(kp: ed25519::Keypair,) -> Self {
+        KeyPair(kp,)
     }
 
-    pub fn to_peer_id(self) -> PeerId
-    {
-        let pubk : libp2p_identity::PublicKey = self.0.public().into();
-        PeerId(pubk.to_peer_id())
+    pub fn to_peer_id(self,) -> PeerId {
+        let pubk: libp2p_identity::PublicKey = self.0.public().into();
+        PeerId(pubk.to_peer_id(),)
     }
 }
 
@@ -204,8 +205,8 @@ impl VerifyingKey {
     }
 
     pub fn to_peer_id(&self,) -> PeerId {
-        let pubk : libp2p_identity::PublicKey = self.0.clone().into();
-        PeerId(pubk.to_peer_id())
+        let pubk: libp2p_identity::PublicKey = self.0.clone().into();
+        PeerId(pubk.to_peer_id(),)
     }
 
     pub fn to_bytes(&self,) -> [u8; 32] {
@@ -255,28 +256,33 @@ impl<'de,> Deserialize<'de,> for Signature {
 // --------------------------------------------------------------------
 // PeerId
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PeerId(libp2p_identity::PeerId);
+#[derive(Clone, Copy, PartialEq, Eq, Hash,)]
+pub struct PeerId(libp2p_identity::PeerId,);
 
 impl Serialize for PeerId {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> where S: Serializer {
-        self.0.to_bytes().serialize(serializer)
+    fn serialize<S,>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error,>
+    where
+        S: Serializer,
+    {
+        self.0.to_bytes().serialize(serializer,)
     }
 }
 
-impl<'de> Deserialize<'de> for PeerId {
-    fn deserialize<D,>(d: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
+impl<'de,> Deserialize<'de,> for PeerId {
+    fn deserialize<D,>(d: D,) -> std::result::Result<Self, D::Error,>
+    where D: Deserializer<'de,> {
         let bytes: &[u8] = <&[u8]>::deserialize(d,)?;
-        let peer_id = libp2p_identity::PeerId::from_bytes(bytes).expect("error");
-        Ok(PeerId(peer_id))
+        let peer_id =
+            libp2p_identity::PeerId::from_bytes(bytes,).expect("error",);
+        Ok(PeerId(peer_id,),)
     }
 }
 
 impl PeerId {
-    pub fn digits(&self,) -> Vec<u8> {
+    pub fn digits(&self,) -> Vec<u8,> {
         self.0.to_bytes()
     }
 }
@@ -288,31 +294,30 @@ impl fmt::Debug for PeerId {
 }
 impl fmt::Display for PeerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        self.0.to_string().fmt(f)
+        self.0.to_string().fmt(f,)
     }
 }
 
 // -- keypair
 impl Serialize for KeyPair {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S,>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error,>
     where
-        S: Serializer<>,
+        S: Serializer,
     {
         let keypair = self.0.clone();
-        keypair.to_bytes().serialize(serializer)
+        keypair.to_bytes().serialize(serializer,)
     }
-
 }
 
 impl<'de,> Deserialize<'de,> for KeyPair {
-    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let bytes = <&[u8]>::deserialize(d)?;
+    fn deserialize<D,>(d: D,) -> std::result::Result<Self, D::Error,>
+    where D: Deserializer<'de,> {
+        let bytes = <&[u8]>::deserialize(d,)?;
         let keypair = KeyPair::from_bytes(bytes,);
-        Ok(keypair)
-
+        Ok(keypair,)
     }
 }
 
