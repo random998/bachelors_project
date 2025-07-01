@@ -1,7 +1,14 @@
-use eframe::egui::{
-    Align2, Button, Color32, Context, Event, FontFamily, FontId, RichText,
-    TextBuffer, TextEdit, Window, vec2,
-};
+use eframe::egui::RichText;
+use eframe::egui::FontId;
+use eframe::egui::FontFamily;
+use eframe::egui::Event;
+use eframe::egui::Context;
+use eframe::egui::Color32;
+use eframe::egui::Button;
+use eframe::egui::Align2;
+use eframe::egui::TextEdit;
+use eframe::egui::Window;
+use eframe::egui::vec2;
 use log::error;
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::Message;
@@ -45,7 +52,7 @@ impl ConnectView {
         self.signing_key.phrase()
     }
     fn player_id(&self,) -> PeerId {
-        self.signing_key.verifying_key().peer_id()
+        self.signing_key.verifying_key().to_peer_id()
     }
 
     fn assign_key(&mut self, sk: &SigningKey,) {
@@ -64,30 +71,30 @@ impl View for ConnectView {
             match event {
                 ConnectionEvent::Open => {
                     app.send_message(Message::JoinServerRequest {
-                        nickname:  self.nickname.to_string(),
+                        nickname: self.nickname.to_string(),
                         player_id: self.player_id(),
-                    },);
+                    }, );
                 },
                 ConnectionEvent::Close => {
                     self.error = "Connection closed".to_string();
                 },
-                ConnectionEvent::Error(e,) => {
+                ConnectionEvent::Error(e, ) => {
                     self.error = format!("Connection error {e}");
                 },
-                ConnectionEvent::Message(msg,) => {
+                ConnectionEvent::Message(msg, ) => {
                     if let Message::JoinedServerConfirmation {
                         nickname,
                         chips,
                         player_id,
                     } = msg.message()
-                        && self.player_id() == *player_id
-                        && self.nickname == *nickname
                     {
-                        self.chips = *chips;
-                        self.server_joined = true;
-                        self.nickname = nickname.to_string();
+                        if self.player_id() == *player_id && self.nickname == *nickname {
+                            self.chips = *chips;
+                            self.server_joined = true;
+                            self.nickname = nickname.to_string();
+                        }
                     }
-                },
+                }
             }
         }
 

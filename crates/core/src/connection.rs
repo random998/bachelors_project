@@ -14,7 +14,7 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::{self as websocket, MaybeTlsStream, WebSocketStream};
-
+use tracing::info;
 use crate::message::SignedMessage;
 use crate::net::{NetRx, NetTx};
 
@@ -53,6 +53,8 @@ where S: AsyncRead + AsyncWrite + Unpin
         let mut buffer = BytesMut::zeroed(MAX_MESSAGE_SIZE,);
 
         while let Some(msg_result,) = self.stream.next().await {
+            info!("received message!");
+            println!("received message!");
             match msg_result {
                 Ok(WsMessage::Binary(payload,),) => {
                     return Some(
@@ -210,7 +212,7 @@ mod tests {
         let mut con: ClientConnection =
             ClientConnection::connect_to(&url,).await.unwrap();
         let keypair = SigningKey::default();
-        let peer_id = keypair.verifying_key().peer_id();
+        let peer_id = keypair.verifying_key().to_peer_id();
 
         let msg = SignedMessage::new(&keypair, Message::JoinTableRequest {
             player_id: peer_id,
