@@ -1,12 +1,12 @@
-use crate::message::SignedMessage;
+use anyhow::{Error, Result, anyhow};
 use async_trait::async_trait;
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use anyhow::{anyhow, Error, Result};
+use crate::message::SignedMessage;
 
 #[async_trait]
 pub trait NetTx: Send + Sync {
-    async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error>;
+    async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error,>;
 }
 
 #[async_trait]
@@ -23,7 +23,6 @@ where T: NetTx + ?Sized + Send /* forward to any NetTx */
         (**self).send(msg,).await
     }
 }
-
 
 /// Helper returned to caller so they can plug both halves into Player.
 pub struct P2pTransport {
@@ -43,7 +42,6 @@ impl P2pTransport {
     }
 }
 
-
 /// Outbound half
 #[derive(Clone,)]
 pub struct P2pTx {
@@ -58,8 +56,11 @@ pub struct P2pRx {
 /// ------------- NetTx implementation -----------------
 #[async_trait]
 impl NetTx for P2pTx {
-    async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error> {
-        self.sender.send(msg,).await.map_err(|e| anyhow!("{:?}", e))
+    async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error,> {
+        self.sender
+            .send(msg,)
+            .await
+            .map_err(|e| anyhow!("{:?}", e),)
     }
 }
 
