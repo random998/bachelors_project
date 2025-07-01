@@ -15,6 +15,7 @@ use tokio_tungstenite::tungstenite::Message as WsMessage;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::{self as websocket, MaybeTlsStream, WebSocketStream};
 use tracing::info;
+
 use crate::message::SignedMessage;
 use crate::net::{NetRx, NetTx};
 
