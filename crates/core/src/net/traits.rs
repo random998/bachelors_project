@@ -1,74 +1,75 @@
-use std::convert::TryFrom;
-use std::time::Duration;
-
-use async_trait::async_trait;
-use tokio::sync::mpsc::Sender;
-
 use crate::message::SignedMessage;
+use async_trait::async_trait;
+use tokio::sync::mpsc::{Receiver, Sender};
+
+use anyhow::{anyhow, Error, Result};
 
 #[async_trait]
 pub trait NetTx: Send + Sync {
-    async fn send(&mut self, msg: SignedMessage,) -> anyhow::Result<(),>;
+    async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error>;
 }
 
 #[async_trait]
 pub trait NetRx: Send + Sync {
     /// Returns `None` when the stream is closed.
-    async fn try_recv(&mut self,) -> anyhow::Result<SignedMessage,>;
+    async fn try_recv(&mut self,) -> Result<SignedMessage,>;
 }
 
 #[async_trait]
 impl<T,> NetTx for Box<T,>
 where T: NetTx + ?Sized + Send /* forward to any NetTx */
 {
-    async fn send(&mut self, msg: SignedMessage,) -> anyhow::Result<(),> {
+    async fn send(&mut self, msg: SignedMessage,) -> Result<(),> {
         (**self).send(msg,).await
     }
 }
 
-#[derive(Debug,)]
-pub enum TableMessage {
-    Send(SignedMessage,),
-    PlayerLeave,
-    Throttle(Duration,),
-    Close,
+
+/// Helper returned to caller so they can plug both halves into Player.
+pub struct P2pTransport {
+    pub tx: P2pTx,
+    pub rx: P2pRx,
 }
 
-/// channel based network transmitter
+impl P2pTransport {
+    pub async fn new(
+        sender: Sender<SignedMessage,>,
+        receiver: Receiver<SignedMessage,>,
+    ) -> Self {
+        Self {
+            tx: P2pTx { sender, },
+            rx: P2pRx { receiver, },
+        }
+    }
+}
+
+
+/// Outbound half
 #[derive(Clone,)]
-pub struct ChannelNetTx {
-    pub tx: Sender<TableMessage,>,
+pub struct P2pTx {
+    pub sender: Sender<SignedMessage,>,
 }
 
-impl ChannelNetTx {
-    #[must_use]
-    pub const fn new(tx: Sender<TableMessage,>,) -> Self {
-        Self { tx, }
+/// Inbound half
+pub struct P2pRx {
+    pub receiver: Receiver<SignedMessage,>,
+}
+
+/// ------------- NetTx implementation -----------------
+#[async_trait]
+impl NetTx for P2pTx {
+    async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error> {
+        self.sender.send(msg,).await.map_err(|e| anyhow!("{:?}", e))
     }
 }
 
-#[async_trait::async_trait]
-impl NetTx for ChannelNetTx {
-    async fn send(&mut self, msg: SignedMessage,) -> anyhow::Result<(),> {
-        // forward every SignedMessage through the existing channel
-        self.tx
-            .send(TableMessage::Send(msg,),)
-            .await
-            .map_err(|e| anyhow::anyhow!("channel closed: {e}"),)
-    }
-}
-
-impl TryFrom<TableMessage,> for SignedMessage {
-    type Error = &'static str;
-
-    fn try_from(value: TableMessage,) -> Result<Self, Self::Error,> {
-        match value {
-            TableMessage::Send(msg,) => Ok(msg,),
-            TableMessage::PlayerLeave
-            | TableMessage::Throttle(_,)
-            | TableMessage::Close => {
-                Err("control TableMessage – no SignedMessage",)
-            },
+/// ------------- NetRx implementation -----------------
+#[async_trait]
+impl NetRx for P2pRx {
+    async fn try_recv(&mut self,) -> Result<SignedMessage,> {
+        match self.receiver.recv().await {
+            Some(msg,) => Ok(msg,),
+            None => Err(anyhow!("P2pRx closed"),),
         }
     }
 }

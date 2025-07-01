@@ -2,7 +2,7 @@
 
 use std::fmt;
 use std::sync::Arc;
-
+use std::time::Duration;
 /// Type definitions for p2p messages.
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
@@ -57,6 +57,9 @@ pub enum Message {
 
     /// Request to show the player’s current chip balance/account summary.
     ShowAccount { chips: Chips, },
+    
+    /// balance update
+    BalanceUpdate {player_id: PeerId, chips: Chips},
 
     /// Starts the game and notifies all players of seat order.
     StartGame(Vec<PeerId,>,),
@@ -80,7 +83,9 @@ pub enum Message {
     DealCards(Card, Card,),
 
     /// Notifies peers that this player has left the table.
-    PlayerLeftTable,
+    PlayerLeftTable {
+        peer_id: PeerId
+    },
 
     /// Updated game state including players, board, and pot.
     GameStateUpdate {
@@ -113,6 +118,11 @@ pub enum Message {
         /// Bet/Raise).
         amount: Chips,
     },
+    
+    /// tells peers to show ui for longer
+    Throttle {
+        duration: Duration 
+    },
 }
 
 impl Message {
@@ -120,6 +130,8 @@ impl Message {
     #[must_use]
     pub const fn label(&self,) -> &'static str {
         match self {
+            Self::BalanceUpdate {..} => "Balanceupdatemsg",
+            Self::Throttle { .. } => "ThrottleMsg",
             Self::JoinTableRequest { .. } => "JoinTableRequest",
             Self::PlayerLeftNotification { .. } => "PlayerLeftNotification",
             Self::NoTablesLeftNotification => "NoTablesLeftNotification",
@@ -131,7 +143,7 @@ impl Message {
             Self::StartHand => "StartHand",
             Self::EndHand { .. } => "EndHand",
             Self::DealCards(..,) => "DealCards",
-            Self::PlayerLeftTable => "PlayerLeftTable",
+            Self::PlayerLeftTable {..}=> "PlayerLeftTable",
             Self::GameStateUpdate { .. } => "GameStateUpdate",
             Self::ActionRequest { .. } => "ActionRequest",
             Self::ActionResponse { .. } => "ActionResponse",
@@ -264,7 +276,7 @@ impl SignedMessage {
     /// Returns the identifier of the player who sent this message.
     #[must_use]
     pub fn sender(&self,) -> PeerId {
-        self.payload.vk.peer_id()
+        self.payload.vk.to_peer_id()
     }
 
     /// Extracts the signed message (payload).
@@ -288,7 +300,7 @@ mod tests {
     fn signed_message() {
         let sk = SigningKey::default();
         let vk = sk.verifying_key();
-        let peer_id = vk.peer_id();
+        let peer_id = vk.to_peer_id();
         let message = Message::JoinTableRequest {
             player_id: peer_id,
             nickname:  "Alice".to_string(),

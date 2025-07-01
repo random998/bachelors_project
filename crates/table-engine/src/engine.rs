@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ahash::AHashSet;
+use anyhow::Error;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use log::{error, info};
@@ -18,7 +19,8 @@ use poker_eval::HandValue;
 use rand::prelude::StdRng;
 use rand::{SeedableRng, rng};
 use thiserror::Error;
-
+use poker_core::net::NetTx;
+use poker_core::net::traits::{P2pTx};
 use super::player::Player;
 use super::players_state::PlayersState;
 
@@ -94,9 +96,8 @@ pub enum TableJoinError {
 }
 
 /// Core state of a poker table instance.
-#[derive(Debug,)]
-pub struct InternalTableState<Cb: EngineCallbacks,> {
-    callbacks:   Cb,
+pub struct InternalTableState {
+    callbacks:   P2pTx,
     table_id:    TableId,
     num_seats:   usize,
     signing_key: Arc<SigningKey,>,
@@ -119,13 +120,13 @@ pub struct InternalTableState<Cb: EngineCallbacks,> {
     hand_start_timer: Option<Instant,>,
     hand_start_delay: Duration,
 }
-impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
+impl InternalTableState {
     const ACTION_TIMEOUT: Duration = Duration::from_secs(15,);
     const INITIAL_SMALL_BLIND: Chips = Chips::new(10_000,);
     const INITIAL_BIG_BLIND: Chips = Chips::new(20_000,);
 
     pub fn new(
-        callbacks: Cb,
+        callbacks: P2pTx,
         table_id: TableId,
         max_seats: usize,
         signing_key: Arc<SigningKey,>,
@@ -135,7 +136,7 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
     }
 
     fn with_rng(
-        callbacks: Cb,
+        callbacks: P2pTx,
         table_id: TableId,
         max_seats: usize,
         signing_key: Arc<SigningKey,>,
@@ -199,7 +200,7 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
         let signed_message =
             SignedMessage::new(&self.signing_key, confirmation_message,);
 
-        let _ = self.callbacks.send(new_player.id, signed_message,);
+        let _ = self.callbacks.send(signed_message,);
 
         // for each existing player, send a player joined message to the newly
         // joined player.
@@ -212,13 +213,13 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
             };
 
             let signed = SignedMessage::new(&self.signing_key, join_msg,);
-            let _ = self.callbacks.send(new_player.id, signed,);
+            let _ = self.callbacks.send(signed,);
         }
 
         info!("Player {player_id} joined table {}", self.table_id);
 
         // tell all existing players that a new player joined.
-        self.broadcast(Message::PlayerJoined {
+        self.sign_and_send(Message::PlayerJoined {
             nickname:  new_player.clone().nickname.to_string(),
             player_id: new_player.clone().id,
             chips:     new_player.clone().chips,
@@ -235,7 +236,7 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
 
         Ok((),)
     }
-    pub async fn leave(&mut self, player_id: &PeerId,) {
+    pub async fn leave(&mut self, player_id: &PeerId,) -> Result<(), anyhow::Error>{
         let active_is_leaving = self.players.is_active(player_id,);
         if let Some(leaver,) = self.players.remove(player_id,) {
             // add player bets to the pot.
@@ -245,7 +246,7 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
 
             if self.players.count_active() < 2 {
                 self.enter_end_hand().await;
-                return;
+                return Ok((),);
             }
 
             if active_is_leaving {
@@ -255,20 +256,21 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
             let msg = Message::PlayerLeftNotification {
                 player_id: *player_id,
             };
-
-            self.broadcast(msg,).await;
+            
+            return self.sign_and_send(msg).await;
         }
+        Ok((),)
     }
-
-    async fn broadcast(&mut self, msg: Message,) {
+    
+pub async fn sign_and_send(&mut self, msg: Message) -> Result<(), Error> {
         let signed = SignedMessage::new(&self.signing_key, msg,);
-        for player in self.players.iter_mut() {
-            let _ = self.callbacks.send(player.id, signed.clone(),);
-        }
+        self.callbacks.send(signed).await
     }
+
     /// handle incoming message from a player.
     pub async fn handle_message(&mut self, msg: SignedMessage,) {
         info!("server handling incoming message: {:?}", msg.message());
+        println!("server handling incoming message: {:?}", msg.message());
         if let Message::ActionResponse { action, amount, } = msg.message() {
             if let Some(player,) = self.players.active_player() {
                 // only process actionResponses incoming from the active player
@@ -396,7 +398,7 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
         self.phase = HandPhase::StartingGame;
         self.players.shuffle(&mut self.rng,);
         let seat_order = self.players.iter().map(|p| p.id,).collect();
-        self.broadcast(Message::StartGame(seat_order,),).await;
+        self.sign_and_send(Message::StartGame(seat_order,),).await;
 
         self.start_hand().await;
     }
@@ -462,7 +464,7 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
         self.deck = Deck::shuffled(&mut self.rng,);
         self.community_cards.clear();
         self.pots = vec![Pot::default()];
-        self.broadcast(Message::StartHand,).await;
+        self.sign_and_send(Message::StartHand,).await;
 
         info!("dealing cards to players: {}", self.phase);
         info!("current players list: {}", self.players.clone());
@@ -487,12 +489,10 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
         self.broadcast_game_update().await;
 
         // send the dealt cards to each player.
-        for player in self.players.iter_mut() {
+        for player in self.players.clone().iter_mut() {
             if let PlayerCards::Cards(c1, c2,) = player.private_cards {
                 let msg = Message::DealCards(c1, c2,);
-                let signed_message =
-                    SignedMessage::new(&self.signing_key, msg,);
-                self.callbacks.send(player.id, signed_message,);
+                self.sign_and_send(msg).await;
             }
         }
 
@@ -590,14 +590,13 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
                 .map(|p| (p.id, p.public_cards,),)
                 .collect(),
         };
-        self.broadcast(msg,).await;
+        self.sign_and_send(msg,).await;
     }
 
     /// Broadcast a throttle message to all players at the table.
     async fn broadcast_throttle(&mut self, dt: Duration,) {
-        for player in self.players.iter_mut() {
-            self.callbacks.throttle(player.id, dt,);
-        }
+        let table_msg = Message::Throttle{duration: dt};
+        self.sign_and_send(table_msg).await;
     }
 
     /// Broadcast a game state update to all connected players.
@@ -636,10 +635,7 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
             community_cards: self.community_cards.clone(),
             pot,
         };
-        let signed_message = SignedMessage::new(&self.signing_key, msg,);
-        for player in self.players.iter_mut() {
-            self.callbacks.send(player.id, signed_message.clone(),);
-        }
+        self.sign_and_send(msg).await;
     }
     /// Request action to the active player.
     async fn request_action(&mut self,) {
@@ -674,7 +670,7 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
                 actions,
             };
 
-            self.broadcast(message,).await;
+            self.sign_and_send(message,).await;
         }
     }
 
@@ -728,13 +724,16 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
             .collect();
 
         for player_id in broke {
-            if let Some(player,) = self.players.get(&player_id,) {
-                let _ = self.callbacks.disconnect(player.id,);
-                let msg = Message::PlayerLeftTable;
-                self.broadcast(msg,).await;
-            }
+            let msg = Message::PlayerLeftTable {peer_id: player_id,};
+            self.sign_and_send(msg,).await;
             self.players.remove(&player_id,);
         }
+    }
+    
+    /// sends disconnect message for the player corresponding to the given peer id.
+    async fn disconnect(&mut self, peer_id: PeerId) {
+        let msg = Message::PlayerLeftTable{peer_id };
+        self.sign_and_send(msg).await;
     }
     /// Handles the end of the game: pays out winners and resets the table.
     async fn enter_end_game(&mut self,) {
@@ -745,18 +744,26 @@ impl<Cb: EngineCallbacks,> InternalTableState<Cb,> {
         self.phase = HandPhase::EndingGame;
 
         // Payout remaining chips to each player, notify and remove them.
-        for player in self.players.iter_mut() {
+        for player in self.players.clone().iter_mut() {
             if let Err(err,) =
-                self.callbacks.credit_chips(player.id, player.chips,)
+                self.credit_chips(player.id, player.chips,).await
             {
                 error!("Failed to pay player {}: {}", player.id, err);
                 println!("error enter_end_game: {err}");
             }
-            let _ = self.callbacks.disconnect(player.id,);
+            let _ = self.disconnect(player.id,);
         }
         self.players.clear();
         self.hand_number = 0;
         self.phase = HandPhase::WaitingForPlayers;
+    }
+    
+    async fn credit_chips(&mut self, id: PeerId, chips: Chips) -> Result<(), anyhow::Error> {
+        let msg = Message::BalanceUpdate{
+            player_id: id,
+            chips,
+        };
+        self.sign_and_send(msg).await
     }
 
     /// Distribute the pots among winners and return their payoff info for the

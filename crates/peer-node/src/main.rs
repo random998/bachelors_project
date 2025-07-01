@@ -4,11 +4,11 @@ use std::time::Duration;
 
 use anyhow::Result;
 use clap::Parser;
-use log::trace;
-use p2p_net::P2pTransport;
-use poker_core::crypto::{PeerId, SigningKey};
+use log::{info, trace};
+use poker_core::crypto::{KeyPair, PeerId, SigningKey, VerifyingKey};
 use poker_core::message::SignedMessage;
 use poker_core::net::{NetRx, NetTx};
+use poker_core::net::traits::P2pTransport;
 use poker_core::poker::{Chips, TableId};
 use table_engine::{EngineCallbacks, InternalTableState};
 
@@ -28,7 +28,7 @@ struct Options {
 
     /// Path to my permanent signing key (is created if missing)
     #[arg(long, default_value = "peer.key")]
-    key: PathBuf,
+    key_pair: PathBuf,
 }
 
 impl Options {
@@ -40,9 +40,10 @@ impl Options {
 #[tokio::main]
 async fn main() -> Result<(),> {
     let opt = Options::parse();
-    let signing_key = load_or_generate_key(&opt.key,)?;
-    let peer_id = signing_key.verifying_key().peer_id();
-    println!("peer-id = {peer_id}");
+    let keypair = load_or_generate_keypair(&opt.key_pair,).expect("err");
+    let signing_key : SigningKey = SigningKey::new(&keypair) ;
+    let pub_key : VerifyingKey = signing_key.verifying_key();
+    println!("peer-id = {}", pub_key.to_peer_id());
 
     // init logger
     env_logger::Builder::from_env(
@@ -51,14 +52,11 @@ async fn main() -> Result<(),> {
     .init();
 
     // ---------- P2P transport --------------------------------------
-    let transport = p2p_net::swarm_task::new(&opt.table_id(), &signing_key,);
+    info!("creating p2p transport with table id: {}",  opt.table_id().to_string());
+    let transport = p2p_net::swarm_task::new(&opt.table_id(), keypair,);
 
-    // ---------- Engine --------------------------------------------
-    let callbacks = Callbacks {
-        tx: transport.tx.clone(),
-    };
     let mut engine = InternalTableState::new(
-        callbacks,
+        transport.tx.clone(),
         opt.table_id(),
         opt.seats,
         std::sync::Arc::new(signing_key.clone(),),
@@ -66,7 +64,7 @@ async fn main() -> Result<(),> {
 
     // join myself (100 000 starting chips just for dev)
     engine
-        .try_join(&peer_id, &opt.nick, Chips::new(100_000,),)
+        .try_join(&signing_key.peer_id(), &opt.nick, Chips::new(100_000,),)
         .await?;
 
     // ---------- async run loop -------------------------------------
@@ -77,31 +75,34 @@ async fn main() -> Result<(),> {
 }
 
 // persistent key ----------------------------------------------------
-fn load_or_generate_key(path: &std::path::Path,) -> Result<SigningKey,> {
+fn load_or_generate_keypair(path: &std::path::Path,) -> Result<KeyPair,> {
     use std::fs;
     use std::io::Write;
-    if path.exists() {
-        trace!("loading key from path: {} ...", path.display());
+    
+// if path.exists() {
+/*        trace!("loading key from path: {} ...", path.display());
         let bytes = fs::read(path,)?;
-        Ok(bincode::deserialize(&bytes,)?,)
-    } else {
+        Ok(bincode::deserialize::<KeyPair>(&bytes,)?,)
+*/ 
         trace!("loading default key...");
-        let key = SigningKey::default();
+        let key = KeyPair::default();
         fs::File::create(path,)?
             .write_all(bincode::serialize(&key,)?.as_slice(),)?;
         Ok(key,)
-    }
+//     }
 }
 
 // run loop ----------------------------------------------------------
 async fn run(
-    mut engine: InternalTableState<Callbacks,>,
+    mut engine: InternalTableState,
     mut transport: P2pTransport,
 ) -> Result<(),> {
     loop {
         // 1) inbound network → engine
         let msg = transport.rx.try_recv().await;
         while let Ok(ref message,) = msg {
+            info!("received message: {}", message.message());
+            println!("received message: {}", message.message());
             engine.handle_message(message.clone(),).await;
         }
         // 2) timers
@@ -112,9 +113,9 @@ async fn run(
     }
 }
 
-#[derive(Clone,)]
 struct Callbacks {
-    tx: p2p_net::P2pTx,
+    tx: poker_core::net::traits::P2pTx,
+    rx: poker_core::net::traits::P2pRx,
 }
 impl EngineCallbacks for Callbacks {
     fn send(&mut self, _dest: PeerId, msg: SignedMessage,) {

@@ -51,7 +51,7 @@ impl App {
         Self {
             config,
             textures,
-            player_id: sk.verifying_key().peer_id(),
+            player_id: sk.verifying_key().to_peer_id(),
             sk,
             nickname: String::default(),
             connection: None,
@@ -72,7 +72,7 @@ impl App {
         }
 
         self.connection = Some(con,);
-        self.player_id = sk.verifying_key().peer_id();
+        self.player_id = sk.verifying_key().to_peer_id();
         self.sk = sk;
         self.nickname = nickname.to_string();
 
