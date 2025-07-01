@@ -3,6 +3,7 @@
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
+
 /// Type definitions for p2p messages.
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
@@ -57,9 +58,9 @@ pub enum Message {
 
     /// Request to show the player’s current chip balance/account summary.
     ShowAccount { chips: Chips, },
-    
+
     /// balance update
-    BalanceUpdate {player_id: PeerId, chips: Chips},
+    BalanceUpdate { player_id: PeerId, chips: Chips, },
 
     /// Starts the game and notifies all players of seat order.
     StartGame(Vec<PeerId,>,),
@@ -83,9 +84,7 @@ pub enum Message {
     DealCards(Card, Card,),
 
     /// Notifies peers that this player has left the table.
-    PlayerLeftTable {
-        peer_id: PeerId
-    },
+    PlayerLeftTable { peer_id: PeerId, },
 
     /// Updated game state including players, board, and pot.
     GameStateUpdate {
@@ -118,11 +117,9 @@ pub enum Message {
         /// Bet/Raise).
         amount: Chips,
     },
-    
+
     /// tells peers to show ui for longer
-    Throttle {
-        duration: Duration 
-    },
+    Throttle { duration: Duration, },
 }
 
 impl Message {
@@ -130,7 +127,7 @@ impl Message {
     #[must_use]
     pub const fn label(&self,) -> &'static str {
         match self {
-            Self::BalanceUpdate {..} => "Balanceupdatemsg",
+            Self::BalanceUpdate { .. } => "Balanceupdatemsg",
             Self::Throttle { .. } => "ThrottleMsg",
             Self::JoinTableRequest { .. } => "JoinTableRequest",
             Self::PlayerLeftNotification { .. } => "PlayerLeftNotification",
@@ -143,7 +140,7 @@ impl Message {
             Self::StartHand => "StartHand",
             Self::EndHand { .. } => "EndHand",
             Self::DealCards(..,) => "DealCards",
-            Self::PlayerLeftTable {..}=> "PlayerLeftTable",
+            Self::PlayerLeftTable { .. } => "PlayerLeftTable",
             Self::GameStateUpdate { .. } => "GameStateUpdate",
             Self::ActionRequest { .. } => "ActionRequest",
             Self::ActionResponse { .. } => "ActionResponse",

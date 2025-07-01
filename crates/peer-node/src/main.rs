@@ -7,8 +7,8 @@ use clap::Parser;
 use log::{info, trace};
 use poker_core::crypto::{KeyPair, PeerId, SigningKey, VerifyingKey};
 use poker_core::message::SignedMessage;
-use poker_core::net::{NetRx, NetTx};
 use poker_core::net::traits::P2pTransport;
+use poker_core::net::{NetRx, NetTx};
 use poker_core::poker::{Chips, TableId};
 use table_engine::{EngineCallbacks, InternalTableState};
 
@@ -40,9 +40,9 @@ impl Options {
 #[tokio::main]
 async fn main() -> Result<(),> {
     let opt = Options::parse();
-    let keypair = load_or_generate_keypair(&opt.key_pair,).expect("err");
-    let signing_key : SigningKey = SigningKey::new(&keypair) ;
-    let pub_key : VerifyingKey = signing_key.verifying_key();
+    let keypair = load_or_generate_keypair(&opt.key_pair,).expect("err",);
+    let signing_key: SigningKey = SigningKey::new(&keypair,);
+    let pub_key: VerifyingKey = signing_key.verifying_key();
     println!("peer-id = {}", pub_key.to_peer_id());
 
     // init logger
@@ -52,7 +52,10 @@ async fn main() -> Result<(),> {
     .init();
 
     // ---------- P2P transport --------------------------------------
-    info!("creating p2p transport with table id: {}",  opt.table_id().to_string());
+    info!(
+        "creating p2p transport with table id: {}",
+        opt.table_id().to_string()
+    );
     let transport = p2p_net::swarm_task::new(&opt.table_id(), keypair,);
 
     let mut engine = InternalTableState::new(
@@ -78,18 +81,17 @@ async fn main() -> Result<(),> {
 fn load_or_generate_keypair(path: &std::path::Path,) -> Result<KeyPair,> {
     use std::fs;
     use std::io::Write;
-    
-// if path.exists() {
-/*        trace!("loading key from path: {} ...", path.display());
-        let bytes = fs::read(path,)?;
-        Ok(bincode::deserialize::<KeyPair>(&bytes,)?,)
-*/ 
-        trace!("loading default key...");
-        let key = KeyPair::default();
-        fs::File::create(path,)?
-            .write_all(bincode::serialize(&key,)?.as_slice(),)?;
-        Ok(key,)
-//     }
+
+    // if path.exists() {
+    //        trace!("loading key from path: {} ...", path.display());
+    // let bytes = fs::read(path,)?;
+    // Ok(bincode::deserialize::<KeyPair>(&bytes,)?,)
+    trace!("loading default key...");
+    let key = KeyPair::default();
+    fs::File::create(path,)?
+        .write_all(bincode::serialize(&key,)?.as_slice(),)?;
+    Ok(key,)
+    //     }
 }
 
 // run loop ----------------------------------------------------------

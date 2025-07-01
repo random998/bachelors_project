@@ -14,13 +14,14 @@ use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::{
     HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
 };
+use poker_core::net::NetTx;
+use poker_core::net::traits::P2pTx;
 use poker_core::poker::{Card, Chips, Deck, PlayerCards, TableId};
 use poker_eval::HandValue;
 use rand::prelude::StdRng;
 use rand::{SeedableRng, rng};
 use thiserror::Error;
-use poker_core::net::NetTx;
-use poker_core::net::traits::{P2pTx};
+
 use super::player::Player;
 use super::players_state::PlayersState;
 
@@ -236,7 +237,10 @@ impl InternalTableState {
 
         Ok((),)
     }
-    pub async fn leave(&mut self, player_id: &PeerId,) -> Result<(), anyhow::Error>{
+    pub async fn leave(
+        &mut self,
+        player_id: &PeerId,
+    ) -> Result<(), anyhow::Error,> {
         let active_is_leaving = self.players.is_active(player_id,);
         if let Some(leaver,) = self.players.remove(player_id,) {
             // add player bets to the pot.
@@ -256,15 +260,15 @@ impl InternalTableState {
             let msg = Message::PlayerLeftNotification {
                 player_id: *player_id,
             };
-            
-            return self.sign_and_send(msg).await;
+
+            return self.sign_and_send(msg,).await;
         }
         Ok((),)
     }
-    
-pub async fn sign_and_send(&mut self, msg: Message) -> Result<(), Error> {
+
+    pub async fn sign_and_send(&mut self, msg: Message,) -> Result<(), Error,> {
         let signed = SignedMessage::new(&self.signing_key, msg,);
-        self.callbacks.send(signed).await
+        self.callbacks.send(signed,).await
     }
 
     /// handle incoming message from a player.
@@ -492,7 +496,7 @@ pub async fn sign_and_send(&mut self, msg: Message) -> Result<(), Error> {
         for player in self.players.clone().iter_mut() {
             if let PlayerCards::Cards(c1, c2,) = player.private_cards {
                 let msg = Message::DealCards(c1, c2,);
-                self.sign_and_send(msg).await;
+                self.sign_and_send(msg,).await;
             }
         }
 
@@ -595,8 +599,8 @@ pub async fn sign_and_send(&mut self, msg: Message) -> Result<(), Error> {
 
     /// Broadcast a throttle message to all players at the table.
     async fn broadcast_throttle(&mut self, dt: Duration,) {
-        let table_msg = Message::Throttle{duration: dt};
-        self.sign_and_send(table_msg).await;
+        let table_msg = Message::Throttle { duration: dt, };
+        self.sign_and_send(table_msg,).await;
     }
 
     /// Broadcast a game state update to all connected players.
@@ -635,7 +639,7 @@ pub async fn sign_and_send(&mut self, msg: Message) -> Result<(), Error> {
             community_cards: self.community_cards.clone(),
             pot,
         };
-        self.sign_and_send(msg).await;
+        self.sign_and_send(msg,).await;
     }
     /// Request action to the active player.
     async fn request_action(&mut self,) {
@@ -724,16 +728,19 @@ pub async fn sign_and_send(&mut self, msg: Message) -> Result<(), Error> {
             .collect();
 
         for player_id in broke {
-            let msg = Message::PlayerLeftTable {peer_id: player_id,};
+            let msg = Message::PlayerLeftTable {
+                peer_id: player_id,
+            };
             self.sign_and_send(msg,).await;
             self.players.remove(&player_id,);
         }
     }
-    
-    /// sends disconnect message for the player corresponding to the given peer id.
-    async fn disconnect(&mut self, peer_id: PeerId) {
-        let msg = Message::PlayerLeftTable{peer_id };
-        self.sign_and_send(msg).await;
+
+    /// sends disconnect message for the player corresponding to the given peer
+    /// id.
+    async fn disconnect(&mut self, peer_id: PeerId,) {
+        let msg = Message::PlayerLeftTable { peer_id, };
+        self.sign_and_send(msg,).await;
     }
     /// Handles the end of the game: pays out winners and resets the table.
     async fn enter_end_game(&mut self,) {
@@ -745,8 +752,7 @@ pub async fn sign_and_send(&mut self, msg: Message) -> Result<(), Error> {
 
         // Payout remaining chips to each player, notify and remove them.
         for player in self.players.clone().iter_mut() {
-            if let Err(err,) =
-                self.credit_chips(player.id, player.chips,).await
+            if let Err(err,) = self.credit_chips(player.id, player.chips,).await
             {
                 error!("Failed to pay player {}: {}", player.id, err);
                 println!("error enter_end_game: {err}");
@@ -757,13 +763,17 @@ pub async fn sign_and_send(&mut self, msg: Message) -> Result<(), Error> {
         self.hand_number = 0;
         self.phase = HandPhase::WaitingForPlayers;
     }
-    
-    async fn credit_chips(&mut self, id: PeerId, chips: Chips) -> Result<(), anyhow::Error> {
-        let msg = Message::BalanceUpdate{
+
+    async fn credit_chips(
+        &mut self,
+        id: PeerId,
+        chips: Chips,
+    ) -> Result<(), anyhow::Error,> {
+        let msg = Message::BalanceUpdate {
             player_id: id,
             chips,
         };
-        self.sign_and_send(msg).await
+        self.sign_and_send(msg,).await
     }
 
     /// Distribute the pots among winners and return their payoff info for the
