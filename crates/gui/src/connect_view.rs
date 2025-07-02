@@ -62,7 +62,7 @@ impl View for ConnectView {
         frame: &mut eframe::Frame,
         app: &mut App,
     ) {
-        while let Ok(msg) = app.tablestate.connection.rx.receiver.try_recv() {
+        while let Ok(msg) = app.try_recv() {
             let msg = msg.message();
             if let Message::JoinedServerConfirmation {
                         nickname,
@@ -99,8 +99,8 @@ impl View for ConnectView {
                         ui.label(RichText::new("Peer-Id",).font(LABEL_FONT,),);
                         TextEdit::singleline(&mut self.discovery_peer_id,)
                             .hint_text("Peer-Id",)
-                            .char_limit(10,)
-                            .desired_width(310.0,)
+                            .char_limit(100,)
+                            .desired_width(30.0,)
                             .font(TEXT_FONT,)
                             .show(ui,);
                     },);
@@ -192,6 +192,8 @@ impl View for ConnectView {
                             self.error = "Invalid passphrase".to_string();
                             return;
                         };
+                        self.server_joined = true;
+
                     }
                 },);
             },);

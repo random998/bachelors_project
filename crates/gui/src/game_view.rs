@@ -35,7 +35,7 @@ impl View for GameView {
         app: &mut App,
     ) {
         // --- 1) non-blocking network poll --------------------------
-        while let Ok(msg) = app.tablestate.connection.rx.receiver.try_recv() {
+        while let Ok(msg) = app.try_recv() {
             info!("got gossipsub msg: {:?}", msg.message().label());
             if let Message::ShowAccount { chips } = msg.message() {
                 self.show_account = Some(*chips);
@@ -865,7 +865,7 @@ impl GameView {
         }
     }
 
-    async fn paint_close_button(&self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
+    fn paint_close_button(&self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
         let btn = Button::new(
             RichText::new("X",)
                 .font(Self::TEXT_FONT,)
@@ -876,7 +876,7 @@ impl GameView {
         let rect = Rect::from_min_size(rect.left_top(), Self::SMALL_BUTTON_SZ,);
 
         if ui.put(rect, btn,).clicked() {
-            app.sign_and_send(Message::PlayerLeftTable { peer_id: self.game_state.players().get(0).unwrap().id.clone(), }, ).await;
+            app.sign_and_send(Message::PlayerLeftTable { peer_id: self.game_state.players().get(0).unwrap().id.clone(), }, );
         }
     }
 

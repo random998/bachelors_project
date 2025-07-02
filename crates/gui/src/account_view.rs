@@ -53,7 +53,7 @@ impl View for AccountView {
         _frame: &mut eframe::Frame,
         app: &mut App,
     ) {
-        while let Ok(msg,) = app.tablestate.connection.rx.receiver.try_recv() {
+        while let Ok(msg,) = app.try_recv() {
             info!("client received event: {msg:?}");
             match msg.message() {
                         Message::PlayerJoined { .. } => {
@@ -137,6 +137,7 @@ impl View for AccountView {
                             player_id: self.player_id,
                             nickname:  self.nickname.clone(),
                         },);
+                        self.table_joined = true;
                     }
                 },);
             },);

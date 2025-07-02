@@ -129,23 +129,3 @@ async fn run(
         tokio::time::sleep(Duration::from_millis(20,),).await;
     }
 }
-
-struct Callbacks {
-    tx: poker_core::net::traits::P2pTx,
-    rx: poker_core::net::traits::P2pRx,
-}
-impl EngineCallbacks for Callbacks {
-    fn send(&mut self, _dest: PeerId, msg: SignedMessage,) {
-        // broadcast – in gossipsub every peer gets everything anyway
-        let _ = self.tx.send(msg,);
-    }
-    fn throttle(&mut self, _dest: PeerId, _dt: Duration,) {}
-    fn disconnect(&mut self, _dest: PeerId,) {}
-    fn credit_chips(
-        &mut self,
-        _dest: PeerId,
-        _chips: Chips,
-    ) -> Result<(), anyhow::Error,> {
-        Ok((),)
-    }
-}
