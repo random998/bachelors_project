@@ -98,10 +98,10 @@ pub enum TableJoinError {
 
 /// Core state of a poker table instance.
 pub struct InternalTableState {
-    pub connection:   P2pTransport,
-    table_id:    TableId,
-    num_seats:   usize,
-    signing_key: Arc<SigningKey,>,
+    pub connection: P2pTransport,
+    table_id:       TableId,
+    num_seats:      usize,
+    signing_key:    Arc<SigningKey,>,
 
     phase:       HandPhase,
     hand_number: usize,
@@ -270,13 +270,10 @@ impl InternalTableState {
         let signed = SignedMessage::new(&self.signing_key, msg,);
         self.connection.tx.send(signed,).await
     }
-    
+
     pub async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error,> {
         self.connection.tx.send(msg,).await
     }
-    
-    
-    
 
     /// handle incoming message from a player.
     pub async fn handle_message(&mut self, msg: SignedMessage,) {
@@ -409,8 +406,8 @@ impl InternalTableState {
         self.phase = HandPhase::StartingGame;
         self.players.shuffle(&mut self.rng,);
         let seat_order = self.players.iter().map(|p| p.id,).collect();
-        let res =self.sign_and_send(Message::StartGame(seat_order,),).await;
-        if let Err(e) = res{
+        let res = self.sign_and_send(Message::StartGame(seat_order,),).await;
+        if let Err(e,) = res {
             info!("error: {}", e)
         }
         self.start_hand().await;
@@ -478,9 +475,9 @@ impl InternalTableState {
         self.community_cards.clear();
         self.pots = vec![Pot::default()];
         let res = self.sign_and_send(Message::StartHand,).await;
-        if let Err(e) = res {
+        if let Err(e,) = res {
             info!("error: {}", e);
-        } 
+        }
 
         info!("dealing cards to players: {}", self.phase);
         info!("current players list: {}", self.players.clone());

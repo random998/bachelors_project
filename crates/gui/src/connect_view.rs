@@ -14,11 +14,11 @@ const LABEL_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 /// Connect view.
 #[derive(Default,)]
 pub struct ConnectView {
-    nickname:      String,
-    chips:         Chips,
-    error:         String,
-    server_joined: bool,
-    signing_key:   SigningKey,
+    nickname:          String,
+    chips:             Chips,
+    error:             String,
+    server_joined:     bool,
+    signing_key:       SigningKey,
     /// peer id of a player to connect to network.
     discovery_peer_id: String,
 }
@@ -32,12 +32,12 @@ impl ConnectView {
                 let sk =
                     SigningKey::from_phrase(&d.passphrase,).unwrap_or_default();
                 Self {
-                    nickname:      d.nickname,
+                    nickname:          d.nickname,
                     discovery_peer_id: String::default(),
-                    chips:         Chips::default(),
-                    error:         String::new(),
-                    server_joined: false,
-                    signing_key:   sk,
+                    chips:             Chips::default(),
+                    error:             String::new(),
+                    server_joined:     false,
+                    signing_key:       sk,
                 }
             },)
             .unwrap_or_default()
@@ -62,20 +62,21 @@ impl View for ConnectView {
         frame: &mut eframe::Frame,
         app: &mut App,
     ) {
-        while let Some(msg) = app.try_recv() {
+        while let Some(msg,) = app.try_recv() {
             let msg = msg.message();
             if let Message::JoinedServerConfirmation {
-                        nickname,
-                        chips,
-                        player_id,
-            } = msg {
-                    if self.player_id() == *player_id
-                        && self.nickname == nickname.to_string()
-                    {
-                        self.chips = *chips;
-                        self.server_joined = true;
-                        self.nickname = nickname.to_string();
-                    }
+                nickname,
+                chips,
+                player_id,
+            } = msg
+            {
+                if self.player_id() == *player_id
+                    && self.nickname == *nickname
+                {
+                    self.chips = *chips;
+                    self.server_joined = true;
+                    self.nickname = nickname.to_string();
+                }
             }
         }
 
@@ -178,7 +179,6 @@ impl View for ConnectView {
                         }
 
                         self.server_joined = true;
-
                     }
                 },);
             },);
