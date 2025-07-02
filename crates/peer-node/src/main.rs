@@ -73,7 +73,7 @@ async fn main() -> Result<(),> {
     let transport = p2p_net::swarm_task::new(&opt.table_id(), keypair, opt.seed_addr());
 
     let mut engine = InternalTableState::new(
-        transport.tx.clone(),
+        transport,
         opt.table_id(),
         opt.seats,
         std::sync::Arc::new(signing_key.clone(),),
@@ -88,7 +88,7 @@ async fn main() -> Result<(),> {
 
     // ---------- async run loop -------------------------------------
     tokio::select! {
-        r = run(engine, transport) => { r?; }
+        r = run(engine) => { r?; }
     }
     Ok((),)
 }
@@ -113,11 +113,10 @@ fn load_or_generate_keypair(path: &std::path::Path,) -> Result<KeyPair,> {
 // run loop ----------------------------------------------------------
 async fn run(
     mut engine: InternalTableState,
-    mut transport: P2pTransport,
 ) -> Result<(),> {
     loop {
         // 1) inbound network → engine
-        let msg = transport.rx.try_recv().await;
+        let msg = engine.connection.rx.try_recv().await;
         while let Ok(ref message,) = msg {
             info!("received message: {}", message.message());
             println!("received message: {}", message.message());
