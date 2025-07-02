@@ -1,5 +1,5 @@
 [package]
-name = "table-engine"
+name = "poker-table-engine"
 edition.workspace = true
 version.workspace = true
 

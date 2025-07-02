@@ -259,6 +259,14 @@ impl<'de,> Deserialize<'de,> for Signature {
 #[derive(Clone, Copy, PartialEq, Eq, Hash,)]
 pub struct PeerId(libp2p_identity::PeerId,);
 
+impl Default for PeerId {
+    fn default() -> Self {
+        let id = libp2p_identity::PeerId::random();
+        PeerId(id)
+    }
+    
+}
+
 impl Serialize for PeerId {
     fn serialize<S,>(
         &self,

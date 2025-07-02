@@ -1,6 +1,6 @@
 [package]
 name    = "p2p-net"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
 authors = ["Your Name <you@example.com>"]
 license = "MIT OR Apache-2.0"
@@ -18,12 +18,13 @@ bincode      = "1.3"                   # (de)serialise SignedMessage
 
 # --- optional (nice-to-have) ---
 log          = "0.4"
-libp2p-identity = { version = "0.2.12", features = ["peerid", "ed25519"]}
-libp2p-dns = {version = "0.44.0"}
-libp2p-swarm = {version = "0.47.0", features = ["macros"]}
-libp2p-swarm-derive = {version = "0.35.1"}
-libp2p = {version = "0.56.0", features = ["yamux", "gossipsub", "identify", "noise", "tcp", "tokio", "dns", "macros"]}
 futures = "0.3.31"
+libp2p-autonat = {workspace = true}
+libp2p = {workspace = true,  features = ["full"]}
+libp2p-identity = { workspace = true, features = ["peerid", "ed25519"]}
+libp2p-dns = {workspace = true}
+libp2p-swarm = {workspace = true, features = ["macros"]}
+libp2p-swarm-derive = {workspace = true}
 
 [features]
 # Compile-time switch so existing WebSocket build keeps working.
