@@ -3,31 +3,20 @@
 //! Freezeout Poker egui app implementation.
 
 use std::path::PathBuf;
-use std::time::Duration;
-use anyhow::Result;
 use clap::Parser;
 use eframe::Storage;
 use eframe::egui::{Context, Theme};
 use poker_cards::egui::Textures;
-use poker_core::crypto::{KeyPair, PeerId, SigningKey, VerifyingKey};
+use poker_core::crypto::{KeyPair, PeerId, SigningKey};
 use poker_core::message::{Message, SignedMessage};
 use serde::{Deserialize, Serialize};
 use libp2p::Multiaddr;
-use libp2p_swarm::handler::ConnectionEvent;
 use log::{info, trace};
-use poker_core::net::{NetRx, NetTx};
-use poker_core::net::traits::P2pTransport;
-use poker_core::poker::{Chips, TableId};
+use tokio::sync::mpsc::error::TryRecvError;
+use poker_core::poker::{TableId};
 use poker_table_engine::engine::InternalTableState;
-use poker_table_engine::EngineCallbacks;
 use crate::{ConnectView};
 
-/// App configuration parameters.
-#[derive(Debug, Clone)]
-pub struct Config {
-    /// seed peer id
-    pub seed_peer_multiaddr: Multiaddr,
-}
 
 #[derive(Parser, Debug,)]
 struct Options {
@@ -66,7 +55,6 @@ impl Options {
     }
 }
 
-
 /// Data persisted across sessions.
 #[derive(Debug, Serialize, Deserialize,)]
 pub struct AppData {
@@ -78,8 +66,6 @@ pub struct AppData {
 
 /// The application state shared by all views.
 pub struct App {
-    /// The application configuration.
-    pub config:   Config,
     /// The app textures.
     pub textures: Textures,
     /// The application message signing key.
@@ -88,60 +74,20 @@ pub struct App {
     player_id:    PeerId,
     /// This client nickname
     nickname:     String,
-    /// channel for sending messages
-    pub tablestate: InternalTableState,
+    pub(crate) table_state: InternalTableState,
 }
 
 impl App {
     const STORAGE_KEY: &'static str = "appdata";
-
-    fn new(config: Config, textures: Textures,) -> Self {
+    fn new(internal_table_state: InternalTableState, textures: Textures) -> Self {
         let sk = SigningKey::default();
-        let cfg = config.clone();
-        let tablestate = Self::init().expect("error initializing internaltablestate");
         Self {
-            config: cfg,
             textures,
             player_id: sk.verifying_key().to_peer_id(),
             sk,
             nickname: String::default(),
-            tablestate,
+            table_state: internal_table_state,
         }
-    }
-
-
-
-    fn init() -> Result<InternalTableState,>{
-        let opt = Options::parse();
-        let keypair = Self::load_or_generate_keypair(&opt.key_pair,).expect("err",);
-        let signing_key: SigningKey = SigningKey::new(&keypair,);
-        let pub_key: VerifyingKey = signing_key.verifying_key();
-        println!("peer-id = {}", pub_key.to_peer_id());
-
-        // init logger
-        env_logger::Builder::from_env(
-            env_logger::Env::default().default_filter_or("info",),
-        )
-            .init();
-
-        // ---------- P2P transport --------------------------------------
-        info!(
-        "creating p2p transport with table id: {}",
-        opt.table_id().to_string()
-    );
-        let transport = p2p_net::swarm_task::new(&opt.table_id(), keypair, opt.seed_addr());
-
-        let mut engine = InternalTableState::new(
-            transport,
-            opt.table_id(),
-            opt.seats,
-            std::sync::Arc::new(signing_key.clone(),),
-        );
-
-        // join myself (100 000 starting chips just for dev)
-        engine.try_join(&signing_key.peer_id(), &opt.nick, Chips::new(100_000,),);
-
-        Ok(engine,)
     }
 
     /// This client player id.
@@ -149,19 +95,20 @@ impl App {
     pub const fn player_id(&self,) -> &PeerId {
         &self.player_id
     }
+    
+    pub fn try_recv(&mut self) -> Result<SignedMessage, TryRecvError> {
+        self.table_state.connection.rx.receiver.try_recv()
+    }
+    
+    pub fn sign_and_send(&mut self, msg: Message) -> Result<(), tokio::sync::mpsc::error::TrySendError<SignedMessage>> {
+        let signed = SignedMessage::new(&self.sk, msg);
+        self.table_state.connection.tx.sender.try_send(signed)
+    }
 
     /// This client nickname.
     #[must_use]
     pub fn nickname(&self,) -> &str {
         &self.nickname
-    }
-
-    pub async fn sign_and_send(&mut self, msg: Message) -> Result<(), anyhow::Error>{
-        self.tablestate.sign_and_send(msg).await
-    }
-
-    pub async fn send(&mut self, msg: SignedMessage) -> Result<(), anyhow::Error> {
-        self.tablestate.send(msg).await
     }
 
     /// Get a value from the app storage.
@@ -184,23 +131,6 @@ impl App {
             eframe::set_value::<AppData,>(s, Self::STORAGE_KEY, data,);
             s.flush();
         }
-    }
-
-    // persistent key ----------------------------------------------------
-    fn load_or_generate_keypair(path: &std::path::Path,) -> Result<KeyPair,> {
-        use std::fs;
-        use std::io::Write;
-
-        // if path.exists() {
-        //        trace!("loading key from path: {} ...", path.display());
-        // let bytes = fs::read(path,)?;
-        // Ok(bincode::deserialize::<KeyPair>(&bytes,)?,)
-        trace!("loading default key...");
-        let key = KeyPair::default();
-        fs::File::create(path,)?
-            .write_all(bincode::serialize(&key,)?.as_slice(),)?;
-        Ok(key,)
-        //     }
     }
 }
 
@@ -232,11 +162,10 @@ pub struct AppFrame {
 impl AppFrame {
     /// Creates a new App instance.
     #[must_use]
-    pub fn new(config: Config, cc: &eframe::CreationContext<'_,>,) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_,>, table_state: InternalTableState) -> Self {
         cc.egui_ctx.set_theme(Theme::Dark,);
 
-        info!("Creating new app with config: {config:?}");
-        let app = App::new(config, Textures::new(&cc.egui_ctx,),);
+        let app = App::new(table_state, Textures::new(&cc.egui_ctx,),);
         let panel = Box::new(ConnectView::new(cc.storage, &app,),);
 
         Self { app, panel, }
@@ -253,43 +182,20 @@ impl eframe::App for AppFrame {
         }
     }
 }
-// run loop ----------------------------------------------------------
-async fn run(
-    mut engine: InternalTableState,
-    mut transport: P2pTransport,
-) -> Result<(),> {
-    loop {
-        // 1) inbound network → engine
-        let msg = transport.rx.try_recv().await;
-        while let Ok(ref message,) = msg {
-            info!("received message: {}", message.message());
-            println!("received message: {}", message.message());
-            engine.handle_message(message.clone(),).await;
-        }
-        // 2) timers
-        engine.tick().await;
 
-        // 3) quick nap
-        tokio::time::sleep(Duration::from_millis(20,),).await;
-    }
-}
+// persistent key ----------------------------------------------------
+fn load_or_generate_keypair(path: &std::path::Path,) -> anyhow::Result<KeyPair, > {
+    use std::fs;
+    use std::io::Write;
 
-struct Callbacks {
-    tx: poker_core::net::traits::P2pTx,
-    rx: poker_core::net::traits::P2pRx,
-}
-impl EngineCallbacks for Callbacks {
-    fn send(&mut self, _dest: PeerId, msg: SignedMessage,) {
-        // broadcast – in gossipsub every peer gets everything anyway
-        let _ = self.tx.send(msg,);
-    }
-    fn throttle(&mut self, _dest: PeerId, _dt: Duration,) {}
-    fn disconnect(&mut self, _dest: PeerId,) {}
-    fn credit_chips(
-        &mut self,
-        _dest: PeerId,
-        _chips: Chips,
-    ) -> Result<(), anyhow::Error,> {
-        Ok((),)
-    }
+    // if path.exists() {
+    //        trace!("loading key from path: {} ...", path.display());
+    // let bytes = fs::read(path,)?;
+    // Ok(bincode::deserialize::<KeyPair>(&bytes,)?,)
+    trace!("loading default key...");
+    let key = KeyPair::default();
+    fs::File::create(path,)?
+        .write_all(bincode::serialize(&key,)?.as_slice(),)?;
+    Ok(key,)
+    //     }
 }
