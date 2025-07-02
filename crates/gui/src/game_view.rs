@@ -705,16 +705,17 @@ impl GameView {
                         }
                     },
                     PlayerAction::Bet | PlayerAction::Raise => {
-                        if (ui.input(|i| i.key_pressed(Key::Enter,),)
-                            || clicked)
-                            && let Some(params,) = &self.bet_params
+                        if ui.input(|i| i.key_pressed(Key::Enter,),) || clicked
                         {
-                            send_action = Some((
-                                action,
-                                Chips::new(params.raise_value,),
-                            ),);
-                            self.bet_params = None;
-                            break;
+                            if let Some(params) = &self.bet_params {
+                                send_action = Some((
+                                                       action,
+                                                       Chips::new(params.raise_value,),
+                                                   ),);
+                                self.bet_params = None;
+                                break;
+                                
+                            }
                         }
 
                         if (ui.input(|i| i.key_pressed(Key::B,),)
@@ -894,7 +895,7 @@ impl GameView {
         let rect = Rect::from_min_size(rect.left_top(), Self::SMALL_BUTTON_SZ,);
 
         if ui.put(rect, btn,).clicked() {
-            app.send_message(Message::PlayerLeftTable,);
+            app.send_message(Message::PlayerLeftTable {peer_id: self.game_state.players().get(0).unwrap().id.clone(),},);
         }
     }
 

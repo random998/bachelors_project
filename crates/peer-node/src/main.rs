@@ -22,6 +22,8 @@ struct Options {
     #[arg(long)]
     nick: String,
 
+    /// swarm 
+
     /// Number of seats (only used by first peer that creates the table)
     #[arg(long, default_value_t = 6)]
     seats: usize,
