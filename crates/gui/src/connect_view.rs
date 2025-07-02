@@ -2,12 +2,11 @@ use eframe::egui::{
     Align2, Button, Color32, Context, Event, FontFamily, FontId, RichText,
     TextEdit, Window, vec2,
 };
-use log::error;
 use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::Message;
 use poker_core::poker::Chips;
 
-use crate::{AccountView, App, AppData, ConnectionEvent, View};
+use crate::{AccountView, App, AppData, View};
 
 const TEXT_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 const LABEL_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
@@ -21,7 +20,7 @@ pub struct ConnectView {
     server_joined: bool,
     signing_key:   SigningKey,
     /// peer id of a player to connect to network.
-    discovery_peer_id: String, 
+    discovery_peer_id: String,
 }
 
 impl ConnectView {
@@ -63,36 +62,20 @@ impl View for ConnectView {
         frame: &mut eframe::Frame,
         app: &mut App,
     ) {
-        while let Some(event,) = app.poll_network() {
-            match event {
-                ConnectionEvent::Open => {
-                    app.send_message(Message::JoinServerRequest {
-                        nickname:  self.nickname.to_string(),
-                        player_id: self.player_id(),
-                    },);
-                },
-                ConnectionEvent::Close => {
-                    self.error = "Connection closed".to_string();
-                },
-                ConnectionEvent::Error(e,) => {
-                    self.error = format!("Connection error {e}");
-                },
-                ConnectionEvent::Message(msg,) => {
-                    if let Message::JoinedServerConfirmation {
+        while let Ok(msg) = app.tablestate.connection.rx.receiver.try_recv() {
+            let msg = msg.message();
+            if let Message::JoinedServerConfirmation {
                         nickname,
                         chips,
                         player_id,
-                    } = msg.message()
+            } = msg {
+                    if self.player_id() == *player_id
+                        && self.nickname == nickname.to_string()
                     {
-                        if self.player_id() == *player_id
-                            && self.nickname == *nickname
-                        {
-                            self.chips = *chips;
-                            self.server_joined = true;
-                            self.nickname = nickname.to_string();
-                        }
+                        self.chips = *chips;
+                        self.server_joined = true;
+                        self.nickname = nickname.to_string();
                     }
-                },
             }
         }
 
@@ -209,13 +192,6 @@ impl View for ConnectView {
                             self.error = "Invalid passphrase".to_string();
                             return;
                         };
-
-                        if let Err(e,) =
-                            app.connect(sk, self.nickname.trim(), ctx,)
-                        {
-                            self.error = "Connect error".to_string();
-                            error!("Connect error: {e}");
-                        }
                     }
                 },);
             },);

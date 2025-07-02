@@ -76,7 +76,7 @@ fn main() -> eframe::Result<(),> {
     let cli = Cli::parse();
 
     let config = gui::Config {
-        server_url: cli.url,
+        seed_peer_multiaddr: cli.url.parse().expect("invalid url"),
     };
 
     let app_name = cli

@@ -13,18 +13,19 @@ use poker_core::crypto::{KeyPair, PeerId, SigningKey, VerifyingKey};
 use poker_core::message::{Message, SignedMessage};
 use serde::{Deserialize, Serialize};
 use libp2p::Multiaddr;
+use libp2p_swarm::handler::ConnectionEvent;
 use log::{info, trace};
 use poker_core::net::{NetRx, NetTx};
 use poker_core::net::traits::P2pTransport;
 use poker_core::poker::{Chips, TableId};
 use poker_table_engine::engine::InternalTableState;
 use poker_table_engine::EngineCallbacks;
-use crate::{ConnectView, Connection, ConnectionEvent};
+use crate::{ConnectView};
 
 /// App configuration parameters.
 #[derive(Debug, Clone)]
 pub struct Config {
-    /// seed peer id 
+    /// seed peer id
     pub seed_peer_multiaddr: Multiaddr,
 }
 
@@ -88,35 +89,29 @@ pub struct App {
     /// This client nickname
     nickname:     String,
     /// channel for sending messages
-    tablestate: InternalTableState,
+    pub tablestate: InternalTableState,
 }
 
 impl App {
     const STORAGE_KEY: &'static str = "appdata";
 
-    async fn new(config: Config, textures: Textures,) -> Self {
+    fn new(config: Config, textures: Textures,) -> Self {
         let sk = SigningKey::default();
         let cfg = config.clone();
+        let tablestate = Self::init().expect("error initializing internaltablestate");
         Self {
             config: cfg,
             textures,
             player_id: sk.verifying_key().to_peer_id(),
             sk,
             nickname: String::default(),
-            tablestate: Self::init().await.expect("error initializing internaltablestate")
+            tablestate,
         }
     }
-    
-    pub async fn poll_network(&mut self) {
-        let msg = self.tablestate.connection.rx.try_recv().await;
-        if let Ok(ref message,) = msg {
-            info!("received message: {}", message.message());
-            println!("received message: {}", message.message());
-            return message
-        }
-    }
-    
-    async fn init() -> Result<InternalTableState,>{
+
+
+
+    fn init() -> Result<InternalTableState,>{
         let opt = Options::parse();
         let keypair = Self::load_or_generate_keypair(&opt.key_pair,).expect("err",);
         let signing_key: SigningKey = SigningKey::new(&keypair,);
@@ -144,9 +139,7 @@ impl App {
         );
 
         // join myself (100 000 starting chips just for dev)
-        engine
-            .try_join(&signing_key.peer_id(), &opt.nick, Chips::new(100_000,),)
-            .await?;
+        engine.try_join(&signing_key.peer_id(), &opt.nick, Chips::new(100_000,),);
 
         Ok(engine,)
     }
@@ -162,11 +155,11 @@ impl App {
     pub fn nickname(&self,) -> &str {
         &self.nickname
     }
-    
+
     pub async fn sign_and_send(&mut self, msg: Message) -> Result<(), anyhow::Error>{
         self.tablestate.sign_and_send(msg).await
     }
-    
+
     pub async fn send(&mut self, msg: SignedMessage) -> Result<(), anyhow::Error> {
         self.tablestate.send(msg).await
     }
@@ -192,7 +185,7 @@ impl App {
             s.flush();
         }
     }
-    
+
     // persistent key ----------------------------------------------------
     fn load_or_generate_keypair(path: &std::path::Path,) -> Result<KeyPair,> {
         use std::fs;
@@ -239,11 +232,11 @@ pub struct AppFrame {
 impl AppFrame {
     /// Creates a new App instance.
     #[must_use]
-    pub async fn new(config: Config, cc: &eframe::CreationContext<'_,>,) -> Self {
+    pub fn new(config: Config, cc: &eframe::CreationContext<'_,>,) -> Self {
         cc.egui_ctx.set_theme(Theme::Dark,);
 
         info!("Creating new app with config: {config:?}");
-        let app = App::new(config, Textures::new(&cc.egui_ctx,),).await;
+        let app = App::new(config, Textures::new(&cc.egui_ctx,),);
         let panel = Box::new(ConnectView::new(cc.storage, &app,),);
 
         Self { app, panel, }
