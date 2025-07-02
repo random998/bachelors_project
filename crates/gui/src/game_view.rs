@@ -884,7 +884,7 @@ impl GameView {
         }
     }
 
-    fn paint_close_button(&self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
+    async fn paint_close_button(&self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
         let btn = Button::new(
             RichText::new("X",)
                 .font(Self::TEXT_FONT,)
@@ -895,7 +895,7 @@ impl GameView {
         let rect = Rect::from_min_size(rect.left_top(), Self::SMALL_BUTTON_SZ,);
 
         if ui.put(rect, btn,).clicked() {
-            app.send_message(Message::PlayerLeftTable {peer_id: self.game_state.players().get(0).unwrap().id.clone(),},);
+            app.sign_and_send(Message::PlayerLeftTable { peer_id: self.game_state.players().get(0).unwrap().id.clone(), }, ).await;
         }
     }
 

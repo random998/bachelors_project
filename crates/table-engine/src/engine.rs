@@ -15,7 +15,7 @@ use poker_core::message::{
     HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
 };
 use poker_core::net::NetTx;
-use poker_core::net::traits::P2pTx;
+use poker_core::net::traits::{P2pTransport, P2pTx};
 use poker_core::poker::{Card, Chips, Deck, PlayerCards, TableId};
 use poker_eval::HandValue;
 use rand::prelude::StdRng;
@@ -98,7 +98,7 @@ pub enum TableJoinError {
 
 /// Core state of a poker table instance.
 pub struct InternalTableState {
-    callbacks:   P2pTx,
+    pub connection:   P2pTransport,
     table_id:    TableId,
     num_seats:   usize,
     signing_key: Arc<SigningKey,>,
@@ -127,24 +127,24 @@ impl InternalTableState {
     const INITIAL_BIG_BLIND: Chips = Chips::new(20_000,);
 
     pub fn new(
-        callbacks: P2pTx,
+        transport: P2pTransport,
         table_id: TableId,
         max_seats: usize,
         signing_key: Arc<SigningKey,>,
     ) -> Self {
         let rng = StdRng::from_rng(&mut rng(),);
-        Self::with_rng(callbacks, table_id, max_seats, signing_key, rng,)
+        Self::with_rng(transport, table_id, max_seats, signing_key, rng,)
     }
 
     fn with_rng(
-        callbacks: P2pTx,
+        transport: P2pTransport,
         table_id: TableId,
         max_seats: usize,
         signing_key: Arc<SigningKey,>,
         mut rng: StdRng,
     ) -> Self {
         Self {
-            callbacks,
+            connection: transport,
             table_id,
             num_seats: max_seats,
             signing_key,
@@ -201,7 +201,7 @@ impl InternalTableState {
         let signed_message =
             SignedMessage::new(&self.signing_key, confirmation_message,);
 
-        let _ = self.callbacks.send(signed_message,);
+        let _ = self.connection.tx.send(signed_message,);
 
         // for each existing player, send a player joined message to the newly
         // joined player.
@@ -214,7 +214,7 @@ impl InternalTableState {
             };
 
             let signed = SignedMessage::new(&self.signing_key, join_msg,);
-            let _ = self.callbacks.send(signed,);
+            let _ = self.connection.tx.send(signed,);
         }
 
         info!("Player {player_id} joined table {}", self.table_id);
@@ -268,8 +268,15 @@ impl InternalTableState {
 
     pub async fn sign_and_send(&mut self, msg: Message,) -> Result<(), Error,> {
         let signed = SignedMessage::new(&self.signing_key, msg,);
-        self.callbacks.send(signed,).await
+        self.connection.tx.send(signed,).await
     }
+    
+    pub async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error,> {
+        self.connection.tx.send(msg,).await
+    }
+    
+    
+    
 
     /// handle incoming message from a player.
     pub async fn handle_message(&mut self, msg: SignedMessage,) {
@@ -402,8 +409,10 @@ impl InternalTableState {
         self.phase = HandPhase::StartingGame;
         self.players.shuffle(&mut self.rng,);
         let seat_order = self.players.iter().map(|p| p.id,).collect();
-        self.sign_and_send(Message::StartGame(seat_order,),).await;
-
+        let res =self.sign_and_send(Message::StartGame(seat_order,),).await;
+        if let Err(e) = res{
+            info!("error: {}", e)
+        }
         self.start_hand().await;
     }
 
@@ -468,7 +477,10 @@ impl InternalTableState {
         self.deck = Deck::shuffled(&mut self.rng,);
         self.community_cards.clear();
         self.pots = vec![Pot::default()];
-        self.sign_and_send(Message::StartHand,).await;
+        let res = self.sign_and_send(Message::StartHand,).await;
+        if let Err(e) = res {
+            info!("error: {}", e);
+        } 
 
         info!("dealing cards to players: {}", self.phase);
         info!("current players list: {}", self.players.clone());
