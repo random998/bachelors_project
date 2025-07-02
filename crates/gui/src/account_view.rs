@@ -56,27 +56,24 @@ impl View for AccountView {
         while let Some(msg,) = app.try_recv() {
             info!("client received event: {msg:?}");
             match msg.message() {
-                        Message::PlayerJoined { .. } => {
-                            self.table_joined = true;
-                        },
-                        Message::NotEnoughChips => {
-                            self.message =
-                                "Not enough chips to play, reconnect later"
-                                    .to_string();
-                        },
-                        Message::NoTablesLeftNotification => {
-                            self.message =
-                                "All tables are busy, reconnect later"
-                                    .to_string();
-                        },
-                        Message::PlayerAlreadyJoined => {
-                            self.message =
-                                "This player has already joined".to_string();
-                        },
-                        _ => {},
-                    }
+                Message::PlayerJoined { .. } => {
+                    self.table_joined = true;
+                },
+                Message::NotEnoughChips => {
+                    self.message =
+                        "Not enough chips to play, reconnect later".to_string();
+                },
+                Message::NoTablesLeftNotification => {
+                    self.message =
+                        "All tables are busy, reconnect later".to_string();
+                },
+                Message::PlayerAlreadyJoined => {
+                    self.message = "This player has already joined".to_string();
+                },
+                _ => {},
+            }
 
-                    self.game_state.handle_message(msg,);
+            self.game_state.handle_message(msg,);
         }
 
         Window::new("Account",)

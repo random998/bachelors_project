@@ -2,8 +2,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
+
 use clap::Parser;
 use eframe::egui;
 use eframe::egui::ViewportBuilder;
@@ -25,7 +26,7 @@ struct Options {
 
     /// swarm discovery peer id
     #[arg(long, default_value = "")]
-    seed_addr : String,
+    seed_addr: String,
 
     /// Number of seats (only used by first peer that creates the table)
     #[arg(long, default_value_t = 6)]
@@ -41,12 +42,19 @@ impl Options {
         TableId(self.table.parse().unwrap(),)
     }
 
-    pub fn seed_addr(&self) -> Option<Multiaddr> {
-        if self.seed_addr == "" {
+    pub fn seed_addr(&self,) -> Option<Multiaddr,> {
+        if self.seed_addr.is_empty() {
             info!("did not specify seed address, not parsing it.");
             None
         } else {
-            Some(self.seed_addr.clone().to_string().as_str().parse().expect("failed to parse seed-addr"))
+            Some(
+                self.seed_addr
+                    .clone()
+                    
+                    .as_str()
+                    .parse()
+                    .expect("failed to parse seed-addr",),
+            )
         }
     }
 }
@@ -85,27 +93,29 @@ fn main() {
     },)
 }
 
-
 #[tokio::main]
 #[cfg(not(target_arch = "wasm32"))]
-async fn main() -> eframe::Result<(),>  {
-    let engine = Arc::new(tokio::sync::Mutex::new(start_engine().await.expect("failed to start engine")));
+async fn main() -> eframe::Result<(),> {
+    let engine = Arc::new(tokio::sync::Mutex::new(
+        start_engine().await.expect("failed to start engine",),
+    ),);
 
     // network / timer loop
     {
         let engine_net = engine.clone();
         tokio::spawn(async move {
-            if let Err(e) = run_engine(engine_net).await {
+            if let Err(e,) = run_engine(engine_net,).await {
                 eprintln!("engine task failed: {e:?}");
             }
-        });
+        },);
     }
 
     // launch native UI on this thread
-    start_ui(engine)
+    start_ui(engine,)
 }
-fn start_ui(internal_table_state: Arc<tokio::sync::Mutex<InternalTableState>>) -> eframe::Result<(),> {
-
+fn start_ui(
+    internal_table_state: Arc<tokio::sync::Mutex<InternalTableState,>,>,
+) -> eframe::Result<(),> {
     let init_size = [1024.0, 640.0,];
     let native_options = eframe::NativeOptions {
         viewport: ViewportBuilder {
@@ -126,29 +136,31 @@ fn start_ui(internal_table_state: Arc<tokio::sync::Mutex<InternalTableState>>) -
     eframe::run_native(
         &app_name,
         native_options,
-        Box::new(|cc| Ok(Box::new(gui::AppFrame::new(cc, internal_table_state),),),),
+        Box::new(|cc| {
+            Ok(Box::new(gui::AppFrame::new(cc, internal_table_state,),),)
+        },),
     )
 }
 
 async fn run_engine(
-    engine: Arc<tokio::sync::Mutex<InternalTableState>>,
-) -> anyhow::Result<(), > {
+    engine: Arc<tokio::sync::Mutex<InternalTableState,>,>,
+) -> anyhow::Result<(),> {
     loop {
         {
             let mut eng = engine.try_lock()?;
             // 1) inbound network → engine
-            while let Ok(message)  = eng.connection.rx.receiver.try_recv() {
-                eng.handle_message(message).await;
+            while let Ok(message,) = eng.connection.rx.receiver.try_recv() {
+                eng.handle_message(message,).await;
             }
             // 2) timers
             eng.tick().await;
         }
         // 3) quick nap
-        tokio::time::sleep(Duration::from_millis(20, ), ).await;
+        tokio::time::sleep(Duration::from_millis(20,),).await;
     }
 }
 
-async fn start_engine() -> Result<InternalTableState, anyhow::Error> {
+async fn start_engine() -> Result<InternalTableState, anyhow::Error,> {
     let opt = Options::parse();
     let keypair = load_or_generate_keypair(&opt.key_pair,).expect("err",);
     let signing_key: SigningKey = SigningKey::new(&keypair,);
@@ -159,14 +171,15 @@ async fn start_engine() -> Result<InternalTableState, anyhow::Error> {
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or("info",),
     )
-        .init();
+    .init();
 
     // ---------- P2P transport --------------------------------------
     info!(
         "creating p2p transport with table id: {}",
-        opt.table_id().to_string()
+        opt.table_id()
     );
-    let transport = p2p_net::swarm_task::new(&opt.table_id(), keypair, opt.seed_addr());
+    let transport =
+        p2p_net::swarm_task::new(&opt.table_id(), keypair, opt.seed_addr(),);
 
     let mut engine = InternalTableState::new(
         transport,
@@ -177,17 +190,19 @@ async fn start_engine() -> Result<InternalTableState, anyhow::Error> {
 
     // join myself (100 000 starting chips just for dev)
     engine
-        .try_join(&signing_key.peer_id(), &opt.nick, Chips::new(100_000, ), )
-        .await.expect("TODO: panic message");
+        .try_join(&signing_key.peer_id(), &opt.nick, Chips::new(100_000,),)
+        .await
+        .expect("TODO: panic message",);
 
     // dial known peer
 
     Ok(engine,)
-
 }
 
 // persistent key ----------------------------------------------------
-fn load_or_generate_keypair(path: &std::path::Path,) -> anyhow::Result<KeyPair, > {
+fn load_or_generate_keypair(
+    path: &std::path::Path,
+) -> anyhow::Result<KeyPair,> {
     use std::fs;
     use std::io::Write;
 
