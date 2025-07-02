@@ -35,7 +35,7 @@ impl View for GameView {
         app: &mut App,
     ) {
         // --- 1) non-blocking network poll --------------------------
-        while let Ok(msg) = app.try_recv() {
+        while let Some(msg) = app.try_recv() {
             info!("got gossipsub msg: {:?}", msg.message().label());
             if let Message::ShowAccount { chips } = msg.message() {
                 self.show_account = Some(*chips);

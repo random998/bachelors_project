@@ -53,7 +53,7 @@ impl View for AccountView {
         _frame: &mut eframe::Frame,
         app: &mut App,
     ) {
-        while let Ok(msg,) = app.try_recv() {
+        while let Some(msg,) = app.try_recv() {
             info!("client received event: {msg:?}");
             match msg.message() {
                         Message::PlayerJoined { .. } => {
