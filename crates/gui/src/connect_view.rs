@@ -6,7 +6,7 @@ use poker_core::crypto::{PeerId, SigningKey};
 use poker_core::message::Message;
 use poker_core::poker::Chips;
 
-use crate::{AccountView, App, AppData, View};
+use crate::{AccountView, App, View};
 
 const TEXT_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 const LABEL_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
@@ -62,7 +62,7 @@ impl View for ConnectView {
         frame: &mut eframe::Frame,
         app: &mut App,
     ) {
-        while let Ok(msg) = app.try_recv() {
+        while let Some(msg) = app.try_recv() {
             let msg = msg.message();
             if let Message::JoinedServerConfirmation {
                         nickname,
@@ -177,21 +177,6 @@ impl View for ConnectView {
                             return;
                         }
 
-                        let sk = if let Ok(sk,) =
-                            SigningKey::from_phrase(&self.passphrase(),)
-                        {
-                            let data = AppData {
-                                passphrase: self.passphrase(),
-                                nickname:   self.nickname.clone(),
-                            };
-
-                            app.set_storage(frame.storage_mut(), &data,);
-
-                            sk
-                        } else {
-                            self.error = "Invalid passphrase".to_string();
-                            return;
-                        };
                         self.server_joined = true;
 
                     }
