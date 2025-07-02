@@ -9,8 +9,13 @@ clap           = { version = "4", features = ["derive"] }
 anyhow         = "1"
 bincode        = "1"
 p2p-net        = { path = "../p2p-net" }
-table-engine   = { path = "../table-engine" }
-poker-core     = { path = "../core" }
+poker-table-engine = { workspace = true}
+poker-core= { workspace = true}
 env_logger = "0.11"
 log = "0.4.27"
-libp2p-identity = {version = "0.2.12",  features = ["peerid"]}
+libp2p-autonat = {workspace = true}
+libp2p= {workspace = true,  features = ["full"]}
+libp2p-identity = { workspace = true, features = ["peerid", "ed25519"]}
+libp2p-dns = {workspace = true}
+libp2p-swarm = {workspace = true, features = ["macros"]}
+libp2p-swarm-derive = {workspace = true}

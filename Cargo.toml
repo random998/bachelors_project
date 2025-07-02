@@ -5,7 +5,8 @@ members = [
     "crates/core",
     "crates/eval",
     "crates/gui",
-    "crates/p2p-net", "crates/peer-node",
+    "crates/p2p-net",
+    "crates/peer-node",
     "crates/table-engine",
     "crates/peer-node"
 ]
@@ -29,11 +30,19 @@ tokio-rustls = "0.26.2"
 tokio-tungstenite = "0.26.0"
 getrandom = { version = "0.2.16", features = ["js"], default-features = false}
 futures = "0.3"
+libp2p-autonat = {version = "0.15.0"}
+libp2p= {version = "0.56.0",  features = ["full"]}
+libp2p-identity = { version = "0.2.12", features = ["peerid", "ed25519"]}
+libp2p-dns = {version = "0.44.0"}
+libp2p-swarm = {version = "0.47.0", features = ["macros"]}
+libp2p-swarm-derive = {version = "0.35.1"}
 
 # crates
 poker-cards = { version = "0.0.1", path = "crates/cards", default-features = false }
 poker-core = { version = "0.0.1", path = "crates/core", default-features = false }
 poker-eval = { version = "0.0.1", path = "crates/eval", default-features = false }
+poker-table-engine = {version = "0.0.1", path = "crates/table-engine", default-features = false}
+p2p-net = {version = "0.0.1", path = "crates/p2p-net", default-features = false}
 
 [profile.release]
 opt-level = 3
