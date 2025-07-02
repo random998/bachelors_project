@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use clap::Parser;
 use eframe::egui;
@@ -9,7 +10,6 @@ use eframe::egui::ViewportBuilder;
 use libp2p::Multiaddr;
 use log::{info, trace};
 use poker_core::crypto::{KeyPair, SigningKey, VerifyingKey};
-use poker_core::net::NetRx;
 use poker_core::poker::{Chips, TableId};
 use poker_gui::gui;
 use poker_table_engine::InternalTableState;
@@ -89,27 +89,22 @@ fn main() {
 #[tokio::main]
 #[cfg(not(target_arch = "wasm32"))]
 async fn main() -> eframe::Result<(),>  {
-    let res = start_engine().await.expect("err");
-    start_ui(res)
-}
-fn start_ui(internal_table_state: InternalTableState) -> eframe::Result<(),> {
-    use clap::Parser;
+    let engine = Arc::new(tokio::sync::Mutex::new(start_engine().await.expect("failed to start engine")));
 
-    #[derive(Debug, Parser,)]
-    struct Cli {
-        /// seed peer multiaddr
-        #[arg(long, default_value = None)]
-        seed_peer_multiaddr:     Option<String>,
-        /// The configuration storage key.
-        #[arg(long)]
-        storage: Option<String,>,
+    // network / timer loop
+    {
+        let engine_net = engine.clone();
+        tokio::spawn(async move {
+            if let Err(e) = run_engine(engine_net).await {
+                eprintln!("engine task failed: {e:?}");
+            }
+        });
     }
 
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Info,)
-        .format_target(false,)
-        .format_timestamp_millis()
-        .init();
+    // launch native UI on this thread
+    start_ui(engine)
+}
+fn start_ui(internal_table_state: Arc<tokio::sync::Mutex<InternalTableState>>) -> eframe::Result<(),> {
 
     let init_size = [1024.0, 640.0,];
     let native_options = eframe::NativeOptions {
@@ -125,21 +120,9 @@ fn start_ui(internal_table_state: InternalTableState) -> eframe::Result<(),> {
         ..Default::default()
     };
 
-    let cli = Cli::parse();
+    let app_name = "zk-poker".to_string();
 
-    let mut seed: Option<Multiaddr> = None;
-    if let Some(addr) = cli.seed_peer_multiaddr {
-        seed = Some(addr.parse().expect("invalid peer seed multiaddr"));
-    } else {
-        seed = None;
-    }
-
-    let app_name = cli
-        .storage
-        .map_or_else(|| "freezeout".to_string(), |s| format!("freezeout-{s}"),);
-
-
-
+    info!("starting eframe");
     eframe::run_native(
         &app_name,
         native_options,
@@ -148,21 +131,20 @@ fn start_ui(internal_table_state: InternalTableState) -> eframe::Result<(),> {
 }
 
 async fn run_engine(
-    mut engine: &mut InternalTableState,
+    engine: Arc<tokio::sync::Mutex<InternalTableState>>,
 ) -> anyhow::Result<(), > {
     loop {
-        // 1) inbound network → engine
-        let msg = engine.connection.rx.try_recv().await;
-        while let Ok(ref message,) = msg {
-            info!("received message: {}", message.message());
-            println!("received message: {}", message.message());
-            engine.handle_message(message.clone(),).await;
+        {
+            let mut eng = engine.try_lock()?;
+            // 1) inbound network → engine
+            while let Ok(message)  = eng.connection.rx.receiver.try_recv() {
+                eng.handle_message(message).await;
+            }
+            // 2) timers
+            eng.tick().await;
         }
-        // 2) timers
-        engine.tick().await;
-
         // 3) quick nap
-        tokio::time::sleep(Duration::from_millis(20,),).await;
+        tokio::time::sleep(Duration::from_millis(20, ), ).await;
     }
 }
 
@@ -190,7 +172,7 @@ async fn start_engine() -> Result<InternalTableState, anyhow::Error> {
         transport,
         opt.table_id(),
         opt.seats,
-        std::sync::Arc::new(signing_key.clone(),),
+        Arc::new(signing_key.clone(),),
     );
 
     // join myself (100 000 starting chips just for dev)
@@ -200,10 +182,6 @@ async fn start_engine() -> Result<InternalTableState, anyhow::Error> {
 
     // dial known peer
 
-    // ---------- async run loop -------------------------------------
-    tokio::select! {
-        r = run_engine(&mut engine) => { r.expect("TODO: panic message"); }
-    }
     Ok(engine,)
 
 }
