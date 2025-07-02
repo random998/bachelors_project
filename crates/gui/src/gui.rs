@@ -4,21 +4,20 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+
 use clap::Parser;
 use eframe::Storage;
 use eframe::egui::{Context, Theme};
+use log::trace;
 use poker_cards::egui::Textures;
 use poker_core::crypto::{KeyPair, PeerId, SigningKey};
 use poker_core::message::{Message, SignedMessage};
-use serde::{Deserialize, Serialize};
-use libp2p::Multiaddr;
-use log::{info, trace};
-use tokio::sync::mpsc::error::{TryRecvError, TrySendError};
-use tokio::sync::TryLockError;
-use poker_core::poker::{TableId};
+use poker_core::poker::TableId;
 use poker_table_engine::engine::InternalTableState;
-use crate::{ConnectView};
+use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::error::{TryRecvError, TrySendError};
 
+use crate::ConnectView;
 
 #[derive(Parser, Debug,)]
 struct Options {
@@ -31,7 +30,7 @@ struct Options {
 
     /// swarm discovery peer id
     #[arg(long, default_value = "")]
-    seed_addr : String,
+    seed_addr: String,
 
     /// Number of seats (only used by first peer that creates the table)
     #[arg(long, default_value_t = 6)]
@@ -60,19 +59,22 @@ pub struct AppData {
 /// The application state shared by all views.
 pub struct App {
     /// The app textures.
-    pub textures: Textures,
+    pub textures:           Textures,
     /// The application message signing key.
-    sk:           SigningKey,
+    sk:                     SigningKey,
     /// This client player id.
-    player_id:    PeerId,
+    player_id:              PeerId,
     /// This client nickname
-    nickname:     String,
-    pub(crate) table_state: Arc<tokio::sync::Mutex<InternalTableState>>,
+    nickname:               String,
+    pub(crate) table_state: Arc<tokio::sync::Mutex<InternalTableState,>,>,
 }
 
 impl App {
     const STORAGE_KEY: &'static str = "appdata";
-    fn new(internal_table_state: Arc<tokio::sync::Mutex<InternalTableState>>, textures: Textures) -> Self {
+    fn new(
+        internal_table_state: Arc<tokio::sync::Mutex<InternalTableState,>,>,
+        textures: Textures,
+    ) -> Self {
         let sk = SigningKey::default();
         Self {
             textures,
@@ -92,20 +94,22 @@ impl App {
     /// Try to pull one signed message from the engine without blocking.
     /// Returns `None` if (a) no message is available, or (b) the mutex
     /// is momentarily busy, or (c) it was poisoned.
-    pub fn try_recv(&mut self) -> Option<SignedMessage> {
+    pub fn try_recv(&mut self,) -> Option<SignedMessage,> {
         match self.table_state.try_lock() {
-            Ok(mut engine) => match engine.connection.rx.receiver.try_recv() {
-                Ok(msg)                       => Some(msg),
-                Err(TryRecvError::Empty)      => None,
-                Err(TryRecvError::Disconnected) => {
-                    log::warn!("engine RX channel closed");
-                    None
+            Ok(mut engine,) => {
+                match engine.connection.rx.receiver.try_recv() {
+                    Ok(msg,) => Some(msg,),
+                    Err(TryRecvError::Empty,) => None,
+                    Err(TryRecvError::Disconnected,) => {
+                        log::warn!("engine RX channel closed");
+                        None
+                    },
                 }
             },
-            Err(_) => {
+            Err(_,) => {
                 // UI thread: just skip this frame.
                 None
-            }
+            },
         }
     }
     // Signs a message and *attempts* to send it immediately.
@@ -114,16 +118,16 @@ impl App {
     pub fn sign_and_send(
         &mut self,
         msg: Message,
-    ) -> Result<(), TrySendError<SignedMessage>> {
-        let signed = SignedMessage::new(&self.sk, msg);
+    ) -> Result<(), TrySendError<SignedMessage,>,> {
+        let signed = SignedMessage::new(&self.sk, msg,);
 
         match self.table_state.try_lock() {
-            Ok(engine) => engine.connection.tx.sender.try_send(signed),
-            Err(_TryLockError) => {
+            Ok(engine,) => engine.connection.tx.sender.try_send(signed,),
+            Err(_TryLockError,) => {
                 // Could push to a VecDeque and flush it next frame, or
                 // just return Err so caller can retry.
-                Err(TrySendError::Closed(signed))
-            }
+                Err(TrySendError::Closed(signed,),)
+            },
         }
     }
     /// This client nickname.
@@ -183,7 +187,10 @@ pub struct AppFrame {
 impl AppFrame {
     /// Creates a new App instance.
     #[must_use]
-    pub fn new(cc: &eframe::CreationContext<'_,>, table_state: Arc<tokio::sync::Mutex<InternalTableState>>) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_,>,
+        table_state: Arc<tokio::sync::Mutex<InternalTableState,>,>,
+    ) -> Self {
         cc.egui_ctx.set_theme(Theme::Dark,);
 
         let app = App::new(table_state, Textures::new(&cc.egui_ctx,),);
@@ -205,7 +212,9 @@ impl eframe::App for AppFrame {
 }
 
 // persistent key ----------------------------------------------------
-fn load_or_generate_keypair(path: &std::path::Path,) -> anyhow::Result<KeyPair, > {
+fn load_or_generate_keypair(
+    path: &std::path::Path,
+) -> anyhow::Result<KeyPair,> {
     use std::fs;
     use std::io::Write;
 

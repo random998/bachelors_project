@@ -3,7 +3,9 @@
 use futures::StreamExt;
 use libp2p::core::upgrade;
 use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
-use libp2p::{gossipsub, identify, noise, tcp, yamux, Multiaddr, SwarmBuilder, Transport};
+use libp2p::{
+    gossipsub, identify, noise, tcp, yamux, Multiaddr, SwarmBuilder, Transport,
+};
 use log::info;
 use poker_core::message::SignedMessage;
 use poker_core::net::traits::{NetTx, P2pRx, P2pTransport, P2pTx};
@@ -25,7 +27,7 @@ struct Behaviour {
 pub fn new(
     table_id: &TableId,
     keypair: poker_core::crypto::KeyPair,
-    seed_peer_addr: Option<Multiaddr>,
+    seed_peer_addr: Option<Multiaddr,>,
 ) -> P2pTransport {
     // identity ------------------------------------------------------
     let peer_id = keypair.clone().to_peer_id();
@@ -76,24 +78,25 @@ pub fn new(
     .unwrap()
     .build(); // finish
 
-    let multiaddr : Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().expect("failed parsing multiaddr");
+    let multiaddr: Multiaddr = "/ip4/0.0.0.0/tcp/0"
+        .parse()
+        .expect("failed parsing multiaddr",);
 
     // tell swarm to listen on all interfaces on a random, OS-assigned port.
     swarm
         .listen_on(multiaddr.clone(),)
         .expect("listen on /ip4/0.0.0.0/tcp/0 failed",);
 
-    info!("listening on multiaddress: {}", multiaddr.to_string());
+    info!("listening on multiaddress: {multiaddr}");
 
     // Subscribe to the gossipsub topic
     swarm.behaviour_mut().gossipsub.subscribe(&topic,).unwrap();
 
     // try to dial seed peer
-    if let Some(addr)  = seed_peer_addr{
-        let res = swarm.dial(addr.clone()).expect("dial failure");
-        info!("sucessfully dialed seed peer at {}", addr);
+    if let Some(addr,) = seed_peer_addr {
+        swarm.dial(addr.clone(),).expect("dial failure",);
+        info!("sucessfully dialed seed peer at {addr}");
     }
-
 
     // mpsc pipes ---------------------------------------------------
     let (to_swarm_tx, mut to_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);

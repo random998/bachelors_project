@@ -262,9 +262,8 @@ pub struct PeerId(libp2p_identity::PeerId,);
 impl Default for PeerId {
     fn default() -> Self {
         let id = libp2p_identity::PeerId::random();
-        PeerId(id)
+        PeerId(id,)
     }
-    
 }
 
 impl Serialize for PeerId {

@@ -4,11 +4,12 @@ use eframe::egui::{
     Frame, Image, Key, Rect, RichText, Sense, Slider, Stroke, StrokeKind,
     TextFormat, Ui, Vec2, Window, epaint, pos2, text, vec2,
 };
-use log::{info};
+use log::info;
 use poker_cards::egui::Textures;
 use poker_core::game_state::{ClientGameState, Player};
 use poker_core::message::{Message, PlayerAction};
 use poker_core::poker::{Chips, PlayerCards};
+
 use crate::{AccountView, App, ConnectView, View};
 
 /// Connect view.
@@ -35,15 +36,15 @@ impl View for GameView {
         app: &mut App,
     ) {
         // --- 1) non-blocking network poll --------------------------
-        while let Some(msg) = app.try_recv() {
+        while let Some(msg,) = app.try_recv() {
             info!("got gossipsub msg: {:?}", msg.message().label());
-            if let Message::ShowAccount { chips } = msg.message() {
-                self.show_account = Some(*chips);
+            if let Message::ShowAccount { chips, } = msg.message() {
+                self.show_account = Some(*chips,);
             }
-            if let Message::StartHand = msg.message() {
+            if matches!(msg.message(), Message::StartHand) {
                 self.bet_params = None;
             }
-            self.game_state.handle_message(msg);
+            self.game_state.handle_message(msg,);
         }
 
         Window::new("zk poker",)
@@ -688,14 +689,13 @@ impl GameView {
                     PlayerAction::Bet | PlayerAction::Raise => {
                         if ui.input(|i| i.key_pressed(Key::Enter,),) || clicked
                         {
-                            if let Some(params) = &self.bet_params {
+                            if let Some(params,) = &self.bet_params {
                                 send_action = Some((
-                                                       action,
-                                                       Chips::new(params.raise_value,),
-                                                   ),);
+                                    action,
+                                    Chips::new(params.raise_value,),
+                                ),);
                                 self.bet_params = None;
                                 break;
-
                             }
                         }
 
@@ -876,7 +876,9 @@ impl GameView {
         let rect = Rect::from_min_size(rect.left_top(), Self::SMALL_BUTTON_SZ,);
 
         if ui.put(rect, btn,).clicked() {
-            app.sign_and_send(Message::PlayerLeftTable { peer_id: self.game_state.players().get(0).unwrap().id.clone(), }, );
+            app.sign_and_send(Message::PlayerLeftTable {
+                peer_id: self.game_state.players().first().unwrap().id,
+            },);
         }
     }
 

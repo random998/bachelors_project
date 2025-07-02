@@ -4,14 +4,12 @@ use std::time::Duration;
 
 use anyhow::Result;
 use clap::Parser;
-use log::{info, trace};
-use poker_core::crypto::{KeyPair, PeerId, SigningKey, VerifyingKey};
-use poker_core::message::SignedMessage;
-use poker_core::net::traits::P2pTransport;
-use poker_core::net::{NetRx, NetTx};
-use poker_core::poker::{Chips, TableId};
-use poker_table_engine::{EngineCallbacks, InternalTableState};
 use libp2p::Multiaddr;
+use log::{info, trace};
+use poker_core::crypto::{KeyPair, SigningKey, VerifyingKey};
+use poker_core::net::NetRx;
+use poker_core::poker::{Chips, TableId};
+use poker_table_engine::InternalTableState;
 
 /// CLI --------------------------------------------------------------
 #[derive(Parser, Debug,)]
@@ -25,7 +23,7 @@ struct Options {
 
     /// swarm discovery peer id
     #[arg(long, default_value = "")]
-    seed_addr : String,
+    seed_addr: String,
 
     /// Number of seats (only used by first peer that creates the table)
     #[arg(long, default_value_t = 6)]
@@ -41,12 +39,19 @@ impl Options {
         TableId(self.table.parse().unwrap(),)
     }
 
-    pub fn seed_addr(&self) -> Option<Multiaddr> {
-        if self.seed_addr == "" {
+    pub fn seed_addr(&self,) -> Option<Multiaddr,> {
+        if self.seed_addr.is_empty() {
             info!("did not specify seed address, not parsing it.");
             None
         } else {
-            Some(self.seed_addr.clone().to_string().as_str().parse().expect("failed to parse seed-addr"))
+            Some(
+                self.seed_addr
+                    .clone()
+                    
+                    .as_str()
+                    .parse()
+                    .expect("failed to parse seed-addr",),
+            )
         }
     }
 }
@@ -68,9 +73,10 @@ async fn main() -> Result<(),> {
     // ---------- P2P transport --------------------------------------
     info!(
         "creating p2p transport with table id: {}",
-        opt.table_id().to_string()
+        opt.table_id()
     );
-    let transport = p2p_net::swarm_task::new(&opt.table_id(), keypair, opt.seed_addr());
+    let transport =
+        p2p_net::swarm_task::new(&opt.table_id(), keypair, opt.seed_addr(),);
 
     let mut engine = InternalTableState::new(
         transport,
@@ -111,9 +117,7 @@ fn load_or_generate_keypair(path: &std::path::Path,) -> Result<KeyPair,> {
 }
 
 // run loop ----------------------------------------------------------
-async fn run(
-    mut engine: InternalTableState,
-) -> Result<(),> {
+async fn run(mut engine: InternalTableState,) -> Result<(),> {
     loop {
         // 1) inbound network → engine
         let msg = engine.connection.rx.try_recv().await;
