@@ -19,7 +19,9 @@ pub struct ConnectView {
     chips:         Chips,
     error:         String,
     server_joined: bool,
-    signing_key:   SigningKey, // key for signing messages
+    signing_key:   SigningKey,
+    /// peer id of a player to connect to network.
+    discovery_peer_id: String, 
 }
 
 impl ConnectView {
@@ -32,6 +34,7 @@ impl ConnectView {
                     SigningKey::from_phrase(&d.passphrase,).unwrap_or_default();
                 Self {
                     nickname:      d.nickname,
+                    discovery_peer_id: String::default(),
                     chips:         Chips::default(),
                     error:         String::new(),
                     server_joined: false,
@@ -104,6 +107,15 @@ impl View for ConnectView {
                         ui.label(RichText::new("Nickname",).font(LABEL_FONT,),);
                         TextEdit::singleline(&mut self.nickname,)
                             .hint_text("Nickname",)
+                            .char_limit(10,)
+                            .desired_width(310.0,)
+                            .font(TEXT_FONT,)
+                            .show(ui,);
+                    },);
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Peer-Id",).font(LABEL_FONT,),);
+                        TextEdit::singleline(&mut self.discovery_peer_id,)
+                            .hint_text("Peer-Id",)
                             .char_limit(10,)
                             .desired_width(310.0,)
                             .font(TEXT_FONT,)

@@ -10,19 +10,22 @@ use poker_core::message::SignedMessage;
 use poker_core::net::traits::P2pTransport;
 use poker_core::net::{NetRx, NetTx};
 use poker_core::poker::{Chips, TableId};
-use table_engine::{EngineCallbacks, InternalTableState};
+use poker_table_engine::{EngineCallbacks, InternalTableState};
+use libp2p::Multiaddr;
 
 /// CLI --------------------------------------------------------------
 #[derive(Parser, Debug,)]
 struct Options {
-    #[arg(long)]
+    #[arg(long, default_value = "1")]
     table: String,
 
     /// My nickname
-    #[arg(long)]
+    #[arg(long, default_value = "default_nick")]
     nick: String,
 
-    /// swarm 
+    /// swarm discovery peer id
+    #[arg(long, default_value = "")]
+    seed_addr : String,
 
     /// Number of seats (only used by first peer that creates the table)
     #[arg(long, default_value_t = 6)]
@@ -36,6 +39,15 @@ struct Options {
 impl Options {
     pub fn table_id(&self,) -> TableId {
         TableId(self.table.parse().unwrap(),)
+    }
+
+    pub fn seed_addr(&self) -> Option<Multiaddr> {
+        if self.seed_addr == "" {
+            info!("did not specify seed address, not parsing it.");
+            None
+        } else {
+            Some(self.seed_addr.clone().to_string().as_str().parse().expect("failed to parse seed-addr"))
+        }
     }
 }
 
@@ -58,7 +70,7 @@ async fn main() -> Result<(),> {
         "creating p2p transport with table id: {}",
         opt.table_id().to_string()
     );
-    let transport = p2p_net::swarm_task::new(&opt.table_id(), keypair,);
+    let transport = p2p_net::swarm_task::new(&opt.table_id(), keypair, opt.seed_addr());
 
     let mut engine = InternalTableState::new(
         transport.tx.clone(),
@@ -71,6 +83,8 @@ async fn main() -> Result<(),> {
     engine
         .try_join(&signing_key.peer_id(), &opt.nick, Chips::new(100_000,),)
         .await?;
+
+    // dial known peer
 
     // ---------- async run loop -------------------------------------
     tokio::select! {
