@@ -10,7 +10,7 @@ use poker_core::game_state::ClientGameState;
 use poker_core::message::Message;
 use poker_core::poker::Chips;
 
-use crate::{App, ConnectView, ConnectionEvent, GameView, View};
+use crate::{App, ConnectView, GameView, View};
 
 const TEXT_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 
@@ -53,19 +53,9 @@ impl View for AccountView {
         _frame: &mut eframe::Frame,
         app: &mut App,
     ) {
-        while let Some(event,) = app.poll_network() {
-            info!("client received event: {event:?}");
-            match event {
-                ConnectionEvent::Open => {},
-                ConnectionEvent::Close => {
-                    self.error = "Connection closed".to_string();
-                    self.connection_closed = true;
-                },
-                ConnectionEvent::Error(e,) => {
-                    self.error = format!("Connection error {e}");
-                },
-                ConnectionEvent::Message(msg,) => {
-                    match msg.message() {
+        while let Ok(msg,) = app.tablestate.connection.rx.receiver.try_recv() {
+            info!("client received event: {msg:?}");
+            match msg.message() {
                         Message::PlayerJoined { .. } => {
                             self.table_joined = true;
                         },
@@ -87,8 +77,6 @@ impl View for AccountView {
                     }
 
                     self.game_state.handle_message(msg,);
-                },
-            }
         }
 
         Window::new("Account",)
@@ -145,7 +133,7 @@ impl View for AccountView {
                         RichText::new("Join Table",).font(TEXT_FONT,),
                     );
                     if ui.add_sized(vec2(180.0, 30.0,), btn,).clicked() {
-                        app.send_message(Message::JoinTableRequest {
+                        app.sign_and_send(Message::JoinTableRequest {
                             player_id: self.player_id,
                             nickname:  self.nickname.clone(),
                         },);

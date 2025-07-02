@@ -1,17 +1,15 @@
 // code based on https://github.com/vincev/freezeout
-//! Game view.
 use eframe::egui::{
     Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId,
     Frame, Image, Key, Rect, RichText, Sense, Slider, Stroke, StrokeKind,
     TextFormat, Ui, Vec2, Window, epaint, pos2, text, vec2,
 };
-use log::error;
+use log::{info};
 use poker_cards::egui::Textures;
 use poker_core::game_state::{ClientGameState, Player};
 use poker_core::message::{Message, PlayerAction};
 use poker_core::poker::{Chips, PlayerCards};
-
-use crate::{AccountView, App, ConnectView, ConnectionEvent, View};
+use crate::{AccountView, App, ConnectView, View};
 
 /// Connect view.
 pub struct GameView {
@@ -36,33 +34,16 @@ impl View for GameView {
         _frame: &mut eframe::Frame,
         app: &mut App,
     ) {
-        while let Some(event,) = app.poll_network() {
-            match event {
-                ConnectionEvent::Open => {
-                    self.connection_closed = false;
-                },
-                ConnectionEvent::Close => {
-                    self.connection_closed = true;
-                },
-                ConnectionEvent::Error(e,) => {
-                    self.error = Some(format!("Connection error {e}"),);
-                    error!("Connection error {e}");
-
-                    app.close_connection();
-                    self.connection_closed = true;
-                },
-                ConnectionEvent::Message(msg,) => {
-                    if let Message::ShowAccount { chips, } = msg.message() {
-                        self.show_account = Some(*chips,);
-                    }
-
-                    if matches!(msg.message(), Message::StartHand) {
-                        self.bet_params = None;
-                    }
-
-                    self.game_state.handle_message(msg,);
-                },
+        // --- 1) non-blocking network poll --------------------------
+        while let Ok(msg) = app.tablestate.connection.rx.receiver.try_recv() {
+            info!("got gossipsub msg: {:?}", msg.message().label());
+            if let Message::ShowAccount { chips } = msg.message() {
+                self.show_account = Some(*chips);
             }
+            if let Message::StartHand = msg.message() {
+                self.bet_params = None;
+            }
+            self.game_state.handle_message(msg);
         }
 
         Window::new("zk poker",)
@@ -714,7 +695,7 @@ impl GameView {
                                                    ),);
                                 self.bet_params = None;
                                 break;
-                                
+
                             }
                         }
 
@@ -748,7 +729,7 @@ impl GameView {
 
         if let Some((action, amount,),) = send_action {
             let msg = Message::ActionResponse { action, amount, };
-            app.send_message(msg,);
+            app.sign_and_send(msg,);
 
             self.game_state.reset_action_request();
         }
