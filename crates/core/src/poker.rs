@@ -36,6 +36,23 @@ pub struct TableId(pub u32,);
 )]
 pub struct GameId(pub u32);
 
+impl GameId {
+    // unassigned tables receive id 0.
+    /// no table const
+    pub const NO_GAME: Self = Self(0,);
+
+    fn get_random_u32() -> Result<u32, getrandom::Error,> {
+        let mut buf = [0u8; 4];
+        getrandom::fill(&mut buf,)?;
+        Ok(u32::from_ne_bytes(buf,),)
+    }
+    /// create new unique (with high probability) game id.
+    #[must_use]
+    pub fn new_id() -> Self {
+        Self(Self::get_random_u32().unwrap(), )
+    }
+}
+
 impl TableId {
     // unassigned tables receive id 0.
     /// no table const
