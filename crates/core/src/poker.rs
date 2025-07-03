@@ -34,7 +34,7 @@ pub struct TableId(pub u32,);
     Serialize,
     Deserialize,
 )]
-pub struct GameId(pub u32);
+pub struct GameId(pub u32,);
 
 impl GameId {
     // unassigned tables receive id 0.
@@ -49,7 +49,7 @@ impl GameId {
     /// create new unique (with high probability) game id.
     #[must_use]
     pub fn new_id() -> Self {
-        Self(Self::get_random_u32().unwrap(), )
+        Self(Self::get_random_u32().unwrap(),)
     }
 }
 
