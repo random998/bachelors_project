@@ -50,7 +50,6 @@ impl Options {
             Some(
                 self.seed_addr
                     .clone()
-                    
                     .as_str()
                     .parse()
                     .expect("failed to parse seed-addr",),
@@ -174,10 +173,7 @@ async fn start_engine() -> Result<InternalTableState, anyhow::Error,> {
     .init();
 
     // ---------- P2P transport --------------------------------------
-    info!(
-        "creating p2p transport with table id: {}",
-        opt.table_id()
-    );
+    info!("creating p2p transport with table id: {}", opt.table_id());
     let transport =
         p2p_net::swarm_task::new(&opt.table_id(), keypair, opt.seed_addr(),);
 

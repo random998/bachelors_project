@@ -17,7 +17,8 @@ pub struct UiHandle {
 }
 
 /// Call once from the GUI thread.
-#[must_use] pub fn start(
+#[must_use]
+pub fn start(
     table: TableId,
     seats: usize,
     keypair: KeyPair,

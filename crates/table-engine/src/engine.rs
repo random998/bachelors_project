@@ -9,16 +9,15 @@ use ahash::AHashSet;
 use anyhow::Error;
 use log::{error, info};
 use poker_core::crypto::{PeerId, SigningKey};
-use poker_core::message::{
-    Message, PlayerAction, PlayerUpdate, SignedMessage,
-};
+use poker_core::game_state::ClientGameState;
+use poker_core::message::{Message, PlayerAction, PlayerUpdate, SignedMessage};
 use poker_core::net::NetTx;
-use poker_core::net::traits::{P2pTransport};
+use poker_core::net::traits::P2pTransport;
 use poker_core::poker::{Card, Chips, Deck, TableId};
 use rand::prelude::StdRng;
 use rand::{SeedableRng, rng};
 use thiserror::Error;
-use poker_core::game_state::ClientGameState;
+
 use super::player::Player;
 use super::players_state::PlayersState;
 
@@ -95,7 +94,8 @@ pub enum TableJoinError {
 
 /// Core state of a poker table instance.
 pub struct InternalTableState {
-    /// id of the local peer (the one which is simulating this internalTable state).
+    /// id of the local peer (the one which is simulating this internalTable
+    /// state).
     player_id: PeerId,
 
     pub connection: P2pTransport,
@@ -120,8 +120,8 @@ pub struct InternalTableState {
     rng:              StdRng,
     hand_start_timer: Option<Instant,>,
     hand_start_delay: Duration,
-    
-    client_game_state: ClientGameState
+
+    client_game_state: ClientGameState,
 }
 impl InternalTableState {
     const ACTION_TIMEOUT: Duration = Duration::from_secs(15,);
@@ -137,7 +137,15 @@ impl InternalTableState {
         signing_key: Arc<SigningKey,>,
     ) -> Self {
         let rng = StdRng::from_rng(&mut rng(),);
-        Self::with_rng(client_game_state, peer_id, transport, table_id, max_seats, signing_key, rng)
+        Self::with_rng(
+            client_game_state,
+            peer_id,
+            transport,
+            table_id,
+            max_seats,
+            signing_key,
+            rng,
+        )
     }
 
     fn with_rng(
@@ -199,7 +207,7 @@ impl InternalTableState {
         let new_player: Player =
             Player::new(*player_id, nickname.to_string(), starting_chips,);
 
-        let confirmation_message = Message::PlayerLeaveRequest{
+        let confirmation_message = Message::PlayerLeaveRequest {
             table_id:  self.table_id,
             player_id: *player_id,
         };
@@ -212,7 +220,7 @@ impl InternalTableState {
         // for each existing player, send a player joined message to the newly
         // joined player.
         for existing_player in self.players.iter() {
-            let join_msg = Message::PlayerJoinedConfirmation{
+            let join_msg = Message::PlayerJoinedConfirmation {
                 player_id: existing_player.id,
                 chips:     existing_player.chips,
                 table_id:  self.table_id,
@@ -280,7 +288,7 @@ impl InternalTableState {
     }
 
     /// Handle an incoming server message.
-    pub fn handle_message(&mut self, msg: SignedMessage) {
-        self.client_game_state.handle_message(msg)
+    pub fn handle_message(&mut self, msg: SignedMessage,) {
+        self.client_game_state.handle_message(msg,)
     }
 }

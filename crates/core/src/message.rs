@@ -5,9 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// Type definitions for p2p messages.
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
-
 
 use crate::crypto::{PeerId, Signature, SigningKey, VerifyingKey};
 use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
@@ -16,7 +15,7 @@ use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 pub enum Message {
     /// response by server that particular client joined the server.
     JoinedTableConfirmation {
-        table_id: TableId,
+        table_id:  TableId,
         player_id: PeerId,
         /// The player nickname.
         nickname:  String,
@@ -26,32 +25,30 @@ pub enum Message {
 
     /// Request (by a player) to join a table with the given nickname.
     JoinTableRequest {
-        table_id: TableId,
+        table_id:  TableId,
         player_id: PeerId,
         nickname:  String,
-        chips: Chips
+        chips:     Chips,
     },
 
     /// requests / commands the player with the id to leave the table.
     PlayerLeaveRequest {
         player_id: PeerId,
-        table_id: TableId,
+        table_id:  TableId,
     },
 
     /// Sent when no available tables remain for the player to join.
-    NoTablesLeftNotification {
-        player_id: PeerId,
-    },
+    NoTablesLeftNotification { player_id: PeerId, },
 
     /// Indicates that the player does not have enough chips to join a game.
     NotEnoughChips {
         player_id: PeerId,
-        table_id: TableId,
+        table_id:  TableId,
     },
 
     /// Indicates that the player has already joined a table.
     PlayerAlreadyJoined {
-        table_id: TableId,
+        table_id:  TableId,
         player_id: PeerId,
     },
 
@@ -63,30 +60,21 @@ pub enum Message {
     },
 
     /// Request to show the player’s current chip balance/account summary.
-    ShowAccount {
-        player_id: PeerId,
-        chips: Chips,
-    },
+    ShowAccount { player_id: PeerId, chips: Chips, },
 
     /// balance update of the account.
-    AccountBalanceUpdate {
-        player_id: PeerId,
-        chips: Chips,
-    },
+    AccountBalanceUpdate { player_id: PeerId, chips: Chips, },
 
     /// Starts the game and notifies all players of seat order.
     StartGameNotify {
         seat_order: Vec<PeerId,>,
-        table_id: TableId,
+        table_id:   TableId,
         /// the id the started game should have.
-        game_id: GameId,
+        game_id:    GameId,
     },
 
     /// Begins a new poker hand.
-    StartHand {
-        table_id: TableId,
-        game_id: GameId,
-    },
+    StartHand { table_id: TableId, game_id: GameId, },
 
     /// Ends the current poker hand, providing final results.
     EndHand {
@@ -100,32 +88,32 @@ pub enum Message {
         cards: Vec<(PeerId, PlayerCards,),>,
 
         table_id: TableId,
-        game_id: GameId,
+        game_id:  GameId,
     },
 
     /// Deals two hole cards to the player.
-    DealCards{
-        card1: Card,
-        card2: Card,
+    DealCards {
+        card1:     Card,
+        card2:     Card,
         player_id: PeerId,
-        table_id: TableId,
-        game_id: GameId,
+        table_id:  TableId,
+        game_id:   GameId,
     },
 
     /// Notifies peers that this player has left the table.
     PlayerLeftTable {
-        peer_id: PeerId,
+        peer_id:  PeerId,
         table_id: TableId,
-        game_id: GameId,
+        game_id:  GameId,
     },
 
     /// Updated game state including players, board, and pot.
     GameStateUpdate {
-        player_updates:         Vec<PlayerUpdate,>,
+        player_updates:  Vec<PlayerUpdate,>,
         community_cards: Vec<Card,>,
         pot:             Chips,
-        table_id: TableId,
-        game_id: GameId,
+        table_id:        TableId,
+        game_id:         GameId,
     },
 
     /// Requests a specific player to make a game action (e.g., Call, Raise).
@@ -171,19 +159,19 @@ impl Message {
             Self::JoinTableRequest { .. } => "JoinTableRequest",
             Self::PlayerLeaveRequest { .. } => "PlayerLeftNotification",
             Self::NoTablesLeftNotification { .. } => "NoTablesLeftNotification",
-            Self::NotEnoughChips {..} => "NotEnoughChips",
-            Self::PlayerAlreadyJoined {..} => "PlayerAlreadyJoined",
+            Self::NotEnoughChips { .. } => "NotEnoughChips",
+            Self::PlayerAlreadyJoined { .. } => "PlayerAlreadyJoined",
             Self::PlayerJoinedConfirmation { .. } => "PlayerJoined",
             Self::ShowAccount { .. } => "ShowAccount",
-            Self::StartGameNotify{ .. } => "StartGame",
-            Self::StartHand { .. }=> "StartHand",
+            Self::StartGameNotify { .. } => "StartGame",
+            Self::StartHand { .. } => "StartHand",
             Self::EndHand { .. } => "EndHand",
-            Self::DealCards {.. } => "DealCards",
+            Self::DealCards { .. } => "DealCards",
             Self::PlayerLeftTable { .. } => "PlayerLeftTable",
             Self::GameStateUpdate { .. } => "GameStateUpdate",
             Self::ActionRequest { .. } => "ActionRequest",
             Self::ActionResponse { .. } => "ActionResponse",
-            Self::JoinedTableConfirmation{ .. } => "JoinedTableConfirmation",
+            Self::JoinedTableConfirmation { .. } => "JoinedTableConfirmation",
         }
     }
 }
@@ -337,11 +325,11 @@ mod tests {
         let vk = sk.verifying_key();
         let peer_id = vk.to_peer_id();
         let chips = Chips::default();
-        let message = Message::JoinTableRequest{
+        let message = Message::JoinTableRequest {
             player_id: peer_id,
-            nickname:  "Alice".to_string(),
-            table_id: TableId(0),
-            chips
+            nickname: "Alice".to_string(),
+            table_id: TableId(0,),
+            chips,
         };
 
         let signed_message = SignedMessage::new(&sk, message,);

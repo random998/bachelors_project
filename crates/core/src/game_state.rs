@@ -152,7 +152,7 @@ pub struct ClientGameState {
     /// Total amount of chips currently in the pot.
     pot:               Chips,
     /// id of the current game/hand.
-    game_id: GameId
+    game_id:           GameId,
 }
 
 impl ClientGameState {
@@ -182,7 +182,7 @@ impl ClientGameState {
             msg.message().to_string()
         );
         match msg.message() {
-            Message::JoinTableRequest{
+            Message::JoinTableRequest {
                 player_id,
                 nickname,
                 chips,
@@ -200,15 +200,22 @@ impl ClientGameState {
                     *chips,
                 ),);
             },
-            Message::PlayerLeaveRequest{ player_id, table_id} => {
+            Message::PlayerLeaveRequest {
+                player_id,
+                table_id,
+            } => {
                 if self.table_id != *table_id {
                     return;
                 }
                 self.players.retain(|p| &p.id != player_id,);
             },
-            Message::StartGameNotify{seat_order: seats, table_id: _table_id, game_id: _game_id } => {
-                //TODO: handle table_id and game_id.
-                
+            Message::StartGameNotify {
+                seat_order: seats,
+                table_id: _table_id,
+                game_id: _game_id,
+            } => {
+                // TODO: handle table_id and game_id.
+
                 // Reorder seats according to the new order.
                 println!("handling incoming server message StartGame");
                 println!("current seats list: {seats:?}");
@@ -236,9 +243,12 @@ impl ClientGameState {
 
                 self.game_started = true;
             },
-            Message::StartHand{table_id: _table_id, game_id: _game_id} => {
-                //TODO: handle table_id and game_id
-                
+            Message::StartHand {
+                table_id: _table_id,
+                game_id: _game_id,
+            } => {
+                // TODO: handle table_id and game_id
+
                 // Prepare for a new hand.
                 for player in &mut self.players {
                     player.hole_cards = PlayerCards::None;
@@ -261,14 +271,20 @@ impl ClientGameState {
                     }
                 }
             },
-            Message::DealCards{table_id: _table_id, game_id: _game_id, player_id, card1, card2,} => {
-                //TODO: handle game_id, table_id
-                
+            Message::DealCards {
+                table_id: _table_id,
+                game_id: _game_id,
+                player_id,
+                card1,
+                card2,
+            } => {
+                // TODO: handle game_id, table_id
+
                 // check if cards are dealt to this player.
                 if self.player_id != *player_id {
                     return;
                 }
-                
+
                 // This client player should be in first position.
                 assert!(!self.players.is_empty());
                 assert_eq!(
@@ -276,7 +292,8 @@ impl ClientGameState {
                     self.player_id.digits()
                 );
 
-                self.players[0].hole_cards = PlayerCards::Cards(*card1, *card2,);
+                self.players[0].hole_cards =
+                    PlayerCards::Cards(*card1, *card2,);
                 info!("hole cards of player {}", self.players[0].hole_cards);
             },
             Message::GameStateUpdate {
@@ -286,7 +303,7 @@ impl ClientGameState {
                 community_cards,
                 pot,
             } => {
-                //TODO: handle table_id and game_id.
+                // TODO: handle table_id and game_id.
                 self.update_players(player_updates,);
                 self.community_cards = community_cards.clone();
                 self.pot = *pot;
@@ -299,21 +316,24 @@ impl ClientGameState {
                 big_blind,
                 actions,
             } => {
-               //TODO: handle game_id and table_id 
-                
+                // TODO: handle game_id and table_id
+
                 // Check if the action has been requested for this player.
                 if self.player_id != *player_id {
                     return;
                 }
-                
+
                 self.action_request = Some(ActionRequest {
-                        available_actions: actions.clone(),
-                        minimum_raise:     *min_raise,
-                        big_blind_amount:  *big_blind,
-                    },);
-                }
+                    available_actions: actions.clone(),
+                    minimum_raise:     *min_raise,
+                    big_blind_amount:  *big_blind,
+                },);
+            },
             _ => {
-                info!("client game state is not handling the following msg: {}", msg.message().to_string());
+                info!(
+                    "client game state is not handling the following msg: {}",
+                    msg.message().to_string()
+                );
             },
         }
     }
