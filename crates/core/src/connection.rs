@@ -184,7 +184,7 @@ mod tests {
     use super::{ClientConnection, SecureWebSocket};
     use crate::crypto::SigningKey;
     use crate::message::{Message, SignedMessage};
-    use crate::poker::Chips;
+    use crate::poker::{Chips, TableId};
 
     #[tokio::test]
     async fn encrypted_websocket_connection() {
@@ -216,12 +216,15 @@ mod tests {
         let peer_id = keypair.verifying_key().to_peer_id();
 
         let msg = SignedMessage::new(&keypair, Message::JoinTableRequest {
+            table_id: TableId::new_id(),
+            chips: Chips::default(),
             player_id: peer_id,
             nickname:  "Bob".to_string(),
         },);
         con.send(&msg,).await.unwrap();
 
         let msg = SignedMessage::new(&keypair, Message::ShowAccount {
+            player_id: peer_id,
             chips: Chips::ZERO,
         },);
         con.send(&msg,).await.unwrap();
