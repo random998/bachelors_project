@@ -3,11 +3,13 @@
 
 use std::fmt;
 use std::time::{Duration, Instant};
-use tracing::info;
+
 use ahash::AHashSet;
 use anyhow::Error;
-use rand::prelude::StdRng;
 use poker_cards::Deck;
+use rand::prelude::StdRng;
+use tracing::info;
+
 use crate::crypto::PeerId;
 use crate::message::{
     HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
@@ -176,18 +178,18 @@ pub struct ClientGameState {
     game_started:      bool,
     /// List of all players currently seated at the table.
     players:           Vec<Player,>,
-    deck: Deck,
+    deck:              Deck,
     /// Action request currently directed to this player, if any.
     action_request:    Option<ActionRequest,>,
     /// Community cards on the board (flop, turn, river).
     community_cards:   Vec<Card,>,
-    pots:               Vec<Pot>,
-    last_bet: Chips,
-    min_raise: Chips,
-    
+    pots:              Vec<Pot,>,
+    last_bet:          Chips,
+    min_raise:         Chips,
+
     /// id of the current game/hand.
-    game_id:           GameId,
-    
+    game_id: GameId,
+
     rng:              StdRng,
     hand_start_timer: Option<Instant,>,
     hand_start_delay: Duration,
@@ -197,7 +199,7 @@ impl ClientGameState {
     const ACTION_TIMEOUT: Duration = Duration::from_secs(15,);
     const INITIAL_SMALL_BLIND: Chips = Chips::new(10_000,);
     const INITIAL_BIG_BLIND: Chips = Chips::new(20_000,);
-    
+
     #[must_use]
     pub fn new(player_id: PeerId, nickname: String,) -> Self {
         Self {
@@ -461,7 +463,7 @@ impl ClientGameState {
     pub fn reset_action_request(&mut self,) {
         self.action_request = None;
     }
-    
+
     pub fn can_join(&self,) -> bool {
         if !matches!(self.phase, HandPhase::WaitingForPlayers) {
             false
@@ -487,8 +489,11 @@ impl ClientGameState {
             return Err(TableJoinError::AlreadyJoined,);
         }
 
-        let new_player: crate::player::Player =
-            crate::player::Player::new(*player_id, nickname.to_string(), starting_chips,);
+        let new_player: crate::player::Player = crate::player::Player::new(
+            *player_id,
+            nickname.to_string(),
+            starting_chips,
+        );
 
         let confirmation_message = Message::PlayerLeaveRequest {
             table_id:  self.table_id,
