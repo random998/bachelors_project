@@ -4,9 +4,9 @@
 use std::fmt;
 use std::time::Instant;
 
-use poker_core::crypto::PeerId;
-use poker_core::message::PlayerAction;
-use poker_core::poker::{Chips, PlayerCards};
+use crate::crypto::PeerId;
+use crate::message::PlayerAction;
+use crate::poker::{Chips, PlayerCards};
 
 /// Represents a single poker player at a table.
 #[derive(Clone,)]
