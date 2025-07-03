@@ -1,6 +1,8 @@
 Bachelors project Scope: Development of a p2p zero-knowledge poker game in Rust.
 
 Roadmap:
+- merge client game state and game state in engine.rs to one game state per peer.
+- implement game-state logic / game-state transition logic correctly.
 - clean up log statements to get a better grasp on what is going the fuck on.
 - look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
 - look at source code of dark forest zk game, note how they "did things", especially how they implemented the zk commi
