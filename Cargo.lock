@@ -4633,6 +4633,7 @@ dependencies = [
 name = "poker-core"
 version = "0.0.1"
 dependencies = [
+ "ahash",
  "anyhow",
  "async-trait",
  "bincode",
