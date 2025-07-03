@@ -39,11 +39,11 @@ impl fmt::Debug for Player {
 }
 
 impl Player {
-    pub fn new(id: PeerId, nickname: String, chips: Chips,) -> Self {
+    pub fn new(id: PeerId, nickname: String, chips: &Chips,) -> Self {
         Self {
             id,
             nickname,
-            chips,
+            chips: *chips,
             current_bet: Chips::ZERO,
             last_action: PlayerAction::None,
             action_timer: None,

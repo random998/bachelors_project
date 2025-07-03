@@ -123,7 +123,7 @@ impl App {
 
         match self.table_state.try_lock() {
             Ok(engine,) => engine.connection.tx.sender.try_send(signed,),
-            Err(_TryLockError,) => {
+            Err(_try_lock_error,) => {
                 // Could push to a VecDeque and flush it next frame, or
                 // just return Err so caller can retry.
                 Err(TrySendError::Closed(signed,),)
