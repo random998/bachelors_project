@@ -70,8 +70,7 @@ impl View for ConnectView {
                 player_id,
             } = msg
             {
-                if self.player_id() == *player_id
-                    && self.nickname == *nickname
+                if self.player_id() == *player_id && self.nickname == *nickname
                 {
                     self.chips = *chips;
                     self.server_joined = true;
