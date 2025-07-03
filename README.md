@@ -1,14 +1,15 @@
 Bachelors project Scope: Development of a p2p zero-knowledge poker game in Rust.
 
 Roadmap:
-1. look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
-2. look at source code of dark forest zk game, note how they "did things", especially how they implemented the zk commi
+- clean up log statements to get a better grasp on what is going the fuck on.
+- look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
+- look at source code of dark forest zk game, note how they "did things", especially how they implemented the zk commi
 display console.
-3. ui improvements:
+- ui improvements:
     display the current game phase somwehere
     display the id's of the players at all times.
-4. Add code smell analysis and tools like in sopra.
-5. Add more extensive tests.
+- Add code smell analysis and tools like in sopra.
+- Add more extensive tests.
 
 
 Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
