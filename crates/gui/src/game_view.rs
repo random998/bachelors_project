@@ -876,7 +876,7 @@ impl GameView {
         let rect = Rect::from_min_size(rect.left_top(), Self::SMALL_BUTTON_SZ,);
 
         if ui.put(rect, btn,).clicked() {
-            app.sign_and_send(Message::PlayerLeftTable {
+            let _ = app.sign_and_send(Message::PlayerLeftTable {
                 peer_id: self.game_state.players().first().unwrap().id,
             },);
         }

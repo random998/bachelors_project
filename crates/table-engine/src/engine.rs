@@ -98,6 +98,9 @@ pub enum TableJoinError {
 
 /// Core state of a poker table instance.
 pub struct InternalTableState {
+    /// id of the local peer (the one which is simulating this internalTable state).
+    player_id: PeerId,
+
     pub connection: P2pTransport,
     table_id:       TableId,
     num_seats:      usize,
@@ -127,16 +130,18 @@ impl InternalTableState {
     const INITIAL_BIG_BLIND: Chips = Chips::new(20_000,);
 
     pub fn new(
+        peer_id: PeerId,
         transport: P2pTransport,
         table_id: TableId,
         max_seats: usize,
         signing_key: Arc<SigningKey,>,
     ) -> Self {
         let rng = StdRng::from_rng(&mut rng(),);
-        Self::with_rng(transport, table_id, max_seats, signing_key, rng,)
+        Self::with_rng(peer_id, transport, table_id, max_seats, signing_key, rng)
     }
 
     fn with_rng(
+        peer_id: PeerId,
         transport: P2pTransport,
         table_id: TableId,
         max_seats: usize,
@@ -144,6 +149,7 @@ impl InternalTableState {
         mut rng: StdRng,
     ) -> Self {
         Self {
+            player_id: peer_id,
             connection: transport,
             table_id,
             num_seats: max_seats,
@@ -174,7 +180,7 @@ impl InternalTableState {
         &mut self,
         player_id: &PeerId,
         nickname: &str,
-        starting_chips: Chips,
+        starting_chips: &Chips,
     ) -> Result<(), TableJoinError,> {
         if self.players.count() >= self.num_seats {
             return Err(TableJoinError::TableFull,);
@@ -194,7 +200,7 @@ impl InternalTableState {
         let confirmation_message = Message::PlayerJoined {
             table_id:  self.table_id,
             nickname:  nickname.to_string(),
-            chips:     starting_chips,
+            chips:     *starting_chips,
             player_id: *player_id,
         };
 
@@ -257,7 +263,7 @@ impl InternalTableState {
                 self.request_action().await;
             }
 
-            let msg = Message::PlayerLeftNotification {
+            let msg = Message::PlayerLeaveRequest {
                 player_id: *player_id,
             };
 
@@ -275,39 +281,129 @@ impl InternalTableState {
         self.connection.tx.send(msg,).await
     }
 
-    /// handle incoming message from a player.
-    pub async fn handle_message(&mut self, msg: SignedMessage,) {
-        info!("server handling incoming message: {:?}", msg.message());
-        println!("server handling incoming message: {:?}", msg.message());
-        if let Message::ActionResponse { action, amount, } = msg.message() {
-            if let Some(player,) = self.players.active_player() {
-                // only process actionResponses incoming from the active player
-                if player.id == msg.sender() {
-                    player.last_action = *action;
-                    player.action_timer = None;
+    /// Handle an incoming server message.
+    pub fn handle_message(&mut self, msg: SignedMessage) {
+        match msg.message() {
+            Message::JoinTableRequest{
+                table_id,
+                player_id,
+                nickname,
+                chips
+            } => {
+                if self.table_id != *table_id {
+                    return;
+                }
+                // check if this player is already in the players list.
+                if self.players.iter().any(|player| {player.id == player_id}) {
+                    return;
+                }
+                self.players.add(Player::new(player_id, nickname, *chips, ));
+                // send confirmation message.
+                let conf = Message::PlayerJoined {
+                    player_id,
+                    nickname,
+                    chips,
+                };
+                self.sign_and_send(conf);
+            }
+            Message::PlayerJoined {
+                player_id,
+                nickname,
+                chips,
+            } => {
+                // check if we are the player which made the join request.
+                if self.player_id != player_id {
+                    return;
+                }
+                // check if we are already in the players list.
+                if self.players.iter().any(|player| {player.id == player_id}) {
+                    return;
+                };
+                // join the table.
+                self.players.add(Player::new(player_id, nickname, *chips, ));
+            }
+            Message::PlayerLeftTable(player_id) => {
+                self.players.retain(|p| &p.player_id != player_id);
+            }
+            Message::StartGame(seats) => {
+                // Reorder seats according to the new order.
+                for (idx, seat_id) in seats.iter().enumerate() {
+                    let pos = self
+                        .players
+                        .iter()
+                        .position(|p| &p.player_id == seat_id)
+                        .expect("Player not found");
+                    self.players.swap(idx, pos);
+                }
 
-                    match action {
-                        PlayerAction::Fold => {
-                            player.fold();
-                        },
-                        PlayerAction::Call => {
-                            player.place_bet(*action, self.last_bet,)
-                        },
-                        PlayerAction::Check => {},
-                        PlayerAction::Bet | PlayerAction::Raise => {
-                            let amount: Chips = (*amount)
-                                .min(player.current_bet + player.chips,);
-                            self.min_raise =
-                                (amount - self.last_bet).max(self.min_raise,);
-                            self.last_bet = amount.max(self.last_bet,);
-                        },
-                        _ => {},
-                    }
-                    self.action_update().await;
+                // Move local player in first position.
+                let pos = self
+                    .players
+                    .iter()
+                    .position(|p| p.player_id == self.player_id)
+                    .expect("Local player not found");
+                self.players.rotate_left(pos);
+
+                self.game_started = true;
+            }
+            Message::StartHand => {
+                // Prepare for a new hand.
+                for player in &mut self.players {
+                    player.cards = PlayerCards::None;
+                    player.action = PlayerAction::None;
+                    player.payoff = None;
                 }
             }
+            Message::EndHand { payoffs, .. } => {
+                self.action_request = None;
+                self.pot = Chips::ZERO;
+
+                // Update winnings for each winning player.
+                for payoff in payoffs {
+                    if let Some(p) = self
+                        .players
+                        .iter_mut()
+                        .find(|p| p.player_id == payoff.player_id)
+                    {
+                        p.payoff = Some(payoff.clone());
+                    }
+                }
+            }
+            Message::DealCards(c1, c2) => {
+                // This client player should be in first position.
+                assert!(!self.players.is_empty());
+                assert_eq!(self.players[0].player_id, self.player_id);
+
+                self.players[0].cards = PlayerCards::Cards(*c1, *c2);
+            }
+            Message::GameUpdate {
+                players,
+                board,
+                pot,
+            } => {
+                self.update_players(players);
+                self.board = board.clone();
+                self.pot = *pot;
+            }
+            Message::ActionRequest {
+                player_id,
+                min_raise,
+                big_blind,
+                actions,
+            } => {
+                // Check if the action has been requested for this player.
+                if &self.player_id == player_id {
+                    self.action_request = Some(ActionRequest {
+                        actions: actions.clone(),
+                        min_raise: *min_raise,
+                        big_blind: *big_blind,
+                    });
+                }
+            }
+            _ => {}
         }
     }
+
     pub async fn tick(&mut self,) {
         let mut players = self.players.clone();
         if let Some(player,) = players
@@ -778,7 +874,7 @@ impl InternalTableState {
         id: PeerId,
         chips: Chips,
     ) -> Result<(), anyhow::Error,> {
-        let msg = Message::BalanceUpdate {
+        let msg = Message::AccountBalanceUpdate {
             player_id: id,
             chips,
         };

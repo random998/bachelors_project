@@ -197,7 +197,7 @@ impl ClientGameState {
                     *chips,
                 ),);
             },
-            Message::PlayerLeftNotification { player_id, } => {
+            Message::PlayerLeaveRequest { player_id, } => {
                 self.players.retain(|p| &p.id != player_id,);
             },
             Message::StartGame(seats,) => {
