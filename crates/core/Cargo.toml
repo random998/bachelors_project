@@ -28,6 +28,7 @@ tracing = "0.1.41"
 async-trait = "0.1.88"
 rand_core = "0.9.3"
 libp2p-identity = {version = "0.2.12", features = ["peerid", "ed25519", "rand"] }
+ahash = "0.8.12"
 
 [features]
 connection = [
