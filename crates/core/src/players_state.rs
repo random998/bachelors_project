@@ -1,8 +1,9 @@
 use std::fmt;
 
-use crate::crypto::PeerId;
 use rand::Rng;
 use rand::prelude::SliceRandom;
+
+use crate::crypto::PeerId;
 use crate::player::Player;
 
 #[derive(Clone, Debug, Default,)]
@@ -34,8 +35,8 @@ impl PlayersState {
             assert!(
                 self.active_player_idx.is_none()
                     || (old_active_player_idx
-                    == self.active_player_idx.unwrap()
-                    && self.active_player_idx.is_some())
+                        == self.active_player_idx.unwrap()
+                        && self.active_player_idx.is_some())
             );
 
             match self.active_player_idx {
