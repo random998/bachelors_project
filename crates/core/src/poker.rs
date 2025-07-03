@@ -22,6 +22,19 @@ use serde::{Deserialize, Serialize};
 )]
 /// table id
 pub struct TableId(pub u32,);
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
+pub struct GameId(pub u32);
 
 impl TableId {
     // unassigned tables receive id 0.
