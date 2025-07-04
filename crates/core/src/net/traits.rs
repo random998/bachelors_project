@@ -25,7 +25,7 @@ where T: NetTx + ?Sized + Send /* forward to any NetTx */
 }
 
 /// Helper returned to caller so they can plug both halves into Player.
-#[derive(Debug)]
+#[derive(Debug,)]
 pub struct P2pTransport {
     pub tx: P2pTx,
     pub rx: P2pRx,
@@ -44,13 +44,13 @@ impl P2pTransport {
 }
 
 /// Outbound half
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug,)]
 pub struct P2pTx {
     pub sender: Sender<SignedMessage,>,
 }
 
 /// Inbound half
-#[derive(Debug)]
+#[derive(Debug,)]
 pub struct P2pRx {
     pub receiver: Receiver<SignedMessage,>,
 }
