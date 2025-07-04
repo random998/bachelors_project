@@ -25,7 +25,7 @@ pub enum Message {
     },
 
     /// Request (by a player) to join a table with the given nickname.
-    JoinTableRequest {
+    PlayerJoinTableRequest {
         table_id:  TableId,
         player_id: PeerId,
         nickname:  String,
@@ -55,8 +55,11 @@ pub enum Message {
 
     /// Confirmation that a specific player has joined a specific table.
     PlayerJoinedConfirmation {
+        /// id of the table the player joined.
         table_id:  TableId,
+        /// id of the player that joined the table.
         player_id: PeerId,
+        /// chip balance the player joined the table with.
         chips:     Chips,
     },
 
@@ -157,7 +160,7 @@ impl Message {
         match self {
             Self::AccountBalanceUpdate { .. } => "BalanceUpdateMsg",
             Self::Throttle { .. } => "ThrottleMsg",
-            Self::JoinTableRequest { .. } => "JoinTableRequest",
+            Self::PlayerJoinTableRequest { .. } => "JoinTableRequest",
             Self::PlayerLeaveRequest { .. } => "PlayerLeftNotification",
             Self::NoTablesLeftNotification { .. } => "NoTablesLeftNotification",
             Self::NotEnoughChips { .. } => "NotEnoughChips",
@@ -326,7 +329,7 @@ mod tests {
         let vk = sk.verifying_key();
         let peer_id = vk.to_peer_id();
         let chips = Chips::default();
-        let message = Message::JoinTableRequest {
+        let message = Message::PlayerJoinTableRequest {
             player_id: peer_id,
             nickname: "Alice".to_string(),
             table_id: TableId(0,),
@@ -339,7 +342,7 @@ mod tests {
         let deserialized_msg =
             SignedMessage::deserialize_and_verify(bytes,).unwrap();
         assert!(
-            matches!(deserialized_msg.message(), Message::JoinTableRequest{nickname, player_id, chips, table_id} if nickname == "Alice" && peer_id == *player_id && *chips == Chips::default() && *table_id == TableId(0))
+            matches!(deserialized_msg.message(), Message::PlayerJoinTableRequest{nickname, player_id, chips, table_id} if nickname == "Alice" && peer_id == *player_id && *chips == Chips::default() && *table_id == TableId(0))
         );
     }
 }
