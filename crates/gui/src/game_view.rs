@@ -6,7 +6,7 @@ use eframe::egui::{
 };
 use log::info;
 use poker_cards::egui::Textures;
-use poker_core::game_state::{ClientGameState, Player};
+use poker_core::game_state::{ClientGameState, PlayerPublic};
 use poker_core::message::{Message, PlayerAction};
 use poker_core::poker::{Chips, PlayerCards};
 
@@ -289,7 +289,7 @@ impl GameView {
 
     fn paint_player(
         &self,
-        player: &Player,
+        player: &PlayerPrivate,
         ui: &mut Ui,
         rect: &Rect,
         align: &Align2,
@@ -305,7 +305,7 @@ impl GameView {
 
     fn paint_player_id(
         &self,
-        player: &Player,
+        player: &PlayerPrivate,
         ui: &mut Ui,
         rect: &Rect,
         align: &Align2,
@@ -361,7 +361,7 @@ impl GameView {
 
     fn paint_player_name_and_chips(
         &self,
-        player: &Player,
+        player: &PlayerPrivate,
         ui: &mut Ui,
         rect: &Rect,
     ) {
@@ -410,7 +410,7 @@ impl GameView {
 
     fn paint_player_cards(
         &self,
-        player: &Player,
+        player: &PlayerPrivate,
         ui: &mut Ui,
         rect: &Rect,
         align: &Align2,
@@ -458,7 +458,7 @@ impl GameView {
 
     fn paint_winning_hand(
         &self,
-        player: &Player,
+        player: &PlayerPrivate,
         ui: &mut Ui,
         rect: &Rect,
         align: &Align2,
@@ -541,7 +541,7 @@ impl GameView {
 
     fn paint_player_action(
         &self,
-        player: &Player,
+        player: &PlayerPrivate,
         ui: &mut Ui,
         rect: &Rect,
         align: &Align2,

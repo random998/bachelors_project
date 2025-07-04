@@ -200,7 +200,7 @@ mod tests {
             let msg = con.receive().await.unwrap().unwrap();
             assert!(matches!(
                 msg.message(),
-                Message::JoinTableRequest { nickname, .. } if nickname == "Bob"
+                Message::PlayerJoinTableRequest { nickname, .. } if nickname == "Bob"
             ));
 
             let msg = con.receive().await.unwrap().unwrap();
@@ -215,7 +215,7 @@ mod tests {
         let keypair = SigningKey::default();
         let peer_id = keypair.verifying_key().to_peer_id();
 
-        let msg = SignedMessage::new(&keypair, Message::JoinTableRequest {
+        let msg = SignedMessage::new(&keypair, Message::PlayerJoinTableRequest {
             table_id:  TableId::new_id(),
             chips:     Chips::default(),
             player_id: peer_id,
