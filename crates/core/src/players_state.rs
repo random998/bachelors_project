@@ -4,16 +4,16 @@ use rand::Rng;
 use rand::prelude::SliceRandom;
 
 use crate::crypto::PeerId;
-use crate::player::Player;
+use crate::player::PlayerPublic;
 
 #[derive(Clone, Debug, Default,)]
 pub struct PlayerStateObjects {
-    players:           Vec<Player,>,
+    players:           Vec<PlayerPublic,>,
     active_player_idx: Option<usize,>,
 }
 
 impl PlayerStateObjects {
-    pub fn add(&mut self, player: Player,) {
+    pub fn add(&mut self, player: PlayerPublic,) {
         self.players.push(player,);
     }
 
@@ -22,7 +22,7 @@ impl PlayerStateObjects {
         self.active_player_idx = None;
     }
 
-    pub fn remove(&mut self, id: &PeerId,) -> Option<Player,> {
+    pub fn remove(&mut self, id: &PeerId,) -> Option<PlayerPublic,> {
         let mut old_active_player_idx = 0;
         if self.active_player_idx.is_some() {
             old_active_player_idx = self.active_player_idx.unwrap();
@@ -56,7 +56,7 @@ impl PlayerStateObjects {
         }
     }
 
-    pub fn get(&self, id: &PeerId,) -> Option<&Player,> {
+    pub fn get(&self, id: &PeerId,) -> Option<&PlayerPublic,> {
         self.players.iter().find(|p| &p.id == id,)
     }
 
@@ -84,7 +84,7 @@ impl PlayerStateObjects {
             .count()
     }
 
-    pub fn active_player(&mut self,) -> Option<&mut Player,> {
+    pub fn active_player(&mut self,) -> Option<&mut PlayerPublic,> {
         self.active_player_idx
             .and_then(move |i| self.players.get_mut(i,),)
             .filter(|p| p.active,)
@@ -97,11 +97,11 @@ impl PlayerStateObjects {
             .unwrap_or(false,)
     }
 
-    pub fn iter(&self,) -> impl Iterator<Item = &Player,> {
+    pub fn iter(&self,) -> impl Iterator<Item = &PlayerPublic,> {
         self.players.iter()
     }
 
-    pub fn iter_mut(&mut self,) -> impl Iterator<Item = &mut Player,> {
+    pub fn iter_mut(&mut self,) -> impl Iterator<Item = &mut PlayerPublic,> {
         self.players.iter_mut()
     }
 

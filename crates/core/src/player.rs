@@ -5,26 +5,25 @@ use std::fmt;
 use std::time::Instant;
 
 use crate::crypto::PeerId;
-use crate::message::PlayerAction;
+use crate::message::{PlayerAction};
 use crate::poker::{Chips, PlayerCards};
 
-/// Represents a single poker player at a table.
+/// Represents a single poker player at a table (with publicly known data).
 #[derive(Clone,)]
-pub struct Player {
-    pub id:            PeerId,
-    pub nickname:      String,
-    pub chips:         Chips,
-    pub current_bet:   Chips,
-    pub last_action:   PlayerAction,
-    pub action_timer:  Option<Instant,>,
-    pub public_cards:  PlayerCards,
-    pub private_cards: PlayerCards,
+pub struct PlayerPublic {
+    pub(crate) id:            PeerId,
+    pub(crate) nickname:      String,
+    pub(crate) chips:         Chips,
+    current_bet:   Chips,
+    pub(crate) last_action:   PlayerAction,
+    action_timer:  Option<Instant,>,
+    pub(crate) public_cards:  PlayerCards,
     /// this player is active in the hand
-    pub active:        bool,
-    pub dealer:        bool,
+    active:        bool,
+    dealer:        bool,
 }
 
-impl fmt::Debug for Player {
+impl fmt::Debug for PlayerPublic {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         f.debug_struct("Player",)
             .field("id", &self.id,)
@@ -38,7 +37,7 @@ impl fmt::Debug for Player {
     }
 }
 
-impl Player {
+impl PlayerPublic {
     pub fn new(id: PeerId, nickname: String, chips: &Chips,) -> Self {
         Self {
             id,
@@ -48,7 +47,6 @@ impl Player {
             last_action: PlayerAction::None,
             action_timer: None,
             public_cards: PlayerCards::None,
-            private_cards: PlayerCards::None,
             active: true,
             dealer: false,
         }
@@ -65,7 +63,6 @@ impl Player {
     pub fn fold(&mut self,) {
         self.active = false;
         self.last_action = PlayerAction::Fold;
-        self.private_cards = PlayerCards::None;
         self.public_cards = PlayerCards::None;
         self.action_timer = None;
     }
@@ -76,7 +73,6 @@ impl Player {
         self.current_bet = Chips::ZERO;
         self.last_action = PlayerAction::None;
         self.public_cards = PlayerCards::None;
-        self.private_cards = PlayerCards::None;
     }
 
     pub fn reset_bet(&mut self,) {
@@ -93,7 +89,7 @@ impl Player {
     }
 }
 
-impl fmt::Display for Player {
+impl fmt::Display for PlayerPublic {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(f, "{self}")
     }
