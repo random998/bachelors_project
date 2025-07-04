@@ -216,8 +216,8 @@ mod tests {
         let peer_id = keypair.verifying_key().to_peer_id();
 
         let msg = SignedMessage::new(&keypair, Message::JoinTableRequest {
-            table_id: TableId::new_id(),
-            chips: Chips::default(),
+            table_id:  TableId::new_id(),
+            chips:     Chips::default(),
             player_id: peer_id,
             nickname:  "Bob".to_string(),
         },);
@@ -225,7 +225,7 @@ mod tests {
 
         let msg = SignedMessage::new(&keypair, Message::ShowAccount {
             player_id: peer_id,
-            chips: Chips::ZERO,
+            chips:     Chips::ZERO,
         },);
         con.send(&msg,).await.unwrap();
 
