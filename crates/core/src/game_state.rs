@@ -1,25 +1,23 @@
-// code copied from https://github.com/vincev/freezeout
 // Game state representation for each peer client in a peer-to-peer poker game.
 
 use std::fmt;
 use std::time::{Duration, Instant};
 
 use ahash::AHashSet;
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use poker_cards::Deck;
-use rand::prelude::StdRng;
 use tracing::info;
 
-use crate::crypto::PeerId;
-use crate::message::PlayerAction::Check;
+use crate::crypto::{PeerId, SigningKey};
 use crate::message::{
     HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
 };
+use crate::net::traits::P2pTransport;
 use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 
 /// Represents a single betting pot.
-#[derive(Debug, Default,)]
-struct Pot {
+#[derive(Debug, Default, Clone)]
+pub(crate) struct Pot {
     participants: AHashSet<PeerId,>,
     total_chips:  Chips,
 }
@@ -41,6 +39,12 @@ enum Round {
     Showdown,
     EndingHand,
     EndingGame,
+}
+
+impl Round {
+    fn default() -> Round {
+        Round::WaitingForPlayers
+    }
 }
 
 /// Represents the complete state of a single poker game during a game session.
@@ -172,6 +176,7 @@ pub struct RoundData {
     /// idx of the next player to act.
     pub to_act_idx:             usize,
     pub pot:                    Pot,
+    current_round: Round,
 }
 
 impl RoundData {
@@ -191,6 +196,7 @@ impl RoundData {
             total_raise_count: 0,
             to_act_idx,
             pot: Pot::default(),
+            current_round: Round::default(),
         }
     }
 }
@@ -201,8 +207,13 @@ impl RoundData {
 /// including player info, the board, and betting context.
 #[derive(Debug,)]
 pub struct ClientGameState {
-    /// ID of this local player.
+    connection: P2pTransport,
+
+    /// ID of this peer. 
     player_id:         PeerId,
+    
+    /// signing key of this peer.
+    sk: SigningKey,
     /// Nickname associated with this peer.
     nickname:          String,
     /// Identifier of the host key or session authority (may be removed in P2P
@@ -237,13 +248,19 @@ impl ClientGameState {
     const ACTION_TIMEOUT: Duration = Duration::from_secs(15,);
     const INITIAL_SMALL_BLIND: Chips = Chips::new(10_000,);
     const INITIAL_BIG_BLIND: Chips = Chips::new(20_000,);
+    
+    pub const fn signing_key() {
+        
+    }
 
     #[must_use]
-    pub fn new(player_id: PeerId, nickname: String,) -> Self {
+    pub fn new(player_id: PeerId, nickname: String, connection: P2pTransport) -> Self {
+        //TODO: how and where should we init the connection?
         let round_data = RoundData::new(3, Chips::ZERO, Vec::default(), 0,);
         let hand_start_delay = Duration::from_millis(1000,);
         let hand_start_timer = Some(Instant::now(),);
         Self {
+            connection,
             hand_start_delay,
             hand_start_timer,
             round_data,
@@ -260,6 +277,10 @@ impl ClientGameState {
             action_request: None,
             community_cards: Vec::default(),
         }
+    }
+    
+    pub async fn start_game() {
+        todo!();
     }
 
     /// Handle an incoming peer message.
@@ -345,7 +366,7 @@ impl ClientGameState {
             },
             Message::EndHand { payoffs, .. } => {
                 self.action_request = None;
-                self.pot = Chips::ZERO;
+                self.round_data.pot = Pot::default();
 
                 // Update winnings for each winning player.
                 for payoff in payoffs {
@@ -393,7 +414,7 @@ impl ClientGameState {
                 // TODO: handle table_id and game_id.
                 self.update_players(player_updates,);
                 self.community_cards = community_cards.clone();
-                self.pot = *pot;
+                self.round_data.pot = pot.clone();
             },
             Message::ActionRequest {
                 game_id: _game_id,
@@ -470,8 +491,8 @@ impl ClientGameState {
 
     /// The current pot.
     #[must_use]
-    pub const fn pot(&self,) -> Chips {
-        self.pot
+    pub fn pot(&self,) -> Pot {
+        self.round_data.pot.clone()
     }
 
     /// The board cards.
@@ -509,7 +530,7 @@ impl ClientGameState {
     }
 
     pub fn can_join(&self,) -> bool {
-        if !matches!(self.phase, Round::WaitingForPlayers) {
+        if !matches!(self.round_data.current_round, Round::WaitingForPlayers) {
             false
         } else {
             self.players.iter().count() < self.num_seats
@@ -547,7 +568,7 @@ impl ClientGameState {
         let signed_message =
             SignedMessage::new(&self.signing_key, confirmation_message,);
 
-        let _ = self.connection.tx.send(signed_message,);
+        let _ = self.send(signed_message,);
 
         // for each existing player, send a player joined message to the newly
         // joined player.
@@ -558,8 +579,8 @@ impl ClientGameState {
                 table_id:  self.table_id,
             };
 
-            let signed = SignedMessage::new(&self.signing_key, join_msg,);
-            let _ = self.connection.tx.send(signed,);
+            let signed = SignedMessage::new(&self.sk, join_msg,);
+            let _ = self.send(signed,);
         }
 
         info!("Player {player_id} joined table {}", self.table_id);
@@ -572,11 +593,11 @@ impl ClientGameState {
         },)
             .await;
 
-        self.players.add(new_player.clone(),);
+        self.players.append(new_player.clone(),);
 
         // if all seats are occupied, start the game.
         if self.players.count() == self.num_seats {
-            self.start_game().await;
+           self.start_game().await;
         }
 
         Ok((),)
@@ -611,17 +632,12 @@ impl ClientGameState {
     }
 
     pub async fn sign_and_send(&mut self, msg: Message,) -> Result<(), Error,> {
-        let signed = SignedMessage::new(&self.signing_key, msg,);
-        self.connection.tx.send(signed,).await
+        let signed = SignedMessage::new(&self.sk, msg,);
+        self.send(signed)
     }
 
     pub async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error,> {
-        self.connection.tx.send(msg,).await
-    }
-
-    /// Handle an incoming server message.
-    pub fn handle_message(&mut self, msg: SignedMessage,) {
-        self.client_game_state.handle_message(msg,)
+        self.connection.tx.sender.send(msg,).await.map_err(|e| anyhow!("{:?}", e))
     }
 }
 
