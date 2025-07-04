@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::crypto::{PeerId, Signature, SigningKey, VerifyingKey};
 use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
+use crate::game_state::Pot;
 /// Represents a message exchanged between peers in the P2P poker protocol.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
 pub enum Message {
@@ -111,7 +112,7 @@ pub enum Message {
     GameStateUpdate {
         player_updates:  Vec<PlayerUpdate,>,
         community_cards: Vec<Card,>,
-        pot:             Chips,
+        pot:             Pot,
         table_id:        TableId,
         game_id:         GameId,
     },
