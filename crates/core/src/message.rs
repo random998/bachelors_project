@@ -9,8 +9,8 @@ use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::{PeerId, Signature, SigningKey, VerifyingKey};
-use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 use crate::game_state::Pot;
+use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 /// Represents a message exchanged between peers in the P2P poker protocol.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
 pub enum Message {
