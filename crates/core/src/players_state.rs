@@ -55,7 +55,7 @@ impl PlayerStateObjects {
             None
         }
     }
-    
+
     pub fn get(&self, id: &PeerId,) -> Option<&Player,> {
         self.players.iter().find(|p| &p.id == id,)
     }
