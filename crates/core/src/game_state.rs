@@ -11,10 +11,10 @@ use rand::prelude::StdRng;
 use tracing::info;
 
 use crate::crypto::PeerId;
+use crate::message::PlayerAction::Check;
 use crate::message::{
     HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
 };
-use crate::message::PlayerAction::Check;
 use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 
 /// Represents a single betting pot.
@@ -44,7 +44,7 @@ enum Round {
 }
 
 /// Represents the complete state of a single poker game during a game session.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone,)]
 pub struct Player {
     /// Unique ID assigned to this player (network peer ID).
     pub id: PeerId,
@@ -159,24 +159,28 @@ impl ActionRequest {
 #[derive(Debug,)]
 pub struct RoundData {
     /// players that were active at the start of this round.
-    pub starting_player_active: Vec<PeerId>,
-    pub needs_action: Vec<PeerId>,
-    min_raise:         Chips,
-    last_bet:          Chips,
+    pub starting_player_active: Vec<PeerId,>,
+    pub needs_action:           Vec<PeerId,>,
+    min_raise:                  Chips,
+    last_bet:                   Chips,
     /// how much chips each player has put in so far.
-    player_bets:              Vec<Chips,>,
+    player_bets:                Vec<Chips,>,
     /// number of times anyone has put in chips.
-    total_bet_count: u64,
+    total_bet_count:            u64,
     /// number of times anyone has increased the bet non-forced.
-    total_raise_count: u64,
+    total_raise_count:          u64,
     /// idx of the next player to act.
-    pub to_act_idx: usize,
-    pub pot: Pot,
-
+    pub to_act_idx:             usize,
+    pub pot:                    Pot,
 }
 
 impl RoundData {
-    pub fn new(num_players: usize, min_raise: Chips, active_players: Vec<PeerId>, to_act_idx: usize) -> Self {
+    pub fn new(
+        num_players: usize,
+        min_raise: Chips,
+        active_players: Vec<PeerId,>,
+        to_act_idx: usize,
+    ) -> Self {
         RoundData {
             needs_action: active_players.clone(),
             starting_player_active: active_players,
@@ -236,9 +240,9 @@ impl ClientGameState {
 
     #[must_use]
     pub fn new(player_id: PeerId, nickname: String,) -> Self {
-        let round_data= RoundData::new(3, Chips::ZERO, Vec::default(), 0);
-        let hand_start_delay = Duration::from_millis(1000);
-        let hand_start_timer = Some(Instant::now());
+        let round_data = RoundData::new(3, Chips::ZERO, Vec::default(), 0,);
+        let hand_start_delay = Duration::from_millis(1000,);
+        let hand_start_timer = Some(Instant::now(),);
         Self {
             hand_start_delay,
             hand_start_timer,
