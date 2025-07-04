@@ -7,12 +7,12 @@ use crate::crypto::PeerId;
 use crate::player::Player;
 
 #[derive(Clone, Debug, Default,)]
-pub struct PlayersState {
+pub struct PlayerStateObjects {
     players:           Vec<Player,>,
     active_player_idx: Option<usize,>,
 }
 
-impl PlayersState {
+impl PlayerStateObjects {
     pub fn add(&mut self, player: Player,) {
         self.players.push(player,);
     }
@@ -55,7 +55,7 @@ impl PlayersState {
             None
         }
     }
-
+    
     pub fn get(&self, id: &PeerId,) -> Option<&Player,> {
         self.players.iter().find(|p| &p.id == id,)
     }
@@ -171,7 +171,7 @@ impl PlayersState {
     }
 }
 
-impl fmt::Display for PlayersState {
+impl fmt::Display for PlayerStateObjects {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(f, "{:?}", self.players.clone())
     }
