@@ -13,6 +13,7 @@ use crate::message::{
     HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
 };
 use crate::net::traits::P2pTransport;
+use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 
 /// Represents a single betting pot.
@@ -228,7 +229,7 @@ pub struct ClientGameState {
     /// Whether the game has started.
     game_started:      bool,
     /// List of all players currently seated at the table.
-    players:           Vec<Player,>,
+    players: Vec<Player>,
     deck:              Deck,
     /// Action request currently directed to this player, if any.
     action_request:    Option<ActionRequest,>,
@@ -259,7 +260,10 @@ impl ClientGameState {
         let round_data = RoundData::new(3, Chips::ZERO, Vec::default(), 0,);
         let hand_start_delay = Duration::from_millis(1000,);
         let hand_start_timer = Some(Instant::now(),);
+        let sk = SigningKey::default(); //TODO: fix
         Self {
+            players: Vec::default(),
+            sk,
             connection,
             hand_start_delay,
             hand_start_timer,
@@ -272,14 +276,13 @@ impl ClientGameState {
             legacy_server_key: String::default(),
             num_seats: 0, // maximum number of seats at the table
             game_started: false,
-            players: Vec::default(),
             num_taken_seats: 0,
             action_request: None,
             community_cards: Vec::default(),
         }
     }
     
-    pub async fn start_game() {
+    pub async fn start_game(&self) {
         todo!();
     }
 
@@ -315,7 +318,7 @@ impl ClientGameState {
                 if self.table_id != *table_id {
                     return;
                 }
-                self.players.retain(|p| &p.id != player_id,);
+                self.players.retain(|p| p.id == *player_id);
             },
             Message::StartGameNotify {
                 seat_order: seats,
@@ -565,10 +568,7 @@ impl ClientGameState {
             player_id: *player_id,
         };
 
-        let signed_message =
-            SignedMessage::new(&self.signing_key, confirmation_message,);
-
-        let _ = self.send(signed_message,);
+        let _ = self.sign_and_send(&self.sk, confirmation_message,);
 
         // for each existing player, send a player joined message to the newly
         // joined player.
@@ -579,8 +579,7 @@ impl ClientGameState {
                 table_id:  self.table_id,
             };
 
-            let signed = SignedMessage::new(&self.sk, join_msg,);
-            let _ = self.send(signed,);
+            let _ = self.sign_and_send(self.sk, join_msg,);
         }
 
         info!("Player {player_id} joined table {}", self.table_id);
@@ -593,7 +592,7 @@ impl ClientGameState {
         },)
             .await;
 
-        self.players.append(new_player.clone(),);
+        self.players.push(new_player.clone(),);
 
         // if all seats are occupied, start the game.
         if self.players.count() == self.num_seats {
@@ -602,6 +601,7 @@ impl ClientGameState {
 
         Ok((),)
     }
+    
     pub async fn leave(
         &mut self,
         player_id: &PeerId,
@@ -609,21 +609,22 @@ impl ClientGameState {
         let active_is_leaving = self.players.is_active(player_id,);
         if let Some(leaver,) = self.players.remove(player_id,) {
             // add player bets to the pot.
-            if let Some(pot,) = self.pots.last_mut() {
-                pot.total_chips += leaver.current_bet;
+            if let &mut pot = self.round_data.pot {
+                pot += leaver.current_bet;
             }
 
             if self.players.count_active() < 2 {
-                self.client_game_state.enter_end_hand().await;
+                self.enter_end_hand().await;
                 return Ok((),);
             }
 
             if active_is_leaving {
-                self.request_action().await;
+                let _ = self.action_request();
             }
 
             let msg = Message::PlayerLeaveRequest {
                 player_id: *player_id,
+                table_id:  self.table_id,
             };
 
             return self.sign_and_send(msg,).await;
@@ -633,7 +634,7 @@ impl ClientGameState {
 
     pub async fn sign_and_send(&mut self, msg: Message,) -> Result<(), Error,> {
         let signed = SignedMessage::new(&self.sk, msg,);
-        self.send(signed)
+        self.send(signed).await
     }
 
     pub async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error,> {
