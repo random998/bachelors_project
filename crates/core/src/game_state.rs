@@ -14,6 +14,7 @@ use crate::crypto::PeerId;
 use crate::message::{
     HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
 };
+use crate::message::PlayerAction::Check;
 use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 
 /// Represents a single betting pot.
@@ -25,7 +26,7 @@ struct Pot {
 
 /// Represents the current phase of a hand being played.
 #[derive(Debug, Eq, PartialEq,)]
-enum HandPhase {
+enum Round {
     WaitingForPlayers,
     StartingGame,
     StartingHand,
@@ -43,7 +44,7 @@ enum HandPhase {
 }
 
 /// Represents the complete state of a single poker game during a game session.
-#[derive(Debug,)]
+#[derive(Debug, Clone)]
 pub struct Player {
     /// Unique ID assigned to this player (network peer ID).
     pub id: PeerId,
@@ -155,6 +156,41 @@ impl ActionRequest {
     }
 }
 
+#[derive(Debug,)]
+pub struct RoundData {
+    /// players that were active at the start of this round.
+    pub starting_player_active: Vec<PeerId>,
+    pub needs_action: Vec<PeerId>,
+    min_raise:         Chips,
+    last_bet:          Chips,
+    /// how much chips each player has put in so far.
+    player_bets:              Vec<Chips,>,
+    /// number of times anyone has put in chips.
+    total_bet_count: u64,
+    /// number of times anyone has increased the bet non-forced.
+    total_raise_count: u64,
+    /// idx of the next player to act.
+    pub to_act_idx: usize,
+    pub pot: Pot,
+
+}
+
+impl RoundData {
+    pub fn new(num_players: usize, min_raise: Chips, active_players: Vec<PeerId>, to_act_idx: usize) -> Self {
+        RoundData {
+            needs_action: active_players.clone(),
+            starting_player_active: active_players,
+            min_raise,
+            last_bet: Chips::ZERO,
+            player_bets: vec![Chips::ZERO; num_players],
+            total_bet_count: 0,
+            total_raise_count: 0,
+            to_act_idx,
+            pot: Pot::default(),
+        }
+    }
+}
+
 /// Represents the local game state as seen by a specific peer.
 ///
 /// This struct holds everything the local peer needs to know about the table,
@@ -183,16 +219,14 @@ pub struct ClientGameState {
     action_request:    Option<ActionRequest,>,
     /// Community cards on the board (flop, turn, river).
     community_cards:   Vec<Card,>,
-    pots:              Vec<Pot,>,
-    last_bet:          Chips,
-    min_raise:         Chips,
 
     /// id of the current game/hand.
     game_id: GameId,
 
-    rng:              StdRng,
     hand_start_timer: Option<Instant,>,
     hand_start_delay: Duration,
+
+    round_data: RoundData,
 }
 
 impl ClientGameState {
@@ -202,7 +236,14 @@ impl ClientGameState {
 
     #[must_use]
     pub fn new(player_id: PeerId, nickname: String,) -> Self {
+        let round_data= RoundData::new(3, Chips::ZERO, Vec::default(), 0);
+        let hand_start_delay = Duration::from_millis(1000);
+        let hand_start_timer = Some(Instant::now());
         Self {
+            hand_start_delay,
+            hand_start_timer,
+            round_data,
+            deck: Deck::default(),
             player_id,
             nickname,
             table_id: TableId::NO_TABLE,
@@ -214,14 +255,13 @@ impl ClientGameState {
             num_taken_seats: 0,
             action_request: None,
             community_cards: Vec::default(),
-            pot: Chips::ZERO,
         }
     }
 
-    /// Handle an incoming server (legacy, wanted: peer) message.
+    /// Handle an incoming peer message.
     pub fn handle_message(&mut self, msg: SignedMessage,) {
         info!(
-            "client handling incoming message: {:?}",
+            "peer handling incoming message: {:?}",
             msg.message().to_string()
         );
         match msg.message() {
@@ -465,7 +505,7 @@ impl ClientGameState {
     }
 
     pub fn can_join(&self,) -> bool {
-        if !matches!(self.phase, HandPhase::WaitingForPlayers) {
+        if !matches!(self.phase, Round::WaitingForPlayers) {
             false
         } else {
             self.players.iter().count() < self.num_seats
@@ -481,7 +521,7 @@ impl ClientGameState {
             return Err(TableJoinError::TableFull,);
         }
 
-        if !matches!(self.phase, HandPhase::WaitingForPlayers) {
+        if !matches!(self.phase, Round::WaitingForPlayers) {
             return Err(TableJoinError::GameStarted,);
         }
 
@@ -581,23 +621,23 @@ impl ClientGameState {
     }
 }
 
-impl fmt::Display for HandPhase {
+impl fmt::Display for Round {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         match self {
-            HandPhase::WaitingForPlayers => write!(f, "WaitingForPlayers"),
-            HandPhase::StartingGame => write!(f, "StartingGame"),
-            HandPhase::StartingHand => write!(f, "StartingHand"),
-            HandPhase::PreflopBetting => write!(f, "PreflopBetting"),
-            HandPhase::Preflop => write!(f, "Preflop"),
-            HandPhase::FlopBetting => write!(f, "FlopBetting"),
-            HandPhase::Flop => write!(f, "Flop"),
-            HandPhase::TurnBetting => write!(f, "TurnBetting"),
-            HandPhase::Turn => write!(f, "Turn"),
-            HandPhase::RiverBetting => write!(f, "RiverBetting"),
-            HandPhase::River => write!(f, "River"),
-            HandPhase::Showdown => write!(f, "Showdown"),
-            HandPhase::EndingHand => write!(f, "EndingHand"),
-            HandPhase::EndingGame => write!(f, "EndingGame"),
+            Round::WaitingForPlayers => write!(f, "WaitingForPlayers"),
+            Round::StartingGame => write!(f, "StartingGame"),
+            Round::StartingHand => write!(f, "StartingHand"),
+            Round::PreflopBetting => write!(f, "PreflopBetting"),
+            Round::Preflop => write!(f, "Preflop"),
+            Round::FlopBetting => write!(f, "FlopBetting"),
+            Round::Flop => write!(f, "Flop"),
+            Round::TurnBetting => write!(f, "TurnBetting"),
+            Round::Turn => write!(f, "Turn"),
+            Round::RiverBetting => write!(f, "RiverBetting"),
+            Round::River => write!(f, "River"),
+            Round::Showdown => write!(f, "Showdown"),
+            Round::EndingHand => write!(f, "EndingHand"),
+            Round::EndingGame => write!(f, "EndingGame"),
         }
     }
 }
