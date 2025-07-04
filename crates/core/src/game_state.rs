@@ -4,7 +4,7 @@ use std::fmt;
 use std::time::{Duration, Instant};
 
 use ahash::AHashSet;
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
 use poker_cards::Deck;
 use tracing::info;
 
@@ -17,7 +17,7 @@ use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 
 /// Represents a single betting pot.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone,)]
 pub(crate) struct Pot {
     participants: AHashSet<PeerId,>,
     total_chips:  Chips,
@@ -177,7 +177,7 @@ pub struct RoundData {
     /// idx of the next player to act.
     pub to_act_idx:             usize,
     pub pot:                    Pot,
-    current_round: Round,
+    current_round:              Round,
 }
 
 impl RoundData {
@@ -210,11 +210,11 @@ impl RoundData {
 pub struct ClientGameState {
     connection: P2pTransport,
 
-    /// ID of this peer. 
-    player_id:         PeerId,
-    
+    /// ID of this peer.
+    player_id: PeerId,
+
     /// signing key of this peer.
-    sk: SigningKey,
+    sk:                SigningKey,
     /// Nickname associated with this peer.
     nickname:          String,
     /// Identifier of the host key or session authority (may be removed in P2P
@@ -229,7 +229,7 @@ pub struct ClientGameState {
     /// Whether the game has started.
     game_started:      bool,
     /// List of all players currently seated at the table.
-    players: Vec<Player>,
+    players:           Vec<Player,>,
     deck:              Deck,
     /// Action request currently directed to this player, if any.
     action_request:    Option<ActionRequest,>,
@@ -249,14 +249,16 @@ impl ClientGameState {
     const ACTION_TIMEOUT: Duration = Duration::from_secs(15,);
     const INITIAL_SMALL_BLIND: Chips = Chips::new(10_000,);
     const INITIAL_BIG_BLIND: Chips = Chips::new(20_000,);
-    
-    pub const fn signing_key() {
-        
-    }
+
+    pub const fn signing_key() {}
 
     #[must_use]
-    pub fn new(player_id: PeerId, nickname: String, connection: P2pTransport) -> Self {
-        //TODO: how and where should we init the connection?
+    pub fn new(
+        player_id: PeerId,
+        nickname: String,
+        connection: P2pTransport,
+    ) -> Self {
+        // TODO: how and where should we init the connection?
         let round_data = RoundData::new(3, Chips::ZERO, Vec::default(), 0,);
         let hand_start_delay = Duration::from_millis(1000,);
         let hand_start_timer = Some(Instant::now(),);
@@ -281,8 +283,8 @@ impl ClientGameState {
             community_cards: Vec::default(),
         }
     }
-    
-    pub async fn start_game(&self) {
+
+    pub async fn start_game(&self,) {
         todo!();
     }
 
@@ -318,7 +320,7 @@ impl ClientGameState {
                 if self.table_id != *table_id {
                     return;
                 }
-                self.players.retain(|p| p.id == *player_id);
+                self.players.retain(|p| p.id == *player_id,);
             },
             Message::StartGameNotify {
                 seat_order: seats,
@@ -596,12 +598,12 @@ impl ClientGameState {
 
         // if all seats are occupied, start the game.
         if self.players.count() == self.num_seats {
-           self.start_game().await;
+            self.start_game().await;
         }
 
         Ok((),)
     }
-    
+
     pub async fn leave(
         &mut self,
         player_id: &PeerId,
@@ -634,11 +636,16 @@ impl ClientGameState {
 
     pub async fn sign_and_send(&mut self, msg: Message,) -> Result<(), Error,> {
         let signed = SignedMessage::new(&self.sk, msg,);
-        self.send(signed).await
+        self.send(signed,).await
     }
 
     pub async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error,> {
-        self.connection.tx.sender.send(msg,).await.map_err(|e| anyhow!("{:?}", e))
+        self.connection
+            .tx
+            .sender
+            .send(msg,)
+            .await
+            .map_err(|e| anyhow!("{:?}", e),)
     }
 }
 
