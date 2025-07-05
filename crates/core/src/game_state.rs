@@ -5,26 +5,26 @@ use std::time::{Duration, Instant};
 
 use ahash::AHashSet;
 use anyhow::{Error, anyhow};
+use serde::{Deserialize, Serialize};
 use poker_cards::Deck;
 use tracing::info;
+use thiserror::Error;
 
 use crate::crypto::{PeerId, SigningKey};
 use crate::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
-use crate::player;
 use crate::net::traits::P2pTransport;
-use crate::player::PlayerPublic;
 use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 
 /// Represents a single betting pot.
-#[derive(Debug, Default, Clone,)]
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
 pub(crate) struct Pot {
     participants: AHashSet<PeerId,>,
     total_chips:  Chips,
 }
 
 /// Game player data (private to a peer game state)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PlayerPrivate {
     /// This player id.
     pub id: PeerId,
@@ -49,6 +49,13 @@ pub struct PlayerPrivate {
 }
 
 impl PlayerPrivate {
+    pub(crate) fn finalize_hand(&mut self) {
+        self.action = PlayerAction::None;
+        self.action_timer = None;
+    }
+    pub(crate) fn has_chips(&self) -> bool {
+        self.chips > Chips::ZERO
+    }
     fn new(player_id: PeerId, nickname: String, chips: Chips) -> Self {
         Self {
             id: player_id,
@@ -62,6 +69,16 @@ impl PlayerPrivate {
             has_button: false,
             is_active: true,
         }
+    }
+
+    pub(crate) fn reset_for_new_hand(&mut self) {
+        self.bet = Chips::ZERO;
+        self.payoff = None;
+        self.action = PlayerAction::None;
+        self.action_timer = None;
+        self.cards = PlayerCards::None;
+        self.has_button = false;
+        self.is_active = true; //TODO: is setting is_active = true correct here?
     }
 }
 
@@ -207,7 +224,7 @@ pub struct ClientGameState {
     /// Whether the game has started.
     game_started:      bool,
     /// List of all players currently seated at the table.
-    players:           Vec<PlayerPublic,>,
+    players:           Vec<PlayerPrivate,>,
     // player state objects
     player_state_objects: PlayerStateObjects,
     deck:              Deck,
@@ -291,10 +308,10 @@ impl ClientGameState {
 
                 // Add the joined player as the first player in the players
                 // list.
-                self.players.push(PlayerPublic::new(
+                self.players.push(PlayerPrivate::new(
                     *player_id,
                     nickname.clone(),
-                    &chips.clone(),
+                    chips.clone(),
                 ),);
             },
             Message::PlayerLeaveRequest {
@@ -348,8 +365,8 @@ impl ClientGameState {
 
                 // Prepare for a new hand.
                 for player in &mut self.players {
-                    player.public_cards =  PlayerCards::None;
-                    player.last_action = PlayerAction::None;
+                    player.cards=  PlayerCards::None;
+                    player.action = PlayerAction::None;
                 }
             },
             Message::EndHand { payoffs, .. } => {
@@ -473,7 +490,7 @@ impl ClientGameState {
 
     /// Returns a reference to the players.
     #[must_use]
-    pub fn players(&self,) -> &[PlayerPublic] {
+    pub fn players(&self,) -> &[PlayerPrivate] {
         &self.players
     }
 
@@ -504,7 +521,7 @@ impl ClientGameState {
     /// Checks if the local player is active.
     #[must_use]
     pub fn is_active(&self,) -> bool {
-        !self.players.is_empty() && self.players[0].participating_in_hand
+        !self.players.is_empty() && self.players[0].is_active
     }
     /// Returns the requested player action if any.
     #[must_use]
@@ -531,7 +548,7 @@ impl ClientGameState {
     pub async fn try_join(
         &mut self,
         player_id: &PeerId,
-        nickname: &str,
+        _nickname: &str,
         starting_chips: &Chips,
     ) -> Result<(), TableJoinError,> {
         // check if there are to omany players at the table.
@@ -549,12 +566,18 @@ impl ClientGameState {
             return Err(TableJoinError::AlreadyJoined,);
         }
 
-
-        // send joinrequest message
+        // send join request message
         let new_player: PlayerPrivate = PlayerPrivate {
             id: *player_id,
-            nickname.to_string(),
-            * starting_chips,
+            nickname: "".to_string(),
+            chips: *starting_chips,
+            bet: Default::default(),
+            payoff: None,
+            action: PlayerAction::None,
+            action_timer: None,
+            cards: Default::default(),
+            has_button: false,
+            is_active: false,
         };
         let confirmation_message = Message::PlayerJoinTableRequest {
             table_id:  self.table_id,
@@ -565,7 +588,7 @@ impl ClientGameState {
         let _ = self.sign_and_send(confirmation_message,);
 
         // let all existing players join the new players' table state.
-        for existing_player in self.players.iter() {
+        for existing_player in self.players.clone().iter() {
             let join_msg = Message::PlayerJoinedConfirmation {
                 player_id: existing_player.id,
                 chips:     existing_player.chips,
@@ -573,7 +596,7 @@ impl ClientGameState {
             };
 
             let res = self.sign_and_send(join_msg,).await;
-            if let Err(e) = res {
+            if let Err(_) = res {
                 return Err(TableJoinError::Unknown);
             }
 
@@ -588,13 +611,13 @@ impl ClientGameState {
         },)
             .await;
 
-        if let Err(e) = res {
+        if let Err(_) = res {
             return Err(TableJoinError::Unknown);
         }
 
         info!("Player {player_id} joined table {}", self.table_id);
 
-        self.players.push(new_player.clone(),);
+        self.players.push(new_player.clone());
 
         // if all seats are occupied, start the game.
         if self.players.len() == self.num_seats {
@@ -614,7 +637,7 @@ impl ClientGameState {
 
             // add player bets to the pot.
             if let mut pot = self.round_data.pot.total_chips {
-                pot += leaver.current_bet;
+                pot += leaver.bet;
             }
 
             if self.player_state_objects.count_active() < 2 {
