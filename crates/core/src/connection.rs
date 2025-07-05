@@ -215,12 +215,13 @@ mod tests {
         let keypair = SigningKey::default();
         let peer_id = keypair.verifying_key().to_peer_id();
 
-        let msg = SignedMessage::new(&keypair, Message::PlayerJoinTableRequest {
-            table_id:  TableId::new_id(),
-            chips:     Chips::default(),
-            player_id: peer_id,
-            nickname:  "Bob".to_string(),
-        },);
+        let msg =
+            SignedMessage::new(&keypair, Message::PlayerJoinTableRequest {
+                table_id:  TableId::new_id(),
+                chips:     Chips::default(),
+                player_id: peer_id,
+                nickname:  "Bob".to_string(),
+            },);
         con.send(&msg,).await.unwrap();
 
         let msg = SignedMessage::new(&keypair, Message::ShowAccount {
