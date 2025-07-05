@@ -195,7 +195,8 @@ pub enum PlayerCards {
     /// the player has cards, but they are covered (only visible to the player
     /// himself).
     Covered,
-    /// the player has two cards, which are not covered (visible to all players at the table) 
+    /// the player has two cards, which are not covered (visible to all players
+    /// at the table)
     Cards(Card, Card,),
 }
 
