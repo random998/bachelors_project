@@ -3,7 +3,6 @@
 
 use std::convert::TryInto;
 use std::fmt;
-use std::ops::Deref;
 
 use anyhow::{Result, bail};
 use bip39::Mnemonic;
@@ -46,7 +45,7 @@ impl Default for SigningKey {
 }
 
 impl SigningKey {
-    pub fn new(key_pair: &KeyPair,) -> Self {
+    #[must_use] pub fn new(key_pair: &KeyPair,) -> Self {
         let entropy = Zeroizing::new([0u8; ENTROPY_LEN],);
         Self {
             kp: key_pair.0.clone(),
@@ -59,7 +58,7 @@ impl SigningKey {
     /// Deterministic constructor from fixed entropy.
     fn generate_from_entropy(entropy: Entropy,) -> Self {
         // Hash the entropy → 32-byte seed, then into Keypair
-        let binding = SigHasher::digest(entropy,).clone();
+        let binding = SigHasher::digest(entropy,);
         let kp: ed25519::Keypair =
             libp2p_identity::Keypair::ed25519_from_bytes(binding,)
                 .expect("error",)
@@ -91,22 +90,22 @@ impl SigningKey {
 
     // ---------- helpers -------------------------------------------
 
-    pub fn phrase(&self,) -> String {
+    #[must_use] pub fn phrase(&self,) -> String {
         Mnemonic::from_entropy(&*self.entropy, Default::default(),)
             .unwrap()
             .phrase()
             .to_owned()
     }
 
-    pub fn peer_id(&self,) -> PeerId {
+    #[must_use] pub fn peer_id(&self,) -> PeerId {
         VerifyingKey(self.kp.public(),).to_peer_id()
     }
 
-    pub fn verifying_key(&self,) -> VerifyingKey {
+    #[must_use] pub fn verifying_key(&self,) -> VerifyingKey {
         VerifyingKey(self.kp.public(),)
     }
 
-    pub fn secret_bytes(&self,) -> [u8; SECRET_LEN] {
+    #[must_use] pub fn secret_bytes(&self,) -> [u8; SECRET_LEN] {
         // copy because `SecretKey` keeps bytes private
         self.kp.secret().as_ref().try_into().unwrap()
     }
@@ -136,12 +135,12 @@ impl Serialize for VerifyingKey {
 impl<'de,> Deserialize<'de,> for SigningKey {
     fn deserialize<D,>(d: D,) -> Result<Self, D::Error,>
     where D: Deserializer<'de,> {
-        let bytes: Vec<u8,> = <&[u8]>::deserialize(d,)?.to_vec();
+        let mut bytes: Vec<u8,> = <&[u8]>::deserialize(d,)?.to_vec();
 
-        let kp = ed25519::Keypair::try_from_bytes(&mut bytes.clone(),)
+        let kp = ed25519::Keypair::try_from_bytes(&mut bytes,)
             .map_err(|e| serde::de::Error::custom(e.to_string(),),)?;
         let entropy = Zeroizing::new([0u8; ENTROPY_LEN],); // unknown
-        Ok(SigningKey { kp, entropy, },)
+        Ok(Self { kp, entropy, },)
     }
 }
 
@@ -150,9 +149,9 @@ impl<'de,> Deserialize<'de,> for VerifyingKey {
     where D: Deserializer<'de,> {
         let bytes: Vec<u8,> = <&[u8]>::deserialize(d,)?.to_vec();
         let kp =
-            ed25519::PublicKey::try_from_bytes(bytes.deref(),).expect("error",);
+            ed25519::PublicKey::try_from_bytes(&bytes,).expect("error",);
 
-        Ok(VerifyingKey(kp,),)
+        Ok(Self(kp,),)
     }
 }
 
@@ -177,21 +176,21 @@ pub struct Signature(Vec<u8,>,);
 pub struct KeyPair(pub ed25519::Keypair,);
 
 impl KeyPair {
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         let kp: ed25519::Keypair = ed25519::Keypair::generate();
-        KeyPair(kp,)
+        Self(kp,)
     }
-    pub fn from_bytes(bytes: &[u8],) -> Self {
+    #[must_use] pub fn from_bytes(bytes: &[u8],) -> Self {
         let mut bytes: [u8; 64] = bytes.try_into().unwrap();
         let kp = ed25519::Keypair::try_from_bytes(&mut bytes,).expect("error",);
-        KeyPair::new(kp,)
+        Self::new(kp,)
     }
 
-    pub fn new(kp: ed25519::Keypair,) -> Self {
-        KeyPair(kp,)
+    #[must_use] pub const fn new(kp: ed25519::Keypair,) -> Self {
+        Self(kp,)
     }
 
-    pub fn to_peer_id(self,) -> PeerId {
+    #[must_use] pub fn to_peer_id(self,) -> PeerId {
         let pubk: libp2p_identity::PublicKey = self.0.public().into();
         PeerId(pubk.to_peer_id(),)
     }
@@ -201,15 +200,15 @@ impl VerifyingKey {
     pub fn verify<T: Serialize,>(&self, msg: &T, sig: &Signature,) -> bool {
         let mut h = SigHasher::new();
         bincode::serialize_into(&mut h, msg,).unwrap();
-        self.0.verify(&h.finalize(), &sig.0.as_ref(),)
+        self.0.verify(&h.finalize(), sig.0.as_ref(),)
     }
 
-    pub fn to_peer_id(&self,) -> PeerId {
+    #[must_use] pub fn to_peer_id(&self,) -> PeerId {
         let pubk: libp2p_identity::PublicKey = self.0.clone().into();
         PeerId(pubk.to_peer_id(),)
     }
 
-    pub fn to_bytes(&self,) -> [u8; 32] {
+    #[must_use] pub fn to_bytes(&self,) -> [u8; 32] {
         self.0.to_bytes()
     }
 }
@@ -249,7 +248,7 @@ impl Serialize for Signature {
 impl<'de,> Deserialize<'de,> for Signature {
     fn deserialize<D,>(d: D,) -> Result<Self, D::Error,>
     where D: Deserializer<'de,> {
-        Vec::deserialize(d,).map(|v| Self(v,),)
+        Vec::deserialize(d,).map(Self,)
     }
 }
 
@@ -262,7 +261,7 @@ pub struct PeerId(libp2p_identity::PeerId,);
 impl Default for PeerId {
     fn default() -> Self {
         let id = libp2p_identity::PeerId::random();
-        PeerId(id,)
+        Self(id,)
     }
 }
 
@@ -284,19 +283,19 @@ impl<'de,> Deserialize<'de,> for PeerId {
         let bytes: &[u8] = <&[u8]>::deserialize(d,)?;
         let peer_id =
             libp2p_identity::PeerId::from_bytes(bytes,).expect("error",);
-        Ok(PeerId(peer_id,),)
+        Ok(Self(peer_id,),)
     }
 }
 
 impl PeerId {
-    pub fn digits(&self,) -> Vec<u8,> {
+    #[must_use] pub fn digits(&self,) -> Vec<u8,> {
         self.0.to_bytes()
     }
 }
 
 impl fmt::Debug for PeerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(f, "PeerId({})", self)
+        write!(f, "PeerId({self})")
     }
 }
 impl fmt::Display for PeerId {
@@ -323,7 +322,7 @@ impl<'de,> Deserialize<'de,> for KeyPair {
     fn deserialize<D,>(d: D,) -> std::result::Result<Self, D::Error,>
     where D: Deserializer<'de,> {
         let bytes = <&[u8]>::deserialize(d,)?;
-        let keypair = KeyPair::from_bytes(bytes,);
+        let keypair = Self::from_bytes(bytes,);
         Ok(keypair,)
     }
 }

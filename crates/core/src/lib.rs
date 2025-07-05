@@ -2,7 +2,6 @@
 
 //! poker core types shared by peers.
 #![warn(clippy::all, rust_2018_idioms, missing_docs)]
-extern crate core;
 
 #[cfg(feature = "connection")]
 pub mod connection;

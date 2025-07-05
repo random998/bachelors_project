@@ -65,7 +65,7 @@ impl PlayerStateObjects {
     }
 
     /// returns the total number of players.
-    pub fn count(&self,) -> usize {
+    pub const fn count(&self,) -> usize {
         self.players.len()
     }
 
@@ -93,8 +93,7 @@ impl PlayerStateObjects {
     pub fn is_active(&self, id: &PeerId,) -> bool {
         self.active_player_idx
             .and_then(|i| self.players.get(i,),)
-            .map(|p| &p.id == id,)
-            .unwrap_or(false,)
+            .is_some_and(|p| &p.id == id,)
     }
 
     pub fn iter(&self,) -> impl Iterator<Item = &PlayerPrivate,> {
@@ -149,8 +148,10 @@ impl PlayerStateObjects {
     pub fn start_round(&mut self,) {
         self.active_player_idx = None;
         if self.count_active_with_chips() > 1 {
-            self.active_player_idx =
-                self.players.iter().position(|p| p.is_active && p.has_chips(),);
+            self.active_player_idx = self
+                .players
+                .iter()
+                .position(|p| p.is_active && p.has_chips(),);
         }
     }
 
@@ -161,7 +162,7 @@ impl PlayerStateObjects {
         }
     }
     pub fn remove_bankrupt_players(&mut self,) {
-        self.players.retain(|p| p.has_chips(),);
+        self.players.retain(super::game_state::PlayerPrivate::has_chips,);
     }
 
     pub fn reset_bets(&mut self,) {
