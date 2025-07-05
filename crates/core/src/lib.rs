@@ -10,6 +10,5 @@ pub mod crypto;
 pub mod game_state;
 pub mod message;
 pub mod net;
-pub mod player;
 mod players_state;
 pub mod poker;

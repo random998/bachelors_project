@@ -59,7 +59,7 @@ pub enum Message {
         table_id:  TableId,
         /// id of the player that joined the table.
         player_id: PeerId,
-        /// chip balance the player joined the table with.
+        /// chip balance the player joined the table.
         chips:     Chips,
     },
 
