@@ -4,16 +4,16 @@ use rand::Rng;
 use rand::prelude::SliceRandom;
 
 use crate::crypto::PeerId;
-use crate::player::PlayerPublic;
+use crate::game_state::PlayerPrivate;
 
 #[derive(Clone, Debug, Default,)]
 pub struct PlayerStateObjects {
-    players:           Vec<PlayerPublic,>,
+    players:           Vec<PlayerPrivate,>,
     active_player_idx: Option<usize,>,
 }
 
 impl PlayerStateObjects {
-    pub fn add(&mut self, player: PlayerPublic,) {
+    pub fn add(&mut self, player: PlayerPrivate,) {
         self.players.push(player,);
     }
 
@@ -22,7 +22,7 @@ impl PlayerStateObjects {
         self.active_player_idx = None;
     }
 
-    pub fn remove(&mut self, id: &PeerId,) -> Option<PlayerPublic,> {
+    pub fn remove(&mut self, id: &PeerId,) -> Option<PlayerPrivate,> {
         let mut old_active_player_idx = 0;
         if self.active_player_idx.is_some() {
             old_active_player_idx = self.active_player_idx.unwrap();
@@ -42,7 +42,7 @@ impl PlayerStateObjects {
             match self.active_player_idx {
                 Some(idx,) if idx == pos => {
                     self.active_player_idx =
-                        self.players.iter().position(|p| p.active,);
+                        self.players.iter().position(|p| p.is_active,);
                 },
                 Some(idx,) if pos < idx => {
                     self.active_player_idx = Some(idx - 1,);
@@ -56,7 +56,7 @@ impl PlayerStateObjects {
         }
     }
 
-    pub fn get(&self, id: &PeerId,) -> Option<&PlayerPublic,> {
+    pub fn get(&self, id: &PeerId,) -> Option<&PlayerPrivate,> {
         self.players.iter().find(|p| &p.id == id,)
     }
 
@@ -70,7 +70,7 @@ impl PlayerStateObjects {
     }
 
     pub fn count_active(&self,) -> usize {
-        self.players.iter().filter(|p| p.active,).count()
+        self.players.iter().filter(|p| p.is_active,).count()
     }
 
     pub fn count_with_chips(&self,) -> usize {
@@ -80,14 +80,14 @@ impl PlayerStateObjects {
     pub fn count_active_with_chips(&self,) -> usize {
         self.players
             .iter()
-            .filter(|p| p.active && p.has_chips(),)
+            .filter(|p| p.is_active && p.has_chips(),)
             .count()
     }
 
-    pub fn active_player(&mut self,) -> Option<&mut PlayerPublic,> {
+    pub fn active_player(&mut self,) -> Option<&mut PlayerPrivate,> {
         self.active_player_idx
             .and_then(move |i| self.players.get_mut(i,),)
-            .filter(|p| p.active,)
+            .filter(|p| p.is_active,)
     }
 
     pub fn is_active(&self, id: &PeerId,) -> bool {
@@ -97,11 +97,11 @@ impl PlayerStateObjects {
             .unwrap_or(false,)
     }
 
-    pub fn iter(&self,) -> impl Iterator<Item = &PlayerPublic,> {
+    pub fn iter(&self,) -> impl Iterator<Item = &PlayerPrivate,> {
         self.players.iter()
     }
 
-    pub fn iter_mut(&mut self,) -> impl Iterator<Item = &mut PlayerPublic,> {
+    pub fn iter_mut(&mut self,) -> impl Iterator<Item = &mut PlayerPrivate,> {
         self.players.iter_mut()
     }
 
@@ -121,7 +121,7 @@ impl PlayerStateObjects {
             .skip(current + 1,)
             .take(self.players.len(),)
         {
-            if player.active && player.has_chips() {
+            if player.is_active && player.has_chips() {
                 self.active_player_idx = Some(i,);
                 break;
             }
@@ -137,10 +137,10 @@ impl PlayerStateObjects {
             self.players
                 .iter_mut()
                 .rev()
-                .find(|p| p.active,)
-                .map(|p| p.dealer = true,);
+                .find(|p| p.is_active,)
+                .map(|p| p.has_button = true,);
             self.active_player_idx =
-                self.players.iter().position(|p| p.active,);
+                self.players.iter().position(|p| p.is_active,);
         } else {
             self.active_player_idx = None;
         }
@@ -150,7 +150,7 @@ impl PlayerStateObjects {
         self.active_player_idx = None;
         if self.count_active_with_chips() > 1 {
             self.active_player_idx =
-                self.players.iter().position(|p| p.active && p.has_chips(),);
+                self.players.iter().position(|p| p.is_active && p.has_chips(),);
         }
     }
 

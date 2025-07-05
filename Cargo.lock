@@ -169,6 +169,7 @@ dependencies = [
  "cfg-if",
  "getrandom 0.3.3",
  "once_cell",
+ "serde",
  "version_check",
  "zerocopy",
 ]
@@ -4649,6 +4650,7 @@ dependencies = [
  "rand_core 0.9.3",
  "serde",
  "snow",
+ "thiserror 2.0.12",
  "tiny-bip39",
  "tokio",
  "tokio-rustls",
