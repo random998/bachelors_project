@@ -57,7 +57,6 @@ impl View for AccountView {
 
         // ── 2. pull echo messages (for status info) ───────────────────
         while let Some(sm,) = app.try_recv() {
-            info!("GUI received msg: {}", sm.message().label());
 
             match sm.message() {
                 Message::PlayerJoinedConfirmation { .. } => {
