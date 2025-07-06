@@ -7,7 +7,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::info;
 use poker_core::crypto::{KeyPair, PeerId, SigningKey};
 use poker_core::game_state::{GameState, InternalTableState};
 use poker_core::message::{Message, SignedMessage};
