@@ -20,7 +20,7 @@ use poker_cards::Card;
 
 mod eval7;
 
-/// An hand rank.
+/// A hand rank.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash,)]
 pub enum HandRank {
     /// A high card.
@@ -231,7 +231,7 @@ fn extract_hand(hand: &[Card], ranks: &[u8; 3],) -> [Card; 5] {
 
     let mut cards = [0u8; 7];
     for (idx, c,) in hand.iter().enumerate() {
-        cards[idx] = (c.rank_bits() << 4 | (idx as u32)) as u8;
+        cards[idx] = (c.rank_bits() << 4 | u32::try_from(idx).expect("err")) as u8;
     }
 
     cards.sort_unstable();
