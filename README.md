@@ -1,22 +1,22 @@
 Bachelors project Scope: Development of a p2p zero-knowledge poker game in Rust.
 
 Roadmap:
-- merge client game state and game state in engine.rs to one game state per peer.
-- look at poker-rs crate for inspiration.
-- check via tests whether game-state locig and game-state transition logic is implemented correctly.
-- incorporate debug console like in zk-darkforest game
-- ui improvements:
+- MONDAY: fix ui / game bugs.
+- MONDAY: check via tests whether game-state logic and game-state transition logic is implemented correctly.
+- MONDAY: email to examination office in order to register project & thesis.
+- TUESDAY: ui improvements:
     display the current game phase somwehere
     display the id's of the players at all times.
     change keybindings of controls.
-    change table ui slightly.
-- code smell analysis and tools like in sopra.
-- more extensive tests.
-- email to examination office in order to register project & thesis.
-- project report & submission
+    change table ui slightly
+    display network peer address.
+
+- WEDNESDAY: project report & (preliminary?) submission
 
 
 Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
+- code smell analysis and tools like in sopra.
+- incorporate debug console like in zk-darkforest game
 - research on how to do a distributed game state engine with conflict resolution.
 - implement conflict resolution regarding game state
 1. Improved secure shuffling protocol.
