@@ -1,89 +1,94 @@
-// code based on https://github.com/vincev/freezeout
-//! Connection dialog view.
+// crates/gui/src/account_view.rs
+//
+// “Account” screen – shows local identity & lets the player join a table.
+// This version is totally lock-free: the GUI owns its own copy of the
+// InternalTableState (stored in `App`), and only *reads* from it.
+
 use eframe::egui::{
     Align2, Button, Color32, Context, FontFamily, FontId, Grid, RichText,
     Window, vec2,
 };
 use log::info;
 use poker_core::crypto::PeerId;
-use poker_core::game_state::ClientGameState;
+use poker_core::game_state::GameState;
 use poker_core::message::Message;
-use poker_core::poker::Chips;
+use poker_core::poker::{Chips, TableId};
 
 use crate::{App, ConnectView, GameView, View};
 
 const TEXT_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 
-/// Connect view.
+/// First screen after connecting – shows account & lets the player join.
 pub struct AccountView {
-    player_id:         PeerId,
-    nickname:          String,
-    game_state:        ClientGameState,
-    chips:             Chips,
+    player_id:  PeerId,
+    nickname:   String,
+    game_state: GameState,
+    chips:      Chips,
+
+    // ui-only state
     error:             String,
-    connection_closed: bool,
+    info_msg:          String,
     table_joined:      bool,
-    message:           String,
+    connection_closed: bool,
 }
 
 impl AccountView {
-    /// Creates a new connect view.
     #[must_use]
     pub fn new(chips: Chips, app: &App,) -> Self {
         Self {
             player_id: *app.player_id(),
-            nickname: app.nickname().to_string(),
-            game_state: ClientGameState::new(
-                *app.player_id(),
-                app.nickname().to_string(),
-            ),
+            nickname: app.nickname().to_owned(),
+            game_state: app.snapshot(), // initial snapshot
             chips,
-            error: String::default(),
-            connection_closed: false,
+            error: String::new(),
+            info_msg: String::new(),
             table_joined: false,
-            message: String::default(),
+            connection_closed: false,
         }
     }
 }
 
 impl View for AccountView {
     fn update(
-        &mut self,
-        ctx: &Context,
-        _frame: &mut eframe::Frame,
-        app: &mut App,
+        &mut self, ctx: &Context, _f: &mut eframe::Frame, app: &mut App,
     ) {
-        while let Some(msg,) = app.try_recv() {
-            info!("client received event: {msg:?}");
-            match msg.message() {
-                Message::PlayerJoined { .. } => {
+        // ── 1. pick up the latest state snapshot (if any) ─────────────
+        self.game_state = app.snapshot();
+
+        // ── 2. pull echo messages (for status info) ───────────────────
+        while let Some(sm,) = app.try_recv() {
+            info!("GUI received msg: {}", sm.message().label());
+
+            match sm.message() {
+                Message::PlayerJoinedConfirmation { .. } => {
                     self.table_joined = true;
                 },
-                Message::NotEnoughChips => {
-                    self.message =
-                        "Not enough chips to play, reconnect later".to_string();
+                Message::NotEnoughChips { .. } => {
+                    self.info_msg =
+                        "Not enough chips – come back later.".into();
                 },
-                Message::NoTablesLeftNotification => {
-                    self.message =
-                        "All tables are busy, reconnect later".to_string();
+                Message::NoTablesLeftNotification { .. } => {
+                    self.info_msg =
+                        "All tables are busy – try again later.".into();
                 },
-                Message::PlayerAlreadyJoined => {
-                    self.message = "This player has already joined".to_string();
+                Message::PlayerAlreadyJoined { .. } => {
+                    self.info_msg =
+                        "You are already seated at that table.".into();
                 },
                 _ => {},
             }
-
-            self.game_state.handle_message(msg,);
         }
 
+        // ── 2. draw the account window ────────────────────────────
         Window::new("Account",)
             .collapsible(false,)
             .resizable(false,)
             .anchor(Align2::CENTER_TOP, vec2(0.0, 150.0,),)
             .max_width(400.0,)
             .show(ctx, |ui| {
+                // summary ----------------------------------------------------
                 ui.group(|ui| {
-                    Grid::new("my_grid",)
+                    Grid::new("acc_grid",)
                         .num_columns(2,)
                         .spacing([40.0, 4.0,],)
                         .show(ui, |ui| {
@@ -115,30 +120,51 @@ impl View for AccountView {
 
                 ui.add_space(10.0,);
 
-                ui.vertical_centered(|ui| {
-                    if !self.message.is_empty() {
+                // info / error line -----------------------------------------
+                if !self.info_msg.is_empty() {
+                    ui.centered_and_justified(|ui| {
                         ui.label(
-                            RichText::new(&self.message,)
+                            RichText::new(&self.info_msg,)
                                 .font(TEXT_FONT,)
                                 .color(Color32::RED,),
                         );
+                    },);
+                    ui.add_space(10.0,);
+                }
 
-                        ui.add_space(10.0,);
-                    }
-
-                    let btn = Button::new(
+                // join table button -----------------------------------------
+                ui.vertical_centered(|ui| {
+                    let join_btn = Button::new(
                         RichText::new("Join Table",).font(TEXT_FONT,),
                     );
-                    if ui.add_sized(vec2(180.0, 30.0,), btn,).clicked() {
-                        let _ = app.sign_and_send(
-                            Message::PlayerJoinTableRequest {
-                                player_id: self.player_id,
-                                nickname:  self.nickname.clone(),
-                            },
+
+                    if ui.add_sized(vec2(180.0, 30.0,), join_btn,).clicked()
+                        && !self.table_joined
+                    {
+                        let table_id: TableId = app.snapshot().table_id;
+                        let join = Message::PlayerJoinTableRequest {
+                            table_id,
+                            player_id: self.player_id,
+                            nickname: self.nickname.clone(),
+                            chips: self.chips,
+                        };
+                        if let Err(e,) = app.sign_and_send(join.clone(),) {
+                            self.error = format!("send failed: {e}");
+                            info!("{}", self.error);
+                        }
+                        info!(
+                            "sending of msg from ui succesfull: {join}"
                         );
-                        self.table_joined = true;
                     }
                 },);
+
+                if !self.error.is_empty() {
+                    ui.label(
+                        RichText::new(&self.error,)
+                            .font(TEXT_FONT,)
+                            .color(Color32::RED,),
+                    );
+                }
             },);
     }
 
@@ -151,10 +177,7 @@ impl View for AccountView {
         if self.connection_closed {
             Some(Box::new(ConnectView::new(frame.storage(), app,),),)
         } else if self.table_joined {
-            let empty_state = ClientGameState::new(
-                *app.player_id(),
-                app.nickname().to_string(),
-            );
+            let empty_state = GameState::default();
             Some(Box::new(GameView::new(
                 ctx,
                 std::mem::replace(&mut self.game_state, empty_state,),

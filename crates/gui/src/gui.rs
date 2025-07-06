@@ -1,7 +1,8 @@
-// code copied from https://github.com/vincev/freezeout
+// crates/gui/src/gui.rs
+//
+//  Top-level GUI glue (egui + our App model)
 
-//! Freezeout Poker egui app implementation.
-
+use std::clone::Clone;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -9,17 +10,21 @@ use clap::Parser;
 use eframe::Storage;
 use eframe::egui::{Context, Theme};
 use log::trace;
+use p2p_net::runtime_bridge::UiHandle; // ← the two channels & runtime
 use poker_cards::egui::Textures;
 use poker_core::crypto::{KeyPair, PeerId, SigningKey};
+use poker_core::game_state::GameState;
 use poker_core::message::{Message, SignedMessage};
-use poker_core::poker::TableId;
-use poker_table_engine::engine::InternalTableState;
-use serde::{Deserialize, Serialize};
+use tokio::runtime::Runtime;
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::{TryRecvError, TrySendError};
 
 use crate::ConnectView;
 
+// ─────────────────────────── CLI options (only on native) ───────────────
+
 #[derive(Parser, Debug,)]
+#[cfg(not(target_arch = "wasm32"))]
 struct Options {
     #[arg(long, default_value = "1")]
     table: String,
@@ -41,102 +46,117 @@ struct Options {
     key_pair: PathBuf,
 }
 
-impl Options {
-    pub fn table_id(&self,) -> TableId {
-        TableId(self.table.parse().unwrap(),)
-    }
-}
+// ─────────────────────────── Persisted data (pass-phrase …) ─────────────
 
-/// Data persisted across sessions.
-#[derive(Debug, Serialize, Deserialize,)]
+#[derive(Debug, serde::Serialize, serde::Deserialize,)]
 pub struct AppData {
-    /// The last saved passphrase.
     pub passphrase: String,
-    /// The last saved nickname.
     pub nickname:   String,
 }
 
-/// The application state shared by all views.
+// ─────────────────────────── App (shared by all views) ───────────────────
+
 pub struct App {
-    /// The app textures.
-    pub textures:           Textures,
-    /// The application message signing key.
-    sk:                     SigningKey,
-    /// This client player id.
-    player_id:              PeerId,
-    /// This client nickname
-    nickname:               String,
-    pub(crate) table_state: Arc<tokio::sync::Mutex<InternalTableState,>,>,
+    // static
+    pub textures: Textures,
+    signing_key:  SigningKey,
+    player_id:    PeerId,
+    nickname:     String,
+
+    // runtime ↔ GUI channels
+    cmd_tx:        mpsc::Sender<SignedMessage,>, // GUI ➜ runtime
+    msg_rx:        mpsc::Receiver<SignedMessage,>, // runtime ➜ GUI
+    _rt:           Arc<Runtime,>,                // keep Tokio alive!
+    game_state_rx: mpsc::Receiver<GameState,>,   // gamestate snapshots
+
+    // latest immutable snapshot
+    game_state: GameState,
 }
 
 impl App {
     const STORAGE_KEY: &'static str = "appdata";
-    fn new(
-        internal_table_state: Arc<tokio::sync::Mutex<InternalTableState,>,>,
-        textures: Textures,
-    ) -> Self {
-        let sk = SigningKey::default();
-        Self {
-            textures,
-            player_id: sk.verifying_key().to_peer_id(),
-            sk,
-            nickname: String::default(),
-            table_state: internal_table_state,
+
+    pub fn update(&mut self,) {
+        if let Ok(res,) = self.game_state_rx.try_recv() {
+            self.game_state = res;
         }
     }
 
-    /// This client player id.
     #[must_use]
-    pub const fn player_id(&self,) -> &PeerId {
-        &self.player_id
+    pub fn new(
+        ui: UiHandle, // returned by `start`
+        state: GameState,
+        textures: Textures,
+    ) -> Self {
+        let sk = SigningKey::default();
+
+        Self {
+            textures,
+            cmd_tx: ui.cmd_tx.clone(),
+            msg_rx: ui.msg_rx, // we *move* the receiver
+            _rt: ui._rt,       // keep the runtime alive
+            game_state_rx: ui.state_rx,
+            signing_key: sk.clone(),
+            player_id: sk.verifying_key().to_peer_id(),
+            nickname: String::new(),
+            game_state: state,
+        }
     }
 
-    /// Try to pull one signed message from the engine without blocking.
-    /// Returns `None` if (a) no message is available, or (b) the mutex
-    /// is momentarily busy, or (c) it was poisoned.
+    // ----------- message plumbing --------------------------------
+
+    /// non-blocking pull from the runtime ➜ GUI channel
     pub fn try_recv(&mut self,) -> Option<SignedMessage,> {
-        match self.table_state.try_lock() {
-            Ok(mut engine,) => {
-                match engine.connection.rx.receiver.try_recv() {
-                    Ok(msg,) => Some(msg,),
-                    Err(TryRecvError::Empty,) => None,
-                    Err(TryRecvError::Disconnected,) => {
-                        log::warn!("engine RX channel closed");
-                        None
-                    },
-                }
-            },
+        match self.msg_rx.try_recv() {
+            Ok(m,) => Some(m,),
+            Err(TryRecvError::Empty,) => None,
             Err(_,) => {
-                // UI thread: just skip this frame.
+                log::warn!("runtime → GUI channel closed");
                 None
             },
         }
     }
-    // Signs a message and *attempts* to send it immediately.
-    /// If the lock is busy we fall back to a small local queue so the
-    /// button-click never panics or blocks.
+
+    /// sign locally & push to runtime
     pub fn sign_and_send(
-        &mut self,
+        &self,
         msg: Message,
     ) -> Result<(), TrySendError<SignedMessage,>,> {
-        let signed = SignedMessage::new(&self.sk, msg,);
-
-        match self.table_state.try_lock() {
-            Ok(engine,) => engine.connection.tx.sender.try_send(signed,),
-            Err(_try_lock_error,) => {
-                // Could push to a VecDeque and flush it next frame, or
-                // just return Err so caller can retry.
-                Err(TrySendError::Closed(signed,),)
-            },
-        }
+        let signed = SignedMessage::new(&self.signing_key, msg,);
+        self.cmd_tx.try_send(signed,)
     }
-    /// This client nickname.
+
+    // ------------- helpers exposed to views ----------------------
+
+    #[inline]
+    #[must_use]
+    pub const fn player_id(&self,) -> &PeerId {
+        &self.player_id
+    }
+    #[inline]
     #[must_use]
     pub fn nickname(&self,) -> &str {
         &self.nickname
     }
 
-    /// Get a value from the app storage.
+    /// latest immutable snapshot (cheap `Clone`)
+    #[inline]
+    #[must_use]
+    pub fn snapshot(&self,) -> GameState {
+        self.game_state.clone()
+    }
+
+    // ------------- (de)serialize tiny settings -------------------
+
+    pub fn load_from_storage(&mut self, storage: Option<&dyn Storage,>,) {
+        if let Some(data,) = storage
+            .and_then(|s| eframe::get_value::<AppData,>(s, Self::STORAGE_KEY,),)
+        {
+            self.nickname = data.nickname;
+        }
+    }
+
+    // Get a value from the app storage.
     #[must_use]
     pub fn get_storage(
         &self,
@@ -146,30 +166,27 @@ impl App {
             .and_then(|s| eframe::get_value::<AppData,>(s, Self::STORAGE_KEY,),)
     }
 
-    /// Set a value in the app storage.
-    pub fn set_storage(
-        &self,
-        storage: Option<&mut (dyn Storage + 'static),>,
-        data: &AppData,
-    ) {
+    pub fn save_to_storage(&self, storage: Option<&mut dyn Storage,>,) {
         if let Some(s,) = storage {
-            eframe::set_value::<AppData,>(s, Self::STORAGE_KEY, data,);
+            let data = AppData {
+                passphrase: String::new(),
+                nickname:   self.nickname.clone(),
+            };
+            eframe::set_value::<AppData,>(s, Self::STORAGE_KEY, &data,);
             s.flush();
         }
     }
 }
 
-/// Traits for UI views.
+// ─────────────────────────── Trait implemented by every view ─────────────
+
 pub trait View {
-    /// Process a view update.
     fn update(
         &mut self,
         ctx: &Context,
         frame: &mut eframe::Frame,
         app: &mut App,
     );
-
-    /// Returns the next view if any.
     fn next(
         &mut self,
         ctx: &Context,
@@ -178,24 +195,24 @@ pub trait View {
     ) -> Option<Box<dyn View,>,>;
 }
 
-/// The UI main frame.
+// ─────────────────────────── Top-level egui frame ------------------------
+
 pub struct AppFrame {
     app:   App,
     panel: Box<dyn View,>,
 }
 
 impl AppFrame {
-    /// Creates a new App instance.
     #[must_use]
     pub fn new(
         cc: &eframe::CreationContext<'_,>,
-        table_state: Arc<tokio::sync::Mutex<InternalTableState,>,>,
+        ui: UiHandle,
+        _nick: String,
     ) -> Self {
         cc.egui_ctx.set_theme(Theme::Dark,);
-
-        let app = App::new(table_state, Textures::new(&cc.egui_ctx,),);
+        let textures = Textures::new(&cc.egui_ctx,);
+        let app = App::new(ui, GameState::default(), textures,);
         let panel = Box::new(ConnectView::new(cc.storage, &app,),);
-
         Self { app, panel, }
     }
 }
@@ -204,28 +221,26 @@ impl eframe::App for AppFrame {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame,) {
         self.panel.update(ctx, frame, &mut self.app,);
 
-        if let Some(panel,) = self.panel.next(ctx, frame, &mut self.app,) {
-            self.panel = panel;
+        if let Some(next,) = self.panel.next(ctx, frame, &mut self.app,) {
+            self.panel = next; // switch view
             self.panel.update(ctx, frame, &mut self.app,);
         }
+
+        self.app.update();
     }
 }
 
-// persistent key ----------------------------------------------------
+// ─────────────────────────── helper (native only) ------------------------
+
+#[cfg(not(target_arch = "wasm32"))]
 fn load_or_generate_keypair(
     path: &std::path::Path,
 ) -> anyhow::Result<KeyPair,> {
     use std::fs;
     use std::io::Write;
-
-    // if path.exists() {
-    //        trace!("loading key from path: {} ...", path.display());
-    // let bytes = fs::read(path,)?;
-    // Ok(bincode::deserialize::<KeyPair>(&bytes,)?,)
-    trace!("loading default key...");
+    trace!("loading default key …");
     let key = KeyPair::default();
     fs::File::create(path,)?
         .write_all(bincode::serialize(&key,)?.as_slice(),)?;
     Ok(key,)
-    //     }
 }
