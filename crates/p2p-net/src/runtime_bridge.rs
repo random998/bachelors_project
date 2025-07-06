@@ -88,13 +88,11 @@ pub fn start(
         loop {
             // a) commands from GUI
             while let Ok(cmd,) = cmd_rx.try_recv() {
-                info!("runtime bridge received msg from ui and passing it to internaltablestate");
                 eng.handle_message(cmd,);
             }
 
             // b) gossip → engine
             while let Ok(msg,) = eng.try_recv() {
-                info!("runtime bridge received msg from the network and passing it to the ui");
                 eng.handle_message(msg,);
             }
 
