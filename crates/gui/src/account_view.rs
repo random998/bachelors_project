@@ -57,7 +57,6 @@ impl View for AccountView {
 
         // ── 2. pull echo messages (for status info) ───────────────────
         while let Some(sm,) = app.try_recv() {
-
             match sm.message() {
                 Message::PlayerJoinedConfirmation { .. } => {
                     self.table_joined = true;
@@ -151,9 +150,7 @@ impl View for AccountView {
                             self.error = format!("send failed: {e}");
                             info!("{}", self.error);
                         }
-                        info!(
-                            "sending of msg from ui succesfull: {join}"
-                        );
+                        info!("sending of msg from ui succesfull: {join}");
                     }
                 },);
 
