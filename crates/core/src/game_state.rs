@@ -308,11 +308,28 @@ impl InternalTableState {
 
     pub fn try_join(&mut self, id: &PeerId, nickname: &String, chips: &Chips,) {
         if self.players.iter().any(|p| p.id == *id,) {
-            // ignore
+            // player already joined.
             return;
         }
-        // TODO: check if chips amount is allowed, nickname is allowed
-        // etc.
+
+        // if we are not the player sending a join request, then send a join request for ourselves to that player
+        if self.player_id != *id {
+            if let Some(us) = self.players.iter().find(|p| p.id == self.player_id) {
+                let rq = Message::PlayerJoinTableRequest {
+                    table_id: self.table_id,
+                    player_id: us.id,
+                    nickname: us.nickname.clone(),
+                    chips: us.chips.clone(),
+                };
+                let res = self.sign_and_send(rq);
+                if let Err(e) = res {
+                    warn!("error sending message: {e}");
+                }
+            }
+        }
+
+        // TODO: check if chips amount is allowed, nickname is allowed etc.
+
         self.players
             .push(PlayerPrivate::new(*id, nickname.clone(), *chips,),);
 
@@ -324,6 +341,7 @@ impl InternalTableState {
             nickname:  nickname.clone(),
         };
         let res = self.sign_and_send(confirmation,);
+
         if let Err(e,) = res {
             warn!("error: {e}");
         }
@@ -349,8 +367,8 @@ impl InternalTableState {
 
     pub fn handle_message(&mut self, sm: SignedMessage,) {
         info!(
-            "internal table state of peer {} handling message with label {:?} sent from peer {} from ui",
-            self.table_id,
+            "internal table state of peer {} handling message with label {:?} sent from peer {}",
+            self.player_id,
             sm.message().label(),
             sm.sender()
         );
