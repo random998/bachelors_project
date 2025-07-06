@@ -1,14 +1,18 @@
-// Game state representation for each peer client in a peer-to-peer poker game.
+//! Poker table state management – **lock-free** client version
+//! Adapted from <https://github.com/vincev/freezeout>
 
 use std::fmt;
+use std::fmt::Formatter;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ahash::AHashSet;
-use anyhow::{Error, anyhow};
-use poker_cards::Deck;
+use log::{info, warn};
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::info;
+use tokio::sync::mpsc;
 
 use crate::crypto::{PeerId, SigningKey};
 use crate::message::{
@@ -16,37 +20,42 @@ use crate::message::{
 };
 use crate::net::traits::P2pTransport;
 use crate::players_state::PlayerStateObjects;
-use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
+use crate::poker::{Card, Chips, Deck, PlayerCards, TableId}; // per-player helper
 
-/// Represents a single betting pot.
-#[derive(Debug, Default, Clone, Deserialize, Serialize,)]
+// ────────────────────────────────────────────────────────────────────────────
+//  Small helpers
+// ────────────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize,)]
 pub(crate) struct Pot {
     participants: AHashSet<PeerId,>,
     total_chips:  Chips,
 }
 
-/// Game player data (private to a peer game state)
-#[derive(Debug, Clone,)]
+impl Pot {
+    pub const fn total_chips(&self,) -> Chips {
+        self.total_chips
+    }
+}
+
+impl fmt::Display for Pot {
+    fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
+        write!(f, "{}", self.total_chips)
+    }
+}
+
+/// One player as stored in *our* local copy of the table state.
+#[derive(Debug, Clone, Serialize, Deserialize,)]
 pub struct PlayerPrivate {
-    /// This player id.
     pub id:           PeerId,
-    /// This player nickname.
     pub nickname:     String,
-    /// This player chips.
     pub chips:        Chips,
-    /// The last player bet.
     pub bet:          Chips,
-    /// The hand payoff.
     pub payoff:       Option<HandPayoff,>,
-    /// The last player action.
     pub action:       PlayerAction,
-    /// The last player action.
-    pub action_timer: Option<u16,>,
-    /// cards of the player
+    pub action_timer: Option<u64,>,
     pub cards:        PlayerCards,
-    /// The player has the button.
     pub has_button:   bool,
-    /// The player is active in the hand.
     pub is_active:    bool,
 }
 
@@ -55,12 +64,26 @@ impl PlayerPrivate {
         self.action = PlayerAction::None;
         self.action_timer = None;
     }
-    pub(crate) fn has_chips(&self,) -> bool {
-        self.chips > Chips::ZERO
+
+    #[must_use] pub fn id_digits(&self,) -> String {
+        self.id.to_string()
     }
-    const fn new(player_id: PeerId, nickname: String, chips: Chips,) -> Self {
+}
+
+impl PlayerPrivate {
+    pub(crate) fn reset_for_new_hand(&mut self,) {
+        self.is_active = self.chips > Chips::ZERO;
+        self.has_button = false;
+        self.bet = Chips::ZERO;
+        self.action = PlayerAction::None;
+        self.cards = PlayerCards::None;
+    }
+}
+
+impl PlayerPrivate {
+    const fn new(id: PeerId, nickname: String, chips: Chips,) -> Self {
         Self {
-            id: player_id,
+            id,
             nickname,
             chips,
             bet: Chips::ZERO,
@@ -73,20 +96,19 @@ impl PlayerPrivate {
         }
     }
 
-    pub(crate) fn reset_for_new_hand(&mut self,) {
-        self.bet = Chips::ZERO;
-        self.payoff = None;
-        self.action = PlayerAction::None;
-        self.action_timer = None;
-        self.cards = PlayerCards::None;
-        self.has_button = false;
-        self.is_active = true; //TODO: is setting is_active = true correct here?
+    pub const fn fold(&mut self,) {
+        self.is_active = false;
+        self.action = PlayerAction::Fold;
+    }
+
+    #[must_use]
+    pub fn has_chips(&self,) -> bool {
+        self.chips > Chips::ZERO
     }
 }
 
-/// Represents the current phase of a hand being played.
 #[derive(Debug, Eq, PartialEq,)]
-enum Round {
+enum HandPhase {
     WaitingForPlayers,
     StartingGame,
     StartingHand,
@@ -103,594 +125,346 @@ enum Round {
     EndingGame,
 }
 
-impl Round {
-    const fn default() -> Self {
-        Self::WaitingForPlayers
+impl fmt::Display for HandPhase {
+    fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
+        use HandPhase::{
+            EndingGame, EndingHand, Flop, FlopBetting, Preflop, PreflopBetting,
+            River, RiverBetting, Showdown, StartingGame, StartingHand, Turn,
+            TurnBetting, WaitingForPlayers,
+        };
+        let s = match self {
+            WaitingForPlayers => "WaitingForPlayers",
+            StartingGame => "StartingGame",
+            StartingHand => "StartingHand",
+            PreflopBetting => "PreflopBetting",
+            Preflop => "Preflop",
+            FlopBetting => "FlopBetting",
+            Flop => "Flop",
+            TurnBetting => "TurnBetting",
+            Turn => "Turn",
+            RiverBetting => "RiverBetting",
+            River => "River",
+            Showdown => "Showdown",
+            EndingHand => "EndingHand",
+            EndingGame => "EndingGame",
+        };
+        write!(f, "{s}")
     }
 }
 
-/// Represents a request for player action made by the consensus (majority) of
-/// peers.
-///
-/// This replaces a traditional client-server model with decentralized peer
-/// coordination. Each player is asked to choose one of the permitted actions
-/// (e.g., Fold, Call, Raise).
-#[derive(Debug,)]
-pub struct ActionRequest {
-    /// Set of valid actions the player may choose from at this point.
-    pub available_actions: Vec<PlayerAction,>,
+// ────────────────────────────────────────────────────────────────────────────
+//  Main table state held by *one* peer
+// ────────────────────────────────────────────────────────────────────────────
 
-    /// Minimum raise amount allowed in the current betting round (based on
-    /// game rules).
-    pub minimum_raise: Chips,
+pub struct InternalTableState {
+    // static info ---------------------------------------------------------
+    table_id:    TableId,
+    num_seats:   usize,
+    signing_key: Arc<SigningKey,>,
+    player_id:   PeerId,
 
-    /// Big blind value for the current hand, used for validation and context.
-    pub big_blind_amount: Chips,
-}
+    // networking ----------------------------------------------------------
+    pub connection: P2pTransport,
+    /// UI callback – echoes every locally-generated message without locks.
+    pub cb:         Box<dyn FnMut(SignedMessage,) + Send,>,
 
-impl ActionRequest {
-    /// Returns `true` if the player is allowed to call.
-    #[must_use]
-    pub fn can_call(&self,) -> bool {
-        self.is_action_allowed(PlayerAction::Call,)
-    }
-
-    /// Returns `true` if the player is allowed to check.
-    #[must_use]
-    pub fn can_check(&self,) -> bool {
-        self.is_action_allowed(PlayerAction::Check,)
-    }
-
-    /// Returns `true` if the player is allowed to bet.
-    #[must_use]
-    pub fn can_bet(&self,) -> bool {
-        self.is_action_allowed(PlayerAction::Bet,)
-    }
-
-    /// Returns `true` if the player is allowed to raise.
-    #[must_use]
-    pub fn can_raise(&self,) -> bool {
-        self.is_action_allowed(PlayerAction::Raise,)
-    }
-
-    /// Checks whether a specific action is in the set of allowed actions.
-    fn is_action_allowed(&self, action: PlayerAction,) -> bool {
-        self.available_actions.contains(&action,)
-    }
-}
-
-#[derive(Debug,)]
-pub struct RoundData {
-    /// players that were active at the start of this round.
-    pub starting_player_active: Vec<PeerId,>,
-    pub needs_action:           Vec<PeerId,>,
-    min_raise:                  Chips,
-    last_bet:                   Chips,
-    /// how much chips each player has put in so far.
-    player_bets:                Vec<Chips,>,
-    /// number of times anyone has put in chips.
-    total_bet_count:            u64,
-    /// number of times anyone has increased the bet non-forced.
-    total_raise_count:          u64,
-    /// idx of the next player to act.
-    pub to_act_idx:             usize,
-    pub pot:                    Pot,
-    current_round:              Round,
-}
-
-impl RoundData {
-    #[must_use] pub fn new(
-        num_players: usize,
-        min_raise: Chips,
-        active_players: Vec<PeerId,>,
-        to_act_idx: usize,
-    ) -> Self {
-        Self {
-            needs_action: active_players.clone(),
-            starting_player_active: active_players,
-            min_raise,
-            last_bet: Chips::ZERO,
-            player_bets: vec![Chips::ZERO; num_players],
-            total_bet_count: 0,
-            total_raise_count: 0,
-            to_act_idx,
-            pot: Pot::default(),
-            current_round: Round::default(),
-        }
-    }
-}
-
-/// Represents the local game state as seen by a specific peer.
-///
-/// This struct holds everything the local peer needs to know about the table,
-/// including player info, the board, and betting context.
-#[derive(Debug,)]
-pub struct ClientGameState {
-    connection: P2pTransport,
-    /// ID of this peer.
-    player_id:  PeerId,
-
-    /// signing key of this peer.
-    sk:                   SigningKey,
-    /// Nickname associated with this peer.
-    nickname:             String,
-    /// Identifier of the host key or session authority (may be removed in P2P
-    /// mode).
-    legacy_server_key:    String, // TODO: remove when switching fully to p2p.
-    /// Unique identifier for the poker table instance.
-    table_id:             TableId,
-    /// Number of player seats at the table.
-    num_seats:            usize,
-    /// Number taken player seats at the table.
-    num_taken_seats:      usize,
-    /// Whether the game has started.
-    game_started:         bool,
-    /// List of all players currently seated at the table.
+    // game state ----------------------------------------------------------
+    phase:                HandPhase,
     players:              Vec<PlayerPrivate,>,
-    // player state objects
     player_state_objects: PlayerStateObjects,
     deck:                 Deck,
-    /// Action request currently directed to this player, if any.
-    action_request:       Option<ActionRequest,>,
-    /// Community cards on the board (flop, turn, river).
     community_cards:      Vec<Card,>,
+    current_pot:          Pot,
+    action_request:       Option<ActionRequest,>,
 
-    /// id of the current game/hand.
-    game_id: GameId,
-
+    // misc ----------------------------------------------------------------
+    rng:              StdRng,
     hand_start_timer: Option<Instant,>,
     hand_start_delay: Duration,
-
-    round_data: RoundData,
-    payoffs:    Vec<HandPayoff,>,
 }
 
-impl ClientGameState {
-    const ACTION_TIMEOUT: Duration = Duration::from_secs(15,);
-    const INITIAL_SMALL_BLIND: Chips = Chips::new(10_000,);
-    const INITIAL_BIG_BLIND: Chips = Chips::new(20_000,);
-
-    pub const fn signing_key() {}
-
+impl InternalTableState {
+    /// grab an immutable snapshot for the GUI
     #[must_use]
-    pub fn new(
-        player_id: PeerId,
-        nickname: String,
-        connection: P2pTransport,
-    ) -> Self {
-        // TODO: how and where should we init the connection?
-        let round_data = RoundData::new(3, Chips::ZERO, Vec::default(), 0,);
-        let hand_start_delay = Duration::from_millis(1000,);
-        let hand_start_timer = Some(Instant::now(),);
-        let sk = SigningKey::default(); //TODO: fix
-        let player_state_objs = PlayerStateObjects::default();
-        Self {
-            payoffs: Vec::new(),
-            player_state_objects: player_state_objs,
-            players: Vec::default(),
-            sk,
-            connection,
-            hand_start_delay,
-            hand_start_timer,
-            round_data,
-            deck: Deck::default(),
-            player_id,
-            nickname,
-            table_id: TableId::NO_TABLE,
-            game_id: GameId::NO_GAME,
-            legacy_server_key: String::default(),
-            num_seats: 0, // maximum number of seats at the table
-            game_started: false,
-            num_taken_seats: 0,
-            action_request: None,
-            community_cards: Vec::default(),
+    pub fn snapshot(&self,) -> GameState {
+        GameState {
+            table_id:     self.table_id,
+            seats:        self.num_seats,
+            game_started: !matches!(self.phase, HandPhase::WaitingForPlayers),
+
+            player_id: self.signing_key.peer_id(),
+            nickname:  String::new(), // Optional: store locally if needed
+
+            players:    self.players.clone(),
+            board:      self.community_cards.clone(),
+            pot:        self.current_pot.clone(),
+            action_req: self.action_request.clone(),
         }
     }
 
-    pub async fn start_game(&self,) {
-        todo!();
+    #[must_use]
+    pub fn signing_key(&self,) -> Arc<SigningKey,> {
+        self.signing_key.clone()
     }
 
-    /// Handle an incoming peer message.
-    pub fn handle_message(&mut self, msg: SignedMessage,) {
+    #[must_use]
+    pub const fn num_seats(&self,) -> usize {
+        self.num_seats
+    }
+    #[must_use]
+    pub fn players(&self,) -> Vec<PlayerPrivate,> {
+        self.players.clone()
+    }
+    #[must_use]
+    pub fn community_cards(&self,) -> Vec<Card,> {
+        self.community_cards.clone()
+    }
+    #[must_use]
+    pub fn pot(&self,) -> Pot {
+        self.current_pot.clone()
+    }
+
+    #[must_use]
+    pub const fn table_id(&self,) -> TableId {
+        self.table_id
+    }
+}
+
+impl InternalTableState {
+    // — constructors —
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        peer_id: PeerId,
+        table_id: TableId,
+        num_seats: usize,
+        signing_key: Arc<SigningKey,>,
+        connection: P2pTransport,
+        cb: impl FnMut(SignedMessage,) + Send + 'static,
+    ) -> Self {
+        Self {
+            player_id: peer_id,
+            table_id,
+            num_seats,
+            signing_key,
+            connection,
+            cb: Box::new(cb,),
+
+            phase: HandPhase::WaitingForPlayers,
+            players: Vec::new(),
+            player_state_objects: PlayerStateObjects::default(),
+            deck: Deck::default(),
+            community_cards: Vec::new(),
+            current_pot: Pot::default(),
+
+            rng: StdRng::from_os_rng(),
+            hand_start_timer: None,
+            hand_start_delay: Duration::from_millis(1_000,),
+            action_request: None,
+        }
+    }
+
+    // — public helpers (runtime ↔ UI) —
+
+    /// Non-blocking pull used by the runtime loop.
+    pub fn try_recv(
+        &mut self,
+    ) -> Result<SignedMessage, mpsc::error::TryRecvError,> {
+        self.connection.rx.receiver.try_recv()
+    }
+
+    /// Sign, broadcast **and** echo a local command.
+    pub fn sign_and_send(
+        &mut self,
+        msg: Message,
+    ) -> Result<(), mpsc::error::TrySendError<SignedMessage,>,> {
+        let signed = SignedMessage::new(&self.signing_key, msg,);
+        self.send(signed,)
+    }
+
+    /// Low-level send used by `sign_and_send` **and** by the gossip handler.
+    pub fn send(
+        &mut self,
+        msg: SignedMessage,
+    ) -> Result<(), mpsc::error::TrySendError<SignedMessage,>,> {
+        // network → gossipsub
+        self.connection.tx.sender.try_send(msg.clone(),)?;
+        // local echo → UI
+        (self.cb)(msg,);
+        Ok((),)
+    }
+
+    /// Called every ~20 ms by the runtime.
+    pub async fn tick(&mut self,) {
+        if let Some(p,) =
+            self.players.iter_mut().find(|p| p.action_timer.is_some(),)
+        {
+            if p.action_timer.unwrap() >= 1_500 {
+                p.fold();
+            }
+        }
+    }
+
+    // — dispatcher called by runtime for every inbound network msg —
+
+    pub fn handle_message(&mut self, sm: SignedMessage,) {
         info!(
-            "peer handling incoming message: {:?}",
-            msg.message().to_string()
+            "internal table state of peer {} handling message {:?} from ui",
+            self.table_id, sm
         );
-        match msg.message() {
+        match sm.message() {
             Message::PlayerJoinTableRequest {
                 player_id,
                 nickname,
                 chips,
-                table_id,
+                ..
             } => {
-                self.table_id = *table_id;
-                self.num_taken_seats += 1usize;
-                self.legacy_server_key = msg.sender().to_string();
-
-                // Add the joined player as the first player in the players
-                // list.
+                if self.players.iter().any(|p| p.id == *player_id,) {
+                    // ignore
+                    return;
+                }
+                // TODO: check if chips amount is allowed, nickname is allowed
+                // etc.
                 self.players.push(PlayerPrivate::new(
                     *player_id,
                     nickname.clone(),
                     *chips,
                 ),);
+                // send confirmation
+                let confirmation = Message::PlayerJoinedConfirmation {
+                    table_id:  self.table_id,
+                    player_id: *player_id,
+                    chips:     *chips,
+                    nickname:  nickname.clone(),
+                };
+                let res = self.sign_and_send(confirmation,);
+                if let Err(e,) = res {
+                    info!("internal table state could not send message: {e}");
+                }
             },
-            Message::PlayerLeaveRequest {
+            Message::PlayerLeaveRequest { player_id, .. } => {
+                self.players.retain(|p| &p.id != player_id,);
+            },
+            Message::GameStateUpdate {
+                community_cards,
+                pot,
+                player_updates,
+                ..
+            } => {
+                self.community_cards = community_cards.clone();
+                self.current_pot.total_chips = pot.total_chips;
+                self.update_players(player_updates,);
+            },
+            Message::PlayerJoinedConfirmation {
+                table_id: _table_id,
                 player_id,
-                table_id,
+                chips,
+                nickname,
             } => {
-                if self.table_id != *table_id {
-                    return;
-                }
-                self.players.retain(|p| p.id == *player_id,);
-            },
-            Message::StartGameNotify {
-                seat_order: seats,
-                table_id: _table_id,
-                game_id: _game_id,
-            } => {
-                // TODO: handle table_id and game_id.
-
-                // Reorder seats according to the new order.
-                println!("handling incoming server message StartGame");
-                println!("current seats list: {seats:?}");
-                println!(
-                    "player id list: {:?}",
-                    self.players.iter().map(|p| p.id).collect::<Vec<_,>>()
-                );
-
-                for (idx, seat_id,) in seats.iter().enumerate() {
-                    let pos = self
-                        .players
-                        .iter()
-                        .position(|p| &p.id == seat_id,)
-                        .expect("Player not found",);
-                    self.players.swap(idx, pos,);
-                }
-
-                // Move local player in first position.
-                let pos = self
-                    .players
-                    .iter()
-                    .position(|p| p.id == self.player_id,)
-                    .expect("Local player not found",);
-                self.players.rotate_left(pos,);
-
-                self.game_started = true;
-            },
-            Message::StartHand {
-                table_id: _table_id,
-                game_id: _game_id,
-            } => {
-                // TODO: handle table_id and game_id
-
-                // Prepare for a new hand.
-                for player in &mut self.players {
-                    player.cards = PlayerCards::None;
-                    player.action = PlayerAction::None;
-                }
-            },
-            Message::EndHand { payoffs, .. } => {
-                self.action_request = None;
-                self.round_data.pot = Pot::default();
-
-                // Update winnings for each winning player.
-                for payoff in payoffs {
-                    if let Some(p,) = self
-                        .players
-                        .iter_mut()
-                        .find(|p| p.id.digits() == payoff.player_id.digits(),)
-                    {
-                        p.payoff = Some(payoff.clone(),);
+                // check if player has actually joined
+                if !self.players.iter().any(|p| p.id == *player_id,) {
+                    info!(
+                        "player has not joined, despite receiving player joined confirmation"
+                    );
+                    self.players.push(PlayerPrivate::new(
+                        *player_id,
+                        nickname.clone(),
+                        *chips,
+                    ),);
+                    // send confirmation
+                    let confirmation = Message::PlayerJoinedConfirmation {
+                        table_id:  self.table_id,
+                        player_id: *player_id,
+                        chips:     *chips,
+                        nickname:  nickname.clone(),
+                    };
+                    let res = self.sign_and_send(confirmation,);
+                    if let Err(e,) = res {
+                        info!(
+                            "internal table state could not send message: {e}"
+                        );
                     }
                 }
             },
-            Message::DealCards {
-                table_id: _table_id,
-                game_id: _game_id,
-                player_id,
-                card1,
-                card2,
-            } => {
-                // TODO: handle game_id, table_id
-
-                // check if cards are dealt to this player.
-                if self.player_id != *player_id {
-                    return;
-                }
-
-                // This client player should be in first position.
-                assert!(!self.players.is_empty());
-                assert_eq!(
-                    self.players[0].id.digits(),
-                    self.player_id.digits()
-                );
-
-                self.players[0].cards = PlayerCards::Cards(*card1, *card2,);
-                info!("hole cards of player {}", self.players[0].cards);
-            },
-            Message::GameStateUpdate {
-                table_id: _table_id,
-                game_id: _game_id,
-                player_updates,
-                community_cards,
-                pot,
-            } => {
-                // TODO: handle table_id and game_id.
-                self.update_players(player_updates,);
-                self.community_cards = community_cards.clone();
-                self.round_data.pot = pot.clone();
-            },
-            Message::ActionRequest {
-                game_id: _game_id,
-                table_id: _table_id,
-                player_id,
-                min_raise,
-                big_blind,
-                actions,
-            } => {
-                // TODO: handle game_id and table_id
-
-                // Check if the action has been requested for this player.
-                if self.player_id != *player_id {
-                    return;
-                }
-
-                self.action_request = Some(ActionRequest {
-                    available_actions: actions.clone(),
-                    minimum_raise:     *min_raise,
-                    big_blind_amount:  *big_blind,
-                },);
-            },
-            _ => {
-                info!(
-                    "client game state is not handling the following msg: {}",
-                    msg.message().to_string()
-                );
-            },
-        }
-    }
-    fn update_players(&mut self, updates: &[PlayerUpdate],) {
-        for player_update in updates {
-            let player_update = player_update.clone(); // Clone once
-
-            if let Some(pos,) =
-                self.players.iter_mut().position(|p| {
-                    p.id.digits() == player_update.player_id.digits()
-                },)
-            {
-                let player = &mut self.players[pos];
-                player.chips = player_update.chips;
-                player.bet = player_update.bet;
-                player.action = player_update.action;
-                player.action_timer = player_update.action_timer;
-                player.has_button = player_update.is_dealer;
-                player.is_active = player_update.is_active;
-
-                // Do not override cards for the local player as they are
-                // updated when we get a DealCards message.
-                if pos != 0 {
-                    player.cards = player_update.hole_cards;
-                }
-
-                // If local player has folded, remove its cards.
-                if pos == 0 && !player.is_active {
-                    player.cards = PlayerCards::None;
-                    self.action_request = None;
-                }
-            }
+            other => warn!("unhandled msg in InternalTableState: {other}"),
         }
     }
 
-    /// Returns the server key.
     #[must_use]
-    pub fn server_key(&self,) -> &str {
-        &self.legacy_server_key
+    pub fn action_request(&self,) -> Option<ActionRequest,> {
+        self.action_request.clone()
     }
 
-    /// Returns a reference to the players.
-    #[must_use]
-    pub fn players(&self,) -> &[PlayerPrivate] {
-        &self.players
-    }
-
-    /// The current pot.
-    #[must_use]
-    pub fn pot(&self,) -> Pot {
-        self.round_data.pot.clone()
-    }
-
-    /// The board cards.
-    #[must_use]
-    pub fn community_cards(&self,) -> &[Card] {
-        &self.community_cards
-    }
-
-    /// The number of seats at this table.
-    #[must_use]
-    pub const fn num_seats(&self,) -> usize {
-        self.num_seats
-    }
-
-    /// Checks if the game has started.
-    #[must_use]
-    pub const fn game_started(&self,) -> bool {
-        self.game_started
-    }
-
-    /// Checks if the local player is active.
-    #[must_use]
-    pub fn is_active(&self,) -> bool {
-        !self.players.is_empty() && self.players[0].is_active
-    }
-    /// Returns the requested player action if any.
-    #[must_use]
-    pub const fn action_request(&self,) -> Option<&ActionRequest,> {
-        self.action_request.as_ref()
-    }
-
-    /// Reset the action request.
     pub fn reset_action_request(&mut self,) {
         self.action_request = None;
     }
 
-    #[must_use] pub fn can_join(&self,) -> bool {
-        if self.round_data.current_round == Round::WaitingForPlayers {
-            false
-        } else {
-            self.players.len() < self.num_seats
-        }
-    }
+    // — internals —
 
-    pub fn enter_end_hand(&self,) {
-        todo!()
-    }
-    pub async fn try_join(
-        &mut self,
-        player_id: &PeerId,
-        _nickname: &str,
-        starting_chips: &Chips,
-    ) -> Result<(), TableJoinError,> {
-        // check if there are to omany players at the table.
-        if self.players.len() >= self.num_seats {
-            return Err(TableJoinError::TableFull,);
-        }
-
-        // it is not possible to join, if the table is not waiting for players..
-        if !matches!(self.round_data.current_round, Round::WaitingForPlayers) {
-            return Err(TableJoinError::GameStarted,);
-        }
-
-        // no player is allowed to join twice.
-        if self.players.iter().any(|player| &player.id == player_id,) {
-            return Err(TableJoinError::AlreadyJoined,);
-        }
-
-        // send join request message
-        let new_player: PlayerPrivate = PlayerPrivate {
-            id:           *player_id,
-            nickname:     String::new(),
-            chips:        *starting_chips,
-            bet:          Default::default(),
-            payoff:       None,
-            action:       PlayerAction::None,
-            action_timer: None,
-            cards:        Default::default(),
-            has_button:   false,
-            is_active:    false,
-        };
-        let confirmation_message = Message::PlayerJoinTableRequest {
-            table_id:  self.table_id,
-            player_id: *player_id,
-            nickname:  String::default(), // TODO: fix
-            chips:     Chips::default(),  // TODO: fix
-        };
-        let _ = self.sign_and_send(confirmation_message,);
-
-        // let all existing players join the new players' table state.
-        for existing_player in &self.players.clone() {
-            let join_msg = Message::PlayerJoinedConfirmation {
-                player_id: existing_player.id,
-                chips:     existing_player.chips,
-                table_id:  self.table_id,
-            };
-
-            let res = self.sign_and_send(join_msg,).await;
-            if let Err(_,) = res {
-                return Err(TableJoinError::Unknown,);
+    fn update_players(&mut self, updates: &[PlayerUpdate],) {
+        for u in updates {
+            if let Some(p,) =
+                self.players.iter_mut().find(|p| p.id == u.player_id,)
+            {
+                p.chips = u.chips;
+                p.bet = u.bet;
+                p.action = u.action;
+                p.action_timer = u.action_timer;
+                p.has_button = u.is_dealer;
+                p.is_active = u.is_active;
+                if p.id != self.signing_key.peer_id() {
+                    p.cards = u.hole_cards;
+                }
             }
-        }
-
-        // tell all existing players that a new player joined.
-        let res = self
-            .sign_and_send(Message::PlayerJoinedConfirmation {
-                player_id: new_player.id,
-                chips:     new_player.chips,
-                table_id:  self.table_id,
-            },)
-            .await;
-
-        if let Err(_,) = res {
-            return Err(TableJoinError::Unknown,);
-        }
-
-        info!("Player {player_id} joined table {}", self.table_id);
-
-        self.players.push(new_player.clone(),);
-
-        // if all seats are occupied, start the game.
-        if self.players.len() == self.num_seats {
-            self.start_game().await;
-        }
-
-        Ok((),)
-    }
-
-    pub async fn leave(&mut self, player_id: &PeerId,) -> Result<(), Error,> {
-        let active_is_leaving = self.player_state_objects.is_active(player_id,);
-        if let Some(leaver,) = self.player_state_objects.remove(player_id,) {
-            // add player bets to the pot.
-            if let mut pot = self.round_data.pot.total_chips {
-                pot += leaver.bet;
-            }
-
-            if self.player_state_objects.count_active() < 2 {
-                self.enter_end_hand();
-                return Ok((),);
-            }
-
-            if active_is_leaving {
-                let _ = self.action_request();
-            }
-
-            let msg = Message::PlayerLeaveRequest {
-                player_id: *player_id,
-                table_id:  self.table_id,
-            };
-
-            return self.sign_and_send(msg,).await;
-        }
-        Ok((),)
-    }
-
-    pub async fn sign_and_send(&mut self, msg: Message,) -> Result<(), Error,> {
-        let signed = SignedMessage::new(&self.sk, msg,);
-        self.send(signed,).await
-    }
-
-    pub async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error,> {
-        self.connection
-            .tx
-            .sender
-            .send(msg,)
-            .await
-            .map_err(|e| anyhow!("{:?}", e),)
-    }
-}
-
-impl fmt::Display for Round {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        match self {
-            Self::WaitingForPlayers => write!(f, "WaitingForPlayers"),
-            Self::StartingGame => write!(f, "StartingGame"),
-            Self::StartingHand => write!(f, "StartingHand"),
-            Self::PreflopBetting => write!(f, "PreflopBetting"),
-            Self::Preflop => write!(f, "Preflop"),
-            Self::FlopBetting => write!(f, "FlopBetting"),
-            Self::Flop => write!(f, "Flop"),
-            Self::TurnBetting => write!(f, "TurnBetting"),
-            Self::Turn => write!(f, "Turn"),
-            Self::RiverBetting => write!(f, "RiverBetting"),
-            Self::River => write!(f, "River"),
-            Self::Showdown => write!(f, "Showdown"),
-            Self::EndingHand => write!(f, "EndingHand"),
-            Self::EndingGame => write!(f, "EndingGame"),
         }
     }
 }
 
-/// Possible errors when a player attempts to join a table.
+/// A player action request from the server.
+#[derive(Debug, Clone, Serialize, Deserialize,)]
+pub struct ActionRequest {
+    /// The actions choices requested by server.
+    pub actions:   Vec<PlayerAction,>,
+    /// The action minimum raise
+    pub min_raise: Chips,
+    /// The hand big blind.
+    pub big_blind: Chips,
+}
+
+impl ActionRequest {
+    /// Check if a call action is in the request.
+    #[must_use]
+    pub fn can_call(&self,) -> bool {
+        self.check_action(PlayerAction::Call,)
+    }
+
+    /// Check if a check action is in the request.
+    #[must_use]
+    pub fn can_check(&self,) -> bool {
+        self.check_action(PlayerAction::Check,)
+    }
+
+    /// Check if a bet action is in the request.
+    #[must_use]
+    pub fn can_bet(&self,) -> bool {
+        self.check_action(PlayerAction::Bet,)
+    }
+
+    /// Check if a raise action is in the request.
+    #[must_use]
+    pub fn can_raise(&self,) -> bool {
+        self.check_action(PlayerAction::Raise,)
+    }
+
+    fn check_action(&self, action: PlayerAction,) -> bool {
+        self.actions.iter().any(|a| a == &action,)
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Errors (user-visible)
+// ────────────────────────────────────────────────────────────────────────────
+
 #[derive(Error, Debug,)]
 pub enum TableJoinError {
     #[error("game already started")]
@@ -703,13 +477,48 @@ pub enum TableJoinError {
     Unknown,
 }
 
-pub trait EngineCallbacks: Send + Sync + 'static {
-    fn send(&mut self, player: PeerId, msg: SignedMessage,);
-    fn throttle(&mut self, player: PeerId, dt: Duration,); // NEW helper
-    fn disconnect(&mut self, player: PeerId,);
-    fn credit_chips(
-        &mut self,
-        player: PeerId,
-        amount: Chips,
-    ) -> Result<(), anyhow::Error,>;
+/// The **immutable** snapshot handed to the GUI every frame.
+#[derive(Debug, Clone, Serialize, Deserialize,)]
+pub struct GameState {
+    pub table_id:     TableId,
+    pub seats:        usize,
+    pub game_started: bool,
+
+    pub player_id: PeerId, // local player
+    pub nickname:  String,
+
+    pub players:    Vec<PlayerPrivate,>,
+    pub board:      Vec<Card,>,
+    pub pot:        Pot,
+    pub action_req: Option<ActionRequest,>,
+}
+
+impl GameState {
+    #[must_use]
+    pub fn default() -> Self {
+        Self {
+            table_id:     TableId::new_id(),
+            seats:        0,
+            game_started: false,
+            player_id:    PeerId::default(),
+            nickname:     String::default(),
+            players:      Vec::default(),
+            board:        Vec::default(),
+            pot:          Pot::default(),
+            action_req:   None,
+        }
+    }
+
+    #[must_use]
+    pub fn action_req(&self,) -> Option<ActionRequest,> {
+        self.action_req.clone()
+    }
+
+    pub fn pot(&mut self,) -> Pot {
+        self.pot.clone()
+    }
+
+    pub const fn pot_chips(&mut self,) -> Chips {
+        self.pot.total_chips
+    }
 }

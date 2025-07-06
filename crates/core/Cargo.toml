@@ -30,6 +30,7 @@ rand_core = "0.9.3"
 libp2p-identity = {version = "0.2.12", features = ["peerid", "ed25519", "rand"] }
 ahash = { version = "0.8.12" ,features = ["serde"]}
 thiserror = { version = "2.0.12", features = [] }
+log = "0.4.27"
 
 [features]
 connection = [

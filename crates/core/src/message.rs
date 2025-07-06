@@ -1,5 +1,3 @@
-// based on https://github.com/vincev/freezeout
-
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
@@ -61,6 +59,7 @@ pub enum Message {
         player_id: PeerId,
         /// chip balance the player joined the table.
         chips:     Chips,
+        nickname:  String,
     },
 
     /// Request to show the player’s current chip balance/account summary.
@@ -165,7 +164,7 @@ impl Message {
             Self::NoTablesLeftNotification { .. } => "NoTablesLeftNotification",
             Self::NotEnoughChips { .. } => "NotEnoughChips",
             Self::PlayerAlreadyJoined { .. } => "PlayerAlreadyJoined",
-            Self::PlayerJoinedConfirmation { .. } => "PlayerJoined",
+            Self::PlayerJoinedConfirmation { .. } => "PlayerJoinedConfirmation",
             Self::ShowAccount { .. } => "ShowAccount",
             Self::StartGameNotify { .. } => "StartGame",
             Self::StartHand { .. } => "StartHand",
@@ -192,7 +191,8 @@ pub struct PlayerUpdate {
     pub chips:        Chips,
     pub bet:          Chips,
     pub action:       PlayerAction,
-    pub action_timer: Option<u16,>,
+    pub action_timer: Option<u64,>, /* use u64 instead of Instant to make
+                                     * serializable. */
     pub is_dealer:    bool,
     pub is_active:    bool,
     pub hole_cards:   PlayerCards,
