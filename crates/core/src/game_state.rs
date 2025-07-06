@@ -312,17 +312,20 @@ impl InternalTableState {
             return;
         }
 
-        // if we are not the player sending a join request, then send a join request for ourselves to that player
+        // if we are not the player sending a join request, then send a join
+        // request for ourselves to that player
         if self.player_id != *id {
-            if let Some(us) = self.players.iter().find(|p| p.id == self.player_id) {
+            if let Some(us,) =
+                self.players.iter().find(|p| p.id == self.player_id,)
+            {
                 let rq = Message::PlayerJoinTableRequest {
-                    table_id: self.table_id,
+                    table_id:  self.table_id,
                     player_id: us.id,
-                    nickname: us.nickname.clone(),
-                    chips: us.chips.clone(),
+                    nickname:  us.nickname.clone(),
+                    chips:     us.chips,
                 };
-                let res = self.sign_and_send(rq);
-                if let Err(e) = res {
+                let res = self.sign_and_send(rq,);
+                if let Err(e,) = res {
                     warn!("error sending message: {e}");
                 }
             }
