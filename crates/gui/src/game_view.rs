@@ -11,7 +11,6 @@ use eframe::egui::{
     Ui, Vec2, Window, pos2, text, vec2,
 };
 use eframe::epaint;
-use log::info;
 use poker_cards::egui::Textures;
 use poker_core::game_state::{GameState, PlayerPrivate};
 use poker_core::message::{Message, PlayerAction};
@@ -244,11 +243,7 @@ impl GameView {
             Self::TEXT_COLOR,
         );
 
-        painter.galley(
-            chips_pos + vec2(5.0, 7.0,),
-            galley,
-            Self::TEXT_COLOR,
-        );
+        painter.galley(chips_pos + vec2(5.0, 7.0,), galley, Self::TEXT_COLOR,);
 
         if player.has_button {
             let btn_pos = bg_rect.right_top() + vec2(-10.0, 10.0,);
@@ -451,7 +446,10 @@ impl GameView {
 
             let cards_rect = Rect::from_min_size(
                 pos2(x_pos, y_pos,),
-                vec2(Self::ACTION_BUTTON_LX.mul_add(2.0, 10.0), IMAGE_LY + LABEL_LY,),
+                vec2(
+                    Self::ACTION_BUTTON_LX.mul_add(2.0, 10.0,),
+                    IMAGE_LY + LABEL_LY,
+                ),
             );
 
             paint_border(ui, &cards_rect,);
@@ -956,13 +954,13 @@ fn player_rect(rect: &Rect, align: &Align2,) -> Rect {
     };
 
     let y = match (align.x(), align.y(),) {
-        (Align::LEFT | Align::RIGHT, Align::TOP) => {
+        (Align::LEFT | Align::RIGHT, Align::TOP,) => {
             rect.top() + rect.height() / 4.0 - PLAYER_SIZE.y / 2.0
         },
-        (Align::LEFT | Align::RIGHT, Align::BOTTOM) => {
+        (Align::LEFT | Align::RIGHT, Align::BOTTOM,) => {
             rect.bottom() - rect.height() / 4.0 - PLAYER_SIZE.y / 2.0
         },
-        (Align::LEFT | Align::RIGHT, Align::Center) => {
+        (Align::LEFT | Align::RIGHT, Align::Center,) => {
             rect.bottom() - rect.height() / 2.0 - PLAYER_SIZE.y / 2.0
         },
         (Align::Center, Align::TOP,) => rect.top(),
