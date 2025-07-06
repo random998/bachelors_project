@@ -2,10 +2,12 @@
 //! convenience helpers for turn‑management.  No locking is required because
 //! the whole `InternalTableState` runs on a single Tokio task.
 
-use rand::prelude::SliceRandom;
-use rand::Rng;
 use std::fmt;
+
+use rand::Rng;
+use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
+
 use crate::crypto::PeerId;
 use crate::game_state::PlayerPrivate;
 
@@ -13,7 +15,7 @@ use crate::game_state::PlayerPrivate;
 /// engine uses.  All indices are **stable** once a player has joined; we never
 /// shuffle the vector directly – instead we keep a `button_idx` and
 /// `active_idx` so we can rotate responsibility cheaply.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize,)]
 pub struct PlayerStateObjects {
     players:    Vec<PlayerPrivate,>,
     button_idx: Option<usize,>, // who has the dealer button right now
@@ -21,13 +23,13 @@ pub struct PlayerStateObjects {
 }
 
 impl PlayerStateObjects {
-    pub fn shuffle_seats<R: Rng>(&mut self, rng: &mut R) {
-        self.players.shuffle(rng);
+    pub fn shuffle_seats<R: Rng,>(&mut self, rng: &mut R,) {
+        self.players.shuffle(rng,);
     }
-    
+
     pub fn default() -> PlayerStateObjects {
         PlayerStateObjects {
-            players: Vec::default(),
+            players:    Vec::default(),
             button_idx: None,
             active_idx: None,
         }
@@ -105,8 +107,8 @@ impl PlayerStateObjects {
             .and_then(move |i| self.players.get_mut(i,),)
             .filter(|p| p.is_active,)
     }
-    
-    pub fn active_player(&mut self) -> Option<&PlayerPrivate> {
+
+    pub fn active_player(&mut self,) -> Option<&PlayerPrivate,> {
         self.active_idx
             .and_then(move |i| self.players.get(i,),)
             .filter(|p| p.is_active,)
@@ -188,8 +190,7 @@ impl PlayerStateObjects {
 
     /// Remove players who are out of chips.
     pub fn remove_bankrupt(&mut self,) {
-        self.players
-            .retain(PlayerPrivate::has_chips,);
+        self.players.retain(PlayerPrivate::has_chips,);
         // indices might now be out‑of‑bounds; recompute safely
         self.button_idx = self.button_idx.filter(|&i| i < self.players.len(),);
         self.active_idx = self.active_idx.filter(|&i| i < self.players.len(),);
