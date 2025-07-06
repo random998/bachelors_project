@@ -79,11 +79,6 @@ impl View for GameView {
         // ── 1. pick up the latest state snapshot (if any) ─────────────
         self.game_state = app.snapshot();
 
-        // ── 2. pull echo messages (for status info) ───────────────────
-        while let Some(sm,) = app.try_recv() {
-            info!("GUI received msg: {}", sm.message().label());
-        }
-
         // ---- 2) draw everything ------------------------------------
         Window::new("zk-poker",)
             .title_bar(false,)
