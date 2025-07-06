@@ -59,15 +59,16 @@ impl View for ConnectView {
     fn update(
         &mut self,
         ctx: &Context,
-        frame: &mut eframe::Frame,
+        _frame: &mut eframe::Frame,
         app: &mut App,
     ) {
         while let Some(msg,) = app.try_recv() {
-            let msg = msg.message();
-            if let Message::JoinedServerConfirmation {
-                nickname,
+            let msg: &Message = msg.message();
+            if let Message::PlayerJoinedConfirmation {
                 chips,
                 player_id,
+                nickname,
+                table_id: _table_id,
             } = msg
             {
                 if self.player_id() == *player_id && self.nickname == *nickname
