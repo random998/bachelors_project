@@ -108,8 +108,6 @@ pub fn new(
             peer_id,
             swarm.listeners().next().expect("no listeners for swarm")
         );
-    } else {
-        info!("no listeners for swarm");
     }
     info!("{} subscribed to {}", peer_id, topic.hash());
 
@@ -138,7 +136,6 @@ pub fn new(
                     SwarmEvent::Behaviour(
                         BehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. })
                     ) => {
-                        info!("received message from gossipsub: {:?}", message.data);
                         if let Ok(msg) = bincode::deserialize::<SignedMessage>(&message.data) {
                             let _ = from_swarm_tx.send(msg).await;
                         }

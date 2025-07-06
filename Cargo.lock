@@ -4502,27 +4502,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "peer-node"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "bincode",
- "clap",
- "env_logger",
- "libp2p",
- "libp2p-autonat",
- "libp2p-dns",
- "libp2p-identity",
- "libp2p-swarm",
- "libp2p-swarm-derive",
- "log",
- "p2p-net",
- "poker-core",
- "poker-table-engine",
- "tokio",
-]
-
-[[package]]
 name = "pem"
 version = "3.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4644,6 +4623,7 @@ dependencies = [
  "futures-util",
  "getrandom 0.3.3",
  "libp2p-identity",
+ "log",
  "poker-cards",
  "poker-eval",
  "rand 0.9.1",
