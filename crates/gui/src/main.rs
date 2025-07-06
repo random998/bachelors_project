@@ -10,7 +10,6 @@ use std::path::PathBuf;
 use clap::Parser;
 use eframe::egui::ViewportBuilder;
 use libp2p::Multiaddr;
-use log::info;
 use p2p_net::runtime_bridge;
 use poker_core::crypto::{KeyPair, SigningKey};
 use poker_core::game_state::GameState;
@@ -84,7 +83,6 @@ pub fn main() -> eframe::Result<(),> {
         ..Default::default()
     };
 
-    info!("launching eframe");
     eframe::run_native(
         "zk-poker",
         native_options,

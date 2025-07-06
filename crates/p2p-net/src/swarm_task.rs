@@ -84,10 +84,8 @@ pub fn new(
 
     // tell swarm to listen on all interfaces on a random, OS-assigned port.
     swarm
-        .listen_on(multiaddr.clone(),)
+        .listen_on(multiaddr,)
         .expect("listen on /ip4/0.0.0.0/tcp/0 failed",);
-
-    info!("listening on multiaddress: {multiaddr}");
 
     // Subscribe to the gossipsub topic
     swarm.behaviour_mut().gossipsub.subscribe(&topic,).unwrap();
