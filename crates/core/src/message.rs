@@ -113,7 +113,7 @@ pub enum Message {
     /// Updated game state including players, board, and pot.
     GameStateUpdate {
         player_updates:  Vec<PlayerUpdate,>,
-        community_cards: Vec<Card,>,
+        board: Vec<Card,>,
         pot:             Pot,
         table_id:        TableId,
         game_id:         GameId,
