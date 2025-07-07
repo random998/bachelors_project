@@ -15,6 +15,7 @@ pub enum Message {
     /// response by server that particular client joined the server.
     JoinedTableConfirmation {
         table_id:  TableId,
+        /// id of the player which joined
         player_id: PeerId,
         /// The player nickname.
         nickname:  String,
@@ -25,6 +26,7 @@ pub enum Message {
     /// Request (by a player) to join a table with the given nickname.
     PlayerJoinTableRequest {
         table_id:  TableId,
+        /// id of the player which requests to join.
         player_id: PeerId,
         nickname:  String,
         chips:     Chips,
