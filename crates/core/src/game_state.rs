@@ -3,7 +3,6 @@
 
 use std::fmt;
 use std::fmt::Formatter;
-use std::ops::Add;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -606,6 +605,10 @@ impl GameState {
     pub const fn pot_chips(&mut self,) -> Chips {
         self.pot.total_chips
     }
+    
+    pub fn players(&self) -> Vec<PlayerPrivate> {
+        self.players()
+    }
 }
 
 impl InternalTableState {
@@ -1133,7 +1136,7 @@ impl InternalTableState {
 
     /// Request action to the active player.
     async fn request_action(&mut self,) {
-        if let Some(player,) = &self.active_player {
+        if let Some(player,) = &mut self.active_player {
             let mut actions = vec![PlayerAction::Fold];
 
             if player.bet == self.last_bet{
