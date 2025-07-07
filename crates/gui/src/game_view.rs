@@ -122,7 +122,7 @@ impl GameView {
         rect: &Rect,
         align: &Align2,
     ) {
-        if matches!(player.cards, PlayerCards::None) {
+        if matches!(player.hole_cards, PlayerCards::None) {
             return;
         }
 
@@ -311,7 +311,7 @@ impl GameView {
         paint_oval(ui, &rect.shrink(162.0,), Color32::from_gray(160,),);
         paint_oval(ui, &rect.shrink(164.0,), inner,);
 
-        if self.game_state.players.is_empty() {
+        if self.game_state.players().is_empty() {
             ui.painter().text(
                 rect.center(),
                 Align2::CENTER_CENTER,
@@ -366,7 +366,7 @@ impl GameView {
 
     // ---------- every seat / player box ---------------------------
     fn paint_players(&mut self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
-        let seats = match self.game_state.players.len() {
+        let seats = match self.game_state.players().len() {
             1 => vec![Align2::CENTER_BOTTOM],
             2 => vec![Align2::CENTER_BOTTOM, Align2::CENTER_TOP],
             3 => {
@@ -788,7 +788,7 @@ B  Bet
             // Maximum bet is the local player chips.
             let max_bet = self
                 .game_state
-                .players
+                .players()
                 .first()
                 .map(|p| (p.chips + p.bet).into(),)
                 .unwrap();
@@ -889,7 +889,7 @@ B  Bet
             return;
         }
 
-        let (tx1, tx2,) = match player.cards {
+        let (tx1, tx2,) = match player.hole_cards {
             PlayerCards::None => return,
             PlayerCards::Covered => (textures.back(), textures.back(),),
             PlayerCards::Cards(c1, c2,) => {
