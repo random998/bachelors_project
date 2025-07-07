@@ -34,6 +34,10 @@ impl PlayerStateObjects {
         }
     }
     
+    pub fn players(&self) -> Vec<PlayerPrivate> {
+        self.players.clone()
+    }
+    
     pub fn clear(&mut self) {
         self.players.clear()
     }

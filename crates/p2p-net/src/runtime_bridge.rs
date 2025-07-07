@@ -9,10 +9,10 @@ use std::time::Duration;
 
 use poker_core::crypto::{KeyPair, PeerId, SigningKey};
 use poker_core::game_state::{GameState, InternalTableState};
-use poker_core::message::{Message, SignedMessage};
+use poker_core::message::SignedMessage;
 use poker_core::net::traits::P2pTransport;
 use poker_core::net::NetTx;
-use poker_core::poker::{Chips, TableId};
+use poker_core::poker::TableId;
 use tokio::runtime::{Builder, Runtime};
 use tokio::sync::mpsc;
 
@@ -34,7 +34,7 @@ pub fn start(
     table: TableId,
     seats: usize,
     kp: KeyPair,
-    nick: String,
+    _nick: String,
     seed: Option<libp2p::Multiaddr,>,
 ) -> UiHandle {
     // ────────────────────────── Tokio runtime ───────────────────────────
@@ -74,14 +74,6 @@ pub fn start(
         let mut eng = InternalTableState::new(
             peer_id, table, seats, signing_a, transport, loopback,
         );
-
-        // join ourselves with an initial chip-stack
-        let _ = eng.sign_and_send(Message::PlayerJoinTableRequest {
-            table_id:  table,
-            player_id: peer_id,
-            nickname:  nick.clone(),
-            chips:     Chips::new(100_000,),
-        },);
 
         // 4) main loop
         loop {
