@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc;
 use poker_eval::HandValue;
-use crate::crypto::{PeerId, SigningKey};
+use crate::crypto::{PeerId, SigningKey, VerifyingKey};
 use crate::message::{
     HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
 };
@@ -181,7 +181,7 @@ pub struct InternalTableState {
     game_id: GameId,
     num_seats:   usize,
     signing_key: Arc<SigningKey,>,
-    player_id:   PeerId,
+    verifying_key: VerifyingKey,
 
     // networking ----------------------------------------------------------
     pub connection: P2pTransport,
@@ -235,6 +235,11 @@ impl InternalTableState {
     pub fn signing_key(&self,) -> Arc<SigningKey,> {
         self.signing_key.clone()
     }
+    
+    #[must_use]
+    pub fn peer_id(&self) -> PeerId {
+        self.verifying_key.to_peer_id()
+    }
 
     #[must_use]
     pub const fn num_seats(&self,) -> usize {
@@ -263,10 +268,10 @@ impl InternalTableState {
 
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        peer_id: PeerId,
         table_id: TableId,
         num_seats: usize,
         signing_key: Arc<SigningKey,>,
+        verifying_key: VerifyingKey,
         connection: P2pTransport,
         cb: impl FnMut(SignedMessage,) + Send + 'static,
     ) -> Self {
@@ -277,10 +282,10 @@ impl InternalTableState {
             game_id: GameId::new_id(),
             last_bet: Chips::ZERO,
             active_player: None,
-            player_id: peer_id,
             table_id,
             num_seats,
             signing_key,
+            verifying_key,
             connection,
             cb: Box::new(cb,),
 
@@ -348,9 +353,9 @@ impl InternalTableState {
 
         // if we are not the player sending a join request, then send a join
         // request for ourselves to that player
-        if self.player_id != *id {
+        if self.peer_id() != *id {
             if let Some(us,) =
-                self.players().iter().find(|p| p.id == self.player_id,)
+                self.players().iter().find(|p| p.id == self.peer_id(),)
             {
                 info!("sending join request from existing player to newly joined player...");
                 let rq = Message::PlayerJoinTableRequest {
@@ -409,7 +414,7 @@ impl InternalTableState {
     pub fn handle_message(&mut self, sm: SignedMessage,) {
         info!(
             "internal table state of peer {} handling message with label {:?} sent from peer {}",
-            self.player_id,
+            self.peer_id(),
             sm.message().label(),
             sm.sender()
         );
