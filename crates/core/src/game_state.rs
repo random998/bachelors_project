@@ -46,7 +46,7 @@ impl fmt::Display for Pot {
 }
 
 /// One player as stored in *our* local copy of the table state.
-#[derive(Debug, Clone, Serialize, Deserialize,)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerPrivate {
     pub id:           PeerId,
     pub nickname:     String,
@@ -54,7 +54,7 @@ pub struct PlayerPrivate {
     pub bet:          Chips,
     pub payoff:       Option<HandPayoff,>,
     pub action:       PlayerAction,
-    pub action_timer: Option<Instant,>,
+    pub action_timer: Option<u64,>,
     pub hole_cards:        PlayerCards,
     pub public_cards:        PlayerCards,
     pub has_button:   bool,
@@ -213,7 +213,7 @@ pub struct InternalTableState {
 impl InternalTableState {
     const START_GAME_SB: Chips = Chips::ZERO;
     const START_GAME_BB: Chips = Chips::ZERO;
-    const ACTION_TIMEOUT: Duration = Duration::from_millis(100);
+    const ACTION_TIMEOUT_MILLIS: u64 = 1500;
     /// grab an immutable snapshot for the GUI
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
@@ -335,7 +335,7 @@ impl InternalTableState {
         if let Some(p,) =
             self.players.iter_mut().find(|p| p.action_timer.is_some(),)
         {
-            if p.action_timer.unwrap().elapsed(). >= 1_500 {
+            if p.action_timer.unwrap() >= 1_500{
                 p.fold();
             }
         }
@@ -474,7 +474,6 @@ impl InternalTableState {
         self.action_request = None;
     }
 
-    // — internals —
     fn update_players(&mut self, updates: &[PlayerUpdate]) {
         for update in updates {
             if let Some(pos) = self
@@ -618,12 +617,11 @@ impl InternalTableState {
 
         // Tell players to update their seats order.
         let seats = self.players.iter().map(|p| p.id.clone(),).collect();
-        self.broadcast_message(Message::StartGameNotify {
+        let _ = self.sign_and_send(Message::StartGameNotify {
             seat_order: seats,
             table_id:   self.table_id,
             game_id:    GameId::new_id(),
-        },)
-            .await;
+        },);
 
         self.enter_start_hand().await;
     }
@@ -636,7 +634,7 @@ impl InternalTableState {
 
         // If there are fewer than 2 active players end the game.
         if self.players.count_active() < 2 {
-            self.enter_end_game().await;
+            self.enter_end_game();
             return;
         }
 
@@ -665,7 +663,7 @@ impl InternalTableState {
         self.pots = vec![Pot::default()];
 
         // Tell clients to prepare for a new hand.
-        self.broadcast_message(Message::StartHand {table_id: self.table_id, game_id: self.game_id},).await;
+        let _ = self.sign_and_send(Message::StartHand {table_id: self.table_id, game_id: self.game_id},);
 
         // Deal cards to each player.
         for player in self.players.iter_mut() {
@@ -704,43 +702,42 @@ impl InternalTableState {
         let _ = self.action_update();
     }
 
-    async fn action_update(&mut self) {
+    fn action_update(&mut self) {
         self.players.activate_next_player();
-        self.broadcast_game_update().await;
+        self.broadcast_game_update();
 
         if self.is_round_complete() {
-            self.next_round().await;
+            self.next_round();
         } else {
-            self.request_action().await;
+            self.request_action();
         }
     }
 
-    async fn enter_deal_flop(&mut self,) {
+    fn enter_deal_flop(&mut self,) {
         for _ in 1..=3 {
             self.board.push(self.deck.deal(),);
         }
 
         self.phase = HandPhase::FlopBetting;
-        self.start_round().await;
+        self.start_round();
     }
-    
-    
 
-    async fn enter_deal_turn(&mut self,) {
+
+
+    fn enter_deal_turn(&mut self,) {
         self.board.push(self.deck.deal(),);
-
         self.phase = HandPhase::TurnBetting;
-        self.start_round().await;
+        self.start_round();
     }
 
-    async fn enter_deal_river(&mut self,) {
+    fn enter_deal_river(&mut self,) {
         self.board.push(self.deck.deal(),);
 
         self.phase = HandPhase::RiverBetting;
-        self.start_round().await;
+        self.start_round();
     }
 
-    async fn enter_showdown(&mut self,) {
+    fn enter_showdown(&mut self,) {
         self.phase = HandPhase::Showdown;
 
         for player in self.players.iter_mut() {
@@ -750,10 +747,10 @@ impl InternalTableState {
             }
         }
 
-        self.enter_end_hand().await;
+        self.enter_end_hand();
     }
 
-    async fn enter_end_hand(&mut self,) {
+    fn enter_end_hand(&mut self,) {
         self.new_hand_timeout =
             if matches!(self.phase, HandPhase::Showdown) {
                 // If coming from a showdown give players more time to see the
@@ -766,17 +763,16 @@ impl InternalTableState {
         self.phase = HandPhase::EndingHand;
 
         self.update_pots();
-        self.broadcast_game_update().await;
+        let _ = self.broadcast_game_update();
 
         // Give time to the UI to look at the updated pot and board.
-        self.broadcast_throttle(Duration::from_millis(1_000,),)
-            .await;
+        self.send_throttle(Duration::from_millis(1_000,),);
 
         let winners = self.pay_bets();
 
         // Update players and broadcast update to all players.
         self.players.end_hand();
-        self.broadcast_message(Message::EndHand{
+        let _ = self.sign_and_send(Message::EndHand{
             table_id: self.table_id,
             game_id: self.game_id,
             payoffs: winners,
@@ -786,12 +782,11 @@ impl InternalTableState {
                 .iter()
                 .map(|p| (p.id.clone(), p.public_cards,),)
                 .collect(),
-        },)
-            .await;
+        },);
 
         // End game if only player has chips or move to next hand.
         if self.players.count_with_chips() < 2 {
-            self.enter_end_game().await;
+            let _ = self.enter_end_game();
         } else {
             // All players that run out of chips must leave the table before the
             // start of a new hand.
@@ -807,10 +802,10 @@ impl InternalTableState {
         }
     }
 
-    async fn enter_end_game(&mut self,) {
+    fn enter_end_game(&mut self,) {
         // Give time to the UI to look at winning results before ending the
         // game.
-        self.broadcast_throttle(Duration::from_millis(4500,),).await;
+        self.broadcast_throttle(Duration::from_millis(4500,),);
 
         self.phase = HandPhase::EndingGame;
 
@@ -835,7 +830,7 @@ impl InternalTableState {
         // Wait for players to join.
         self.phase = HandPhase::WaitingForPlayers;
     }
-    
+
     fn credit_player(&mut self, player_id: PeerId, chips: Chips) {
         assert!(chips > Chips::ZERO);
         let new_balance = self.players.get(&player_id).unwrap().chips + chips;
@@ -1013,19 +1008,19 @@ impl InternalTableState {
         true
     }
 
-    async fn next_round(&mut self,) {
+    fn next_round(&mut self,) {
         if self.players.count_active() < 2 {
-            self.enter_end_hand().await;
+            self.enter_end_hand();
             return;
         }
 
         while self.is_round_complete() {
             match self.phase {
-                HandPhase::PreflopBetting => self.enter_deal_flop().await,
-                HandPhase::FlopBetting => self.enter_deal_turn().await,
-                HandPhase::TurnBetting => self.enter_deal_river().await,
+                HandPhase::PreflopBetting => {self.enter_deal_flop();},
+                HandPhase::TurnBetting => {self.enter_deal_river();},
+                HandPhase::FlopBetting => {self.enter_deal_turn();},
                 HandPhase::RiverBetting => {
-                    self.enter_showdown().await;
+                    self.enter_showdown();
                     return;
                 },
                 _ => {},
@@ -1033,11 +1028,11 @@ impl InternalTableState {
         }
     }
 
-    async fn start_round(&mut self,) {
+    fn start_round(&mut self,) {
         self.update_pots();
 
         // Give some time to watch last action and pots.
-        self.broadcast_throttle(Duration::from_millis(1000,),).await;
+        self.broadcast_throttle(Duration::from_millis(1000,),);
 
         for player in self.players.iter_mut() {
             player.bet = Chips::ZERO;
@@ -1048,8 +1043,8 @@ impl InternalTableState {
 
         self.players.start_round();
 
-        self.broadcast_game_update().await;
-        self.request_action().await;
+        let _ = self.broadcast_game_update();
+        let _ = self.request_action();
     }
 
     fn update_pots(&mut self,) {
@@ -1099,9 +1094,8 @@ impl InternalTableState {
             .iter()
             .map(|p| {
                 let action_timer = p.action_timer.map(|t| {
-                    Self::ACTION_TIMEOUT
-                        .saturating_sub(Duration::from_millis(t),)
-                        .as_secs_f32() as u64
+                    Self::ACTION_TIMEOUT_MILLIS
+                        .saturating_sub(t,)
                 },);
 
                 PlayerUpdate {
@@ -1122,7 +1116,7 @@ impl InternalTableState {
             .iter()
             .map(|p| p.total_chips,)
             .fold(Chips::ZERO, |acc, c| acc + c,);
-        
+
         self.current_pot.total_chips = chips;
 
         let msg = Message::GameStateUpdate{
@@ -1139,7 +1133,7 @@ impl InternalTableState {
 
     /// Request action to the active player.
     async fn request_action(&mut self,) {
-        if let Some(player,) = self.players.active_player() {
+        if let Some(player,) = &self.active_player {
             let mut actions = vec![PlayerAction::Fold];
 
             if player.bet == self.last_bet{
@@ -1161,31 +1155,31 @@ impl InternalTableState {
                 actions.push(PlayerAction::Raise,);
             }
 
-            player.action_timer = Some(Instant::now(),);
+            player.action_timer = Some(0); 
 
             let msg = Message::ActionRequest {
-                player_id: player.player_id.clone(),
-                min_raise: self.min_raise + self.bet,
+                game_id: self.game_id,
+                table_id: self.table_id,
+                player_id: player.id.clone(),
+                min_raise: self.min_raise + self.last_bet,
                 big_blind: self.big_blind,
                 actions,
             };
 
-            self.broadcast_message(msg,).await;
-        }
-    }
-
-    /// Broadcast a message to all players at the table.
-    async fn broadcast_message(&self, msg: Message,) {
-        let smsg = SignedMessage::new(&self.sk, msg,);
-        for player in self.players.iter() {
-            player.send_message(smsg.clone(),).await;
+            let _ = self.sign_and_send(msg,);
         }
     }
 
     /// Broadcast a throttle message to all players at the table.
-    async fn broadcast_throttle(&self, dt: Duration,) {
-        for player in self.players.iter() {
-            player.send_throttle(dt,).await;
+    fn broadcast_throttle(&mut self, dt: Duration,) {
+        for _ in self.players() {
+            let _ = self.send_throttle(dt,);
         }
     }
+
+    async fn send_throttle(&mut self, duration: Duration) {
+        let msg = Message::Throttle { duration };
+        let _ = self.sign_and_send(msg);
+    }
+
 }
