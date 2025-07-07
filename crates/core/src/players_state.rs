@@ -2,14 +2,15 @@
 //! convenience helpers for turn‑management.  No locking is required because
 //! the whole `InternalTableState` runs on a single Tokio task.
 
+use std::option::Option;
 use std::fmt;
 
 use rand::Rng;
 use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
-
 use crate::crypto::PeerId;
 use crate::game_state::PlayerPrivate;
+use crate::poker::Chips;
 
 /// Thin wrapper around `Vec<PlayerPrivate>` with a few helpers that the
 /// engine uses.  All indices are **stable** once a player has joined; we never
@@ -18,7 +19,6 @@ use crate::game_state::PlayerPrivate;
 #[derive(Clone, Debug, Default, Serialize, Deserialize,)]
 pub struct PlayerStateObjects {
     players:    Vec<PlayerPrivate,>,
-    button_idx: Option<usize,>, // who has the dealer button right now
     active_idx: Option<usize,>, // whose turn is it to act?
 }
 
@@ -30,9 +30,12 @@ impl PlayerStateObjects {
     pub fn default() -> PlayerStateObjects {
         PlayerStateObjects {
             players:    Vec::default(),
-            button_idx: None,
             active_idx: None,
         }
+    }
+    
+    pub fn clear(&mut self) {
+        self.players.clear()
     }
 }
 
@@ -55,10 +58,6 @@ impl PlayerStateObjects {
 
     pub fn remove(&mut self, id: &PeerId,) -> Option<PlayerPrivate,> {
         if let Some(pos,) = self.players.iter().position(|p| &p.id == id,) {
-            // keep indices consistent
-            if let Some(b,) = self.button_idx.filter(|&b| b >= pos,) {
-                self.button_idx = Some(b.saturating_sub(1,),);
-            }
             if let Some(a,) = self.active_idx.filter(|&a| a >= pos,) {
                 self.active_idx = Some(a.saturating_sub(1,),);
             }
@@ -94,6 +93,29 @@ impl PlayerStateObjects {
             .count()
     }
 
+    /// Activate the next player if there is more than one active player.
+    pub fn activate_next_player(&mut self) {
+        if self.count_active() > 0 && self.active_player().is_some() {
+            let active_player = self.active_idx.take().unwrap();
+
+            // Iterate cyclically starting from the player after the active one.
+            let iter = self
+                .players
+                .iter()
+                .enumerate()
+                .cycle()
+                .skip(active_player + 1)
+                .take(self.players.len() - 1);
+
+            for (pos, p) in iter {
+                if p.is_active && p.chips > Chips::ZERO {
+                    self.active_idx = Some(pos);
+                    break;
+                }
+            }
+        }
+    }
+
     /// Is the given player the one whose turn it is _right now_?
     pub fn is_active(&self, id: &PeerId,) -> bool {
         self.active_idx
@@ -117,47 +139,37 @@ impl PlayerStateObjects {
     // ────────────────────────────────────────────────────────────────
     //  Turn / round helpers
     // ────────────────────────────────────────────────────────────────
-
-    /// Called at the beginning of a **hand** – resets bets, rotates the
-    /// dealer button, and chooses the first active player.
-    pub fn start_hand<R: Rng,>(&mut self, rng: &mut R,) {
-        // reset all players to default per‑hand state
-        for p in &mut self.players {
-            p.reset_for_new_hand();
+    /// Set state for a new hand.
+    pub fn start_hand(&mut self) {
+        for player in &mut self.players {
+            player.start_hand();
         }
 
-        if self.count_active() < 2 {
+        if self.count_active() > 1 {
+            // Rotate players so that the first player becomes the button.
+            loop {
+                self.players.rotate_left(1);
+                if self.players[0].is_active {
+                    // Checked above there are at least 2 active players, go back and
+                    // set the button.
+                    for p in self.players.iter_mut().rev() {
+                        if p.is_active {
+                            p.has_button = true;
+                            break;
+                        }
+                    }
+
+                    break;
+                }
+            }
+
+            self.active_idx= Some(0);
+        } else {
             self.active_idx = None;
-            return;
         }
-
-        // move dealer button one step clockwise; if there is none yet, pick a
-        // random active player so first hand is fair.
-        self.button_idx = match self.button_idx {
-            Some(idx,) => Some((idx + 1) % self.players.len(),),
-            None => {
-                self.players.iter().position(|p| p.is_active,).or_else(|| {
-                    // fallback: random active player
-                    let choices: Vec<_,> = self
-                        .players
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, p,)| p.is_active,)
-                        .collect();
-                    let idx = rng.random_range(0..choices.len(),);
-                    choices.get(idx,).map(|(i, _,)| *i,)
-                },)
-            },
-        };
-
-        // first to act is the player left of the big blind (simplified)
-        self.active_idx = self
-            .players
-            .iter()
-            .cycle()
-            .skip(self.button_idx.unwrap() + 1,)
-            .position(|p| p.is_active && p.has_chips(),);
     }
+
+
 
     /// Move `active_idx` to the next seat that is both *active* **and** has
     /// chips. Does nothing if less than two such players remain.
@@ -191,9 +203,28 @@ impl PlayerStateObjects {
     /// Remove players who are out of chips.
     pub fn remove_bankrupt(&mut self,) {
         self.players.retain(PlayerPrivate::has_chips,);
-        // indices might now be out‑of‑bounds; recompute safely
-        self.button_idx = self.button_idx.filter(|&i| i < self.players.len(),);
         self.active_idx = self.active_idx.filter(|&i| i < self.players.len(),);
+    }
+
+    /// Starts a new round.
+    pub fn start_round(&mut self) {
+        self.active_idx = None;
+
+        // Set an active player at the beginning of a round only if there are two or
+        // more player with chips.
+        if self.count_active_with_chips() > 1 {
+            for (idx, p) in self.players.iter().enumerate() {
+                if p.chips > Chips::ZERO && p.is_active {
+                    self.active_idx= Some(idx);
+                    return;
+                }
+            }
+        }
+    }
+
+    /// Remove players that run out of chips.
+    pub fn remove_with_no_chips(&mut self) {
+        self.players.retain(|p| p.chips > Chips::ZERO);
     }
 }
 
