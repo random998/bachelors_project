@@ -27,7 +27,7 @@ use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId}; // per-play
 // ────────────────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize,)]
-pub(crate) struct Pot {
+pub struct Pot {
     participants: AHashSet<PeerId,>,
     total_chips:  Chips,
 }
@@ -352,6 +352,7 @@ impl InternalTableState {
             if let Some(us,) =
                 self.players().iter().find(|p| p.id == self.player_id,)
             {
+                info!("sending join request from existing player to newly joined player...");
                 let rq = Message::PlayerJoinTableRequest {
                     table_id:  self.table_id,
                     player_id: us.id,
@@ -579,17 +580,31 @@ pub struct GameState {
 
 impl GameState {
     #[must_use]
-    pub fn default() -> Self {
+    pub fn new(peer_id: PeerId, table_id: TableId, nickname: String, seats: usize) -> Self {
         Self {
-            table_id:     TableId::new_id(),
-            seats:        0,
+            table_id,
+            seats,
             game_started: false,
-            player_id:    PeerId::default(),
-            nickname:     String::default(),
+            player_id:    peer_id, 
+            nickname,
             players:      PlayerStateObjects::default(),
             board:        Vec::default(),
             pot:          Pot::default(),
             action_req:   None,
+        }
+    }
+    
+    pub fn default() -> Self {
+        GameState {
+            table_id: TableId::new_id(),
+            seats: 0,
+            game_started: false,
+            player_id: PeerId::default(),
+            players: PlayerStateObjects::default(),
+            nickname: String::default(),
+            board: Vec::default(),
+            pot: Pot::default(),
+            action_req: None,
         }
     }
 
@@ -607,7 +622,7 @@ impl GameState {
     }
     
     pub fn players(&self) -> Vec<PlayerPrivate> {
-        self.players()
+        self.players.players()
     }
 }
 
@@ -707,12 +722,12 @@ impl InternalTableState {
 
     fn action_update(&mut self) {
         self.players.activate_next_player();
-        self.broadcast_game_update();
+        let _ = self.broadcast_game_update();
 
         if self.is_round_complete() {
             self.next_round();
         } else {
-            self.request_action();
+            let _ = self.request_action();
         }
     }
 
@@ -769,7 +784,7 @@ impl InternalTableState {
         let _ = self.broadcast_game_update();
 
         // Give time to the UI to look at the updated pot and board.
-        self.send_throttle(Duration::from_millis(1_000,),);
+        let _ = self.send_throttle(Duration::from_millis(1_000,),);
 
         let winners = self.pay_bets();
 

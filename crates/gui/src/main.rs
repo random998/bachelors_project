@@ -12,7 +12,6 @@ use eframe::egui::ViewportBuilder;
 use libp2p::Multiaddr;
 use p2p_net::runtime_bridge;
 use poker_core::crypto::{KeyPair, SigningKey};
-use poker_core::game_state::GameState;
 use poker_core::poker::TableId;
 use poker_gui::gui;
 // <-- background runtime
@@ -70,9 +69,6 @@ pub fn main() -> eframe::Result<(),> {
         opt.seed_addr(),
     );
 
-    // first immutable snapshot for the GUI
-    let initial_state = GameState::default();
-
     // launch egui
     let native_options = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
@@ -90,7 +86,10 @@ pub fn main() -> eframe::Result<(),> {
             Ok(Box::new(gui::AppFrame::new(
                 cc,
                 ui,
-                initial_state.nickname.clone(),
+                opt.nick.clone(), 
+                peer_id,
+                opt.seats,
+                opt.table_id(),
             ),),)
         },),
     )
