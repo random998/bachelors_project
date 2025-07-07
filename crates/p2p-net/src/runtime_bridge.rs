@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use poker_core::crypto::{KeyPair, PeerId, SigningKey};
+use poker_core::crypto::{KeyPair, SigningKey, VerifyingKey};
 use poker_core::game_state::{GameState, InternalTableState};
 use poker_core::message::SignedMessage;
 use poker_core::net::traits::P2pTransport;
@@ -30,7 +30,6 @@ pub struct UiHandle {
 /// Spawn the background runtime and give the GUI its three channel ends.
 #[must_use]
 pub fn start(
-    peer_id: PeerId,
     table: TableId,
     seats: usize,
     kp: KeyPair,
@@ -61,6 +60,7 @@ pub fn start(
         // 2) engine
         let signing = SigningKey::new(&kp,);
         let signing_a = Arc::new(signing.clone(),);
+        let verifying = VerifyingKey(kp.0.public());
 
         // 3) “loopback” closure → every *local* message is sent both
         // to the network layer and back to the GUI
@@ -72,7 +72,7 @@ pub fn start(
         };
 
         let mut eng = InternalTableState::new(
-            peer_id, table, seats, signing_a, transport, loopback,
+            table, seats, signing_a, verifying, transport, loopback,
         );
 
         // 4) main loop
