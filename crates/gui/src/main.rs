@@ -61,7 +61,6 @@ pub fn main() -> eframe::Result<(),> {
 
     // spawn background runtime (net + engine)
     let ui = runtime_bridge::start(
-        peer_id,
         opt.table_id(),
         opt.seats,
         kp,
@@ -93,25 +92,4 @@ pub fn main() -> eframe::Result<(),> {
             ),),)
         },),
     )
-}
-
-// ───────────────────────── wasm entry-point (unchanged) ─────────
-
-#[cfg(target_arch = "wasm32")]
-fn main() {
-    // … existing wasm-specific launcher (omitted for brevity) …
-}
-
-// ───────────────────────── helpers ──────────────────────────────
-
-fn load_or_generate_keypair(path: &PathBuf,) -> anyhow::Result<KeyPair,> {
-    use std::fs;
-    use std::io::Write;
-    if path.exists() {
-        Ok(bincode::deserialize(&fs::read(path,)?,)?,)
-    } else {
-        let kp = KeyPair::default();
-        fs::File::create(path,)?.write_all(&bincode::serialize(&kp,)?,)?;
-        Ok(kp,)
-    }
 }
