@@ -18,7 +18,7 @@ use poker_core::message::{Message, SignedMessage};
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::{TryRecvError, TrySendError};
-
+use poker_core::poker::TableId;
 use crate::ConnectView;
 
 // ─────────────────────────── CLI options (only on native) ───────────────
@@ -97,7 +97,7 @@ impl App {
             _rt: ui._rt,       // keep the runtime alive
             game_state_rx: ui.state_rx,
             signing_key: sk.clone(),
-            player_id: sk.verifying_key().to_peer_id(),
+            player_id: state.player_id,
             nickname: String::new(),
             game_state: state,
         }
@@ -207,11 +207,14 @@ impl AppFrame {
     pub fn new(
         cc: &eframe::CreationContext<'_,>,
         ui: UiHandle,
-        _nick: String,
-    ) -> Self {
+        nickname: String,
+        peer_id: PeerId,
+        seats: usize,
+        table_id: TableId,
+    )-> Self {
         cc.egui_ctx.set_theme(Theme::Dark,);
         let textures = Textures::new(&cc.egui_ctx,);
-        let app = App::new(ui, GameState::default(), textures,);
+        let app = App::new(ui, GameState::new(peer_id,table_id, nickname, seats), textures,);
         let panel = Box::new(ConnectView::new(cc.storage, &app,),);
         Self { app, panel, }
     }
