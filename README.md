@@ -1,10 +1,11 @@
 Bachelors project Scope: Development of a p2p zero-knowledge poker game in Rust.
 
 Roadmap:
-- MONDAY: fix ui / game bugs.
-- MONDAY: check via tests whether game-state logic and game-state transition logic is implemented correctly.
-- MONDAY: email to examination office in order to register project & thesis.
-- TUESDAY: ui improvements:
+- BUG: game does not start after all 3 players have joined an instance.
+- TUESDAY: fix ui / game bugs.
+- TUESDAY: check via tests whether game-state logic and game-state transition logic is implemented correctly.
+- TUESDAY: email to examination office in order to register project & thesis.
+- WEDNESDAY: ui improvements:
     display the current game phase somwehere
     display the id's of the players at all times.
     change keybindings of controls.
