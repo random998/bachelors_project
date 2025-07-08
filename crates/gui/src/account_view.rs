@@ -150,7 +150,6 @@ impl View for AccountView {
                             self.error = format!("send failed: {e}");
                             info!("{}", self.error);
                         }
-                        info!("sending of msg from ui succesfull: {join}");
                     }
                 },);
 
