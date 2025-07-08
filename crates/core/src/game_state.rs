@@ -235,7 +235,7 @@ impl InternalTableState {
     pub fn signing_key(&self,) -> Arc<SigningKey,> {
         self.signing_key.clone()
     }
-    
+
     #[must_use]
     pub fn peer_id(&self) -> PeerId {
         self.verifying_key.to_peer_id()
@@ -345,15 +345,15 @@ impl InternalTableState {
         }
     }
 
-    pub fn try_join(&mut self, id: &PeerId, nickname: &String, chips: &Chips,) {
-        if self.players().iter().any(|p| p.id == *id,) {
+    pub fn try_join(&mut self, id: PeerId, nickname: &String, chips: &Chips,) {
+        if self.players().iter().any(|p| p.id == id,) {
             // player already joined.
             return;
         }
 
         // if we are not the player sending a join request, then send a join
         // request for ourselves to that player
-        if self.peer_id() != *id {
+        if self.peer_id() != id {
             if let Some(us,) =
                 self.players().iter().find(|p| p.id == self.peer_id(),)
             {
@@ -361,24 +361,26 @@ impl InternalTableState {
                 let rq = Message::PlayerJoinTableRequest {
                     table_id:  self.table_id,
                     player_id: us.id,
-                    nickname:  us.nickname.clone(),
+                    nickname: nickname.clone(),
                     chips:     us.chips,
                 };
                 let res = self.sign_and_send(rq,);
                 if let Err(e,) = res {
                     warn!("error sending message: {e}");
                 }
+            } else {
+                info!("NOT sending join request from existing player to newly joined player...");
             }
         }
 
         // TODO: check if chips amount is allowed, nickname is allowed etc.
 
-        self.players.add(PlayerPrivate::new(*id, nickname.clone(), *chips,),);
+        self.players.add(PlayerPrivate::new(id, nickname.clone(), *chips,),);
 
         // send confirmation that this player has joined our table.
         let confirmation = Message::PlayerJoinedConfirmation {
             table_id:  self.table_id,
-            player_id: *id,
+            player_id: id,
             chips:     *chips,
             nickname:  nickname.clone(),
         };
@@ -392,7 +394,7 @@ impl InternalTableState {
         // confirmation message for each other player, such that they join the
         // new players lobby.
         for player in &mut self.players().clone() {
-            let msg = Message::PlayerJoinedConfirmation {
+            let msg = Message::PlayerJoinTableRequest{
                 table_id:  self.table_id,
                 player_id: player.id,
                 chips:     player.chips,
@@ -424,7 +426,7 @@ impl InternalTableState {
                 nickname,
                 chips,
                 ..
-            } => self.try_join(player_id, nickname, chips,),
+            } => self.try_join(player_id.clone(), nickname, chips,),
             Message::PlayerLeaveRequest { player_id, .. } => {
                 self.players().retain(|p| &p.id != player_id,);
             },
@@ -590,7 +592,7 @@ impl GameState {
             table_id,
             seats,
             game_started: false,
-            player_id:    peer_id, 
+            player_id:    peer_id,
             nickname,
             players:      PlayerStateObjects::default(),
             board:        Vec::default(),
@@ -598,7 +600,7 @@ impl GameState {
             action_req:   None,
         }
     }
-    
+
     pub fn default() -> Self {
         GameState {
             table_id: TableId::new_id(),
@@ -625,7 +627,7 @@ impl GameState {
     pub const fn pot_chips(&mut self,) -> Chips {
         self.pot.total_chips
     }
-    
+
     pub fn players(&self) -> Vec<PlayerPrivate> {
         self.players.players()
     }
@@ -1178,7 +1180,7 @@ impl InternalTableState {
                 actions.push(PlayerAction::Raise,);
             }
 
-            player.action_timer = Some(0); 
+            player.action_timer = Some(0);
 
             let msg = Message::ActionRequest {
                 game_id: self.game_id,

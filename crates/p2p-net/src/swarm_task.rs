@@ -116,7 +116,6 @@ pub fn new(
                 /* outbound messages from game → swarm -------------- */
                 Some(blob) = to_swarm_rx.recv() => {
                     // convert the typed message into bytes just before publish
-                    info!("sending msg to gossipsub: {:?}", blob.message());
                     let bytes = match bincode::serialize(&blob) {
                        Ok(b)=> b,
                         Err(e) => { log::error!("serialize: {e}"); continue; }
