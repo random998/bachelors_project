@@ -26,7 +26,7 @@ struct Options {
     nick:      String,
     #[arg(long, default_value = "")]
     seed_addr: String,
-    #[arg(long, default_value_t = 6)]
+    #[arg(long, default_value_t = 3)]
     seats:     usize,
     #[arg(long, default_value = "peer.key")]
     key_pair:  PathBuf,
