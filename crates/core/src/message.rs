@@ -1,9 +1,11 @@
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
+use libp2p;
 
 /// Type definitions for p2p messages.
 use anyhow::{Result, bail};
+use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::{PeerId, Signature, SigningKey, VerifyingKey};
@@ -12,6 +14,13 @@ use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 /// Represents a message exchanged between peers in the P2P poker protocol.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
 pub enum Message {
+    /// the network has given this peer a new listen address.
+    NewListenAddr {
+       listener_id: String,
+       multiaddr: Multiaddr,
+    },
+
+
     /// response by server that particular client joined the server.
     JoinedTableConfirmation {
         table_id:  TableId,
@@ -177,6 +186,7 @@ impl Message {
             Self::ActionRequest { .. } => "ActionRequest",
             Self::ActionResponse { .. } => "ActionResponse",
             Self::JoinedTableConfirmation { .. } => "JoinedTableConfirmation",
+            Self::NewListenAddr { .. } => "NewListenAddr",
         }
     }
 }

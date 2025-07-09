@@ -202,6 +202,10 @@ impl KeyPair {
         let pubk: libp2p_identity::PublicKey = self.0.public().into();
         PeerId(pubk.to_peer_id(),)
     }
+    
+    pub fn secret(&self) -> SigningKey {
+        self.secret()
+    }
 }
 
 impl VerifyingKey {
