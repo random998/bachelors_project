@@ -5,11 +5,7 @@
 // -----------------------------------------------------------------------------
 
 use eframe::egui::text::LayoutJob;
-use eframe::egui::{
-    Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId,
-    Image, Key, Rect, RichText, Sense, Slider, Stroke, StrokeKind, TextFormat,
-    Ui, Vec2, Window, pos2, text, vec2,
-};
+use eframe::egui::{Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId, Image, Key, Rect, RichText, Sense, Slider, Stroke, StrokeKind, TextFormat, Ui, Vec2, Window, pos2, text, vec2, Pos2};
 use eframe::epaint;
 use poker_cards::egui::Textures;
 use poker_core::game_state::{GameState, PlayerPrivate};
@@ -93,6 +89,7 @@ impl View for GameView {
                 self.paint_players(ui, &rect, app,);
                 self.paint_help_button(ui, &rect,);
                 self.paint_legend(ui, &rect,);
+                self.paint_local_peer_id(ui, &rect,);
             },);
     }
 
@@ -257,19 +254,19 @@ impl GameView {
 
     // ---------- the oval-shaped table background -------------------
     fn paint_table(&self, ui: &mut Ui, rect: &Rect,) {
-        fn paint_oval(ui: &mut Ui, rect: &Rect, fill: Color32,) {
+        fn paint_oval(ui: &mut Ui, rect: &Rect, fill_color: Color32,) {
             let radius = rect.height() / 2.0;
             ui.painter().add(epaint::CircleShape {
                 center: rect.left_center() + vec2(radius, 0.0,),
                 radius,
-                fill,
+                fill: fill_color,
                 stroke: Stroke::NONE,
             },);
 
             ui.painter().add(epaint::CircleShape {
                 center: rect.right_center() - vec2(radius, 0.0,),
                 radius,
-                fill,
+                fill: fill_color,
                 stroke: Stroke::NONE,
             },);
 
@@ -279,7 +276,7 @@ impl GameView {
                     vec2(2.0f32.mul_add(-radius, rect.width()), rect.height(),),
                 ),
                 0.0,
-                fill,
+                fill_color,
                 Stroke::NONE,
                 StrokeKind::Inside,
             );
@@ -301,7 +298,7 @@ impl GameView {
 
         // Outer table
         let mut outer = Color32::from_rgb(40, 110, 20,);
-        let inner = Color32::from_rgb(10, 140, 10,);
+        let inner = Color32::from_rgb(50, 150, 10,);
         for pad in (52..162).step_by(5,) {
             paint_oval(ui, &rect.shrink(pad as f32,), outer,);
             outer = outer.lerp_to_gamma(inner, 0.1,);
@@ -665,6 +662,54 @@ impl GameView {
         {
             self.show_legend ^= true;
         }
+    }
+
+    fn paint_local_peer_id(&mut self, ui: &mut Ui, rect: &Rect,) {
+        // build a `LayoutJob` manually instead of the old `.into_job()`
+        let mut job = LayoutJob::default();
+        let id: String = format!("id: {}", self.game_state.player_id());
+        job.append(&id, 0.0, TextFormat {
+            font_id: TEXT_FONT,
+            color: TEXT_COLOR,
+            ..Default::default()
+        },);
+
+        let gal = ui.painter().layout_job(job,);
+
+        let pad = vec2(5.0, 5.0,);
+        let x = rect.left_bottom().x + rect.width() / 256.0;
+        let y = rect.left_bottom().y - rect.height() / 32.0;
+        let bg = Rect::from_min_size(
+            Pos2::new(x, y),
+            gal.size() + pad,
+        );
+        ui.painter().rect_filled(bg, 4.0, BG_COLOR,);
+        ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
+
+    }
+    
+    fn paint_hand_phase(&mut self, ui: &mut Ui, rect: &Rect) {
+        // build a `LayoutJob` manually instead of the old `.into_job()`
+        let mut job = LayoutJob::default();
+        let id: String = format!("id: {}", self.game_state.hand_phase.clone());
+        job.append(&id, 0.0, TextFormat {
+            font_id: TEXT_FONT,
+            color: TEXT_COLOR,
+            ..Default::default()
+        },);
+
+        let gal = ui.painter().layout_job(job,);
+
+        let pad = vec2(5.0, 5.0,);
+        let x = rect.left_bottom().x + rect.width() / 256.0;
+        let y = rect.left_bottom().y - rect.height() / 32.0;
+        let bg = Rect::from_min_size(
+            Pos2::new(x, y),
+            gal.size() + pad,
+        );
+        ui.painter().rect_filled(bg, 4.0, BG_COLOR,);
+        ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
+        
     }
 
     fn paint_legend(&mut self, ui: &mut Ui, rect: &Rect,) {
