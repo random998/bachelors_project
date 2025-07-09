@@ -126,8 +126,8 @@ impl PlayerPrivate {
     }
 }
 
-#[derive(Debug, Eq, PartialEq,)]
-enum HandPhase {
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
+pub enum HandPhase {
     WaitingForPlayers,
     StartingGame,
     StartingHand,
@@ -228,6 +228,7 @@ impl InternalTableState {
             board:      self.board.clone(),
             pot:        self.current_pot.clone(),
             action_req: self.action_request.clone(),
+            hand_phase: self.phase.clone(),
         }
     }
 
@@ -407,7 +408,8 @@ impl InternalTableState {
         }
 
         if self.players().len() >= self.num_seats {
-            self.enter_start_game();
+            info!("enough players joined the table, starting game");
+            let _ = self.enter_start_game();
         }
     }
 
@@ -583,6 +585,7 @@ pub struct GameState {
     pub board:      Vec<Card,>,
     pub pot:        Pot,
     pub action_req: Option<ActionRequest,>,
+    pub hand_phase: HandPhase,
 }
 
 impl GameState {
@@ -598,6 +601,7 @@ impl GameState {
             board:        Vec::default(),
             pot:          Pot::default(),
             action_req:   None,
+            hand_phase: HandPhase::StartingGame,
         }
     }
 
@@ -612,6 +616,7 @@ impl GameState {
             board: Vec::default(),
             pot: Pot::default(),
             action_req: None,
+            hand_phase: HandPhase::StartingGame,
         }
     }
 
@@ -631,6 +636,10 @@ impl GameState {
     pub fn players(&self) -> Vec<PlayerPrivate> {
         self.players.players()
     }
+
+    pub fn player_id(&self) -> String {
+        self.player_id.to_string()
+    }
 }
 
 impl InternalTableState {
@@ -642,6 +651,7 @@ impl InternalTableState {
 
         // Tell players to update their seats order.
         let seats = self.players.iter().map(|p| p.id.clone(),).collect();
+
         let _ = self.sign_and_send(Message::StartGameNotify {
             seat_order: seats,
             table_id:   self.table_id,
