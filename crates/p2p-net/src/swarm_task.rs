@@ -7,8 +7,11 @@ use libp2p::{
     gossipsub, identify, noise, tcp, yamux, Multiaddr, SwarmBuilder, Transport,
 };
 use log::info;
-use poker_core::message::SignedMessage;
-use poker_core::net::traits::{NetTx, P2pRx, P2pTransport, P2pTx};
+use poker_core::message::{Message, SignedMessage};
+use poker_core::net::traits::NetTx;
+use poker_core::net::traits::P2pRx;
+use poker_core::net::traits::P2pTransport;
+use poker_core::net::traits::P2pTx;
 use poker_core::poker::TableId;
 use tokio::sync::mpsc;
 // 1  Types & Behaviour ---------------------------------------------
@@ -31,6 +34,8 @@ pub fn new(
 ) -> P2pTransport {
     // identity ------------------------------------------------------
     let peer_id = keypair.clone().to_peer_id();
+    
+    let kp = keypair.clone();
 
     // transport -----------------------------------------------------
     let transport =
@@ -136,6 +141,15 @@ pub fn new(
                         if let Ok(msg) = bincode::deserialize::<SignedMessage>(&message.data) {
                             let _ = from_swarm_tx.send(msg).await;
                         }
+                    }
+                    SwarmEvent::NewListenAddr { listener_id,address }
+                    => {
+                        let msg = Message::NewListenAddr {
+                            listener_id: listener_id.to_string(),
+                            multiaddr: address.clone(),
+                        };
+                        let signed = SignedMessage::new(&kp.clone().secret(), msg);
+                        let _ = from_swarm_tx.send(signed).await; 
                     }
                     _ => {
                         info!("received event from gossipsub: {event:?}");

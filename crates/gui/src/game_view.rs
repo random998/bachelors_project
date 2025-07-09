@@ -687,11 +687,11 @@ impl GameView {
         ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
 
     }
-    
+
     fn paint_hand_phase(&mut self, ui: &mut Ui, rect: &Rect) {
         // build a `LayoutJob` manually instead of the old `.into_job()`
         let mut job = LayoutJob::default();
-        let id: String = format!("id: {}", self.game_state.hand_phase.clone());
+        let id: String = format!("phase: {}", self.game_state.hand_phase.clone());
         job.append(&id, 0.0, TextFormat {
             font_id: TEXT_FONT,
             color: TEXT_COLOR,
@@ -702,14 +702,14 @@ impl GameView {
 
         let pad = vec2(5.0, 5.0,);
         let x = rect.left_bottom().x + rect.width() / 256.0;
-        let y = rect.left_bottom().y - rect.height() / 32.0;
+        let y = rect.left_top().y + rect.height() / 32.0;
         let bg = Rect::from_min_size(
             Pos2::new(x, y),
             gal.size() + pad,
         );
         ui.painter().rect_filled(bg, 4.0, BG_COLOR,);
         ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
-        
+
     }
 
     fn paint_legend(&mut self, ui: &mut Ui, rect: &Rect,) {
