@@ -1,14 +1,15 @@
+use libp2p;
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
-use libp2p;
 
 /// Type definitions for p2p messages.
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
 
-use crate::crypto::{PeerId, Signature, SigningKey, VerifyingKey};
+
+use crate::crypto::{KeyPair, PeerId, PublicKey, Signature};
 use crate::game_state::Pot;
 use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 /// Represents a message exchanged between peers in the P2P poker protocol.
@@ -170,7 +171,7 @@ impl Message {
         match self {
             Self::AccountBalanceUpdate { .. } => "BalanceUpdateMsg",
             Self::Throttle { .. } => "ThrottleMsg",
-            Self::PlayerJoinTableRequest { .. } => "JoinTableRequest",
+            Self::PlayerJoinTableRequest { .. } => "PlayerJoinTableRequest",
             Self::PlayerLeaveRequest { .. } => "PlayerLeftNotification",
             Self::NoTablesLeftNotification { .. } => "NoTablesLeftNotification",
             Self::NotEnoughChips { .. } => "NotEnoughChips",
@@ -273,19 +274,19 @@ pub struct SignedMessage {
 struct Payload {
     msg: Message,
     sig: Signature,
-    vk:  VerifyingKey,
+    public_key: PublicKey,
 }
 
 impl SignedMessage {
     /// Creates a new signed message.
     #[must_use]
-    pub fn new(sk: &SigningKey, msg: Message,) -> Self {
-        let sig = sk.sign(&msg,);
+    pub fn new(key_pair: &KeyPair, msg: Message,) -> Self {
+        let sig = key_pair.secret().sign(&msg,);
         Self {
             payload: Arc::new(Payload {
                 msg,
                 sig,
-                vk: sk.verifying_key(),
+                public_key: key_pair.public(),
             },),
         }
     }
@@ -297,7 +298,7 @@ impl SignedMessage {
             payload: Arc::new(payload,),
         };
 
-        if !sm.payload.vk.verify(&sm.payload.msg, &sm.payload.sig,) {
+        if !sm.payload.public_key.verify(&sm.payload.msg, &sm.payload.sig,) {
             bail!("Invalid signature");
         }
 
@@ -315,7 +316,7 @@ impl SignedMessage {
     /// Returns the identifier of the player who sent this message.
     #[must_use]
     pub fn sender(&self,) -> PeerId {
-        self.payload.vk.to_peer_id()
+        self.payload.public_key.to_peer_id()
     }
 
     /// Extracts the signed message (payload).
@@ -337,9 +338,10 @@ mod tests {
 
     #[test]
     fn signed_message() {
-        let sk = SigningKey::default();
-        let vk = sk.verifying_key();
-        let peer_id = vk.to_peer_id();
+        let key_pair= KeyPair::default();
+        let public_key = key_pair.public();
+        let secret_key = key_pair.secret();
+        let peer_id =  public_key.to_peer_id();
         let chips = Chips::default();
         let message = Message::PlayerJoinTableRequest {
             player_id: peer_id,
@@ -348,7 +350,7 @@ mod tests {
             chips,
         };
 
-        let signed_message = SignedMessage::new(&sk, message,);
+        let signed_message = SignedMessage::new(&key_pair, message,);
         let bytes = signed_message.serialize();
 
         let deserialized_msg =

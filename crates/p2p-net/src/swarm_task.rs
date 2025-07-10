@@ -6,9 +6,8 @@ use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
 use libp2p::{
     gossipsub, identify, noise, tcp, yamux, Multiaddr, SwarmBuilder, Transport,
 };
-use log::info;
+use log::{info, warn};
 use poker_core::message::{Message, SignedMessage};
-use poker_core::net::traits::NetTx;
 use poker_core::net::traits::P2pRx;
 use poker_core::net::traits::P2pTransport;
 use poker_core::net::traits::P2pTx;
@@ -33,9 +32,7 @@ pub fn new(
     seed_peer_addr: Option<Multiaddr,>,
 ) -> P2pTransport {
     // identity ------------------------------------------------------
-    let peer_id = keypair.clone().to_peer_id();
-    
-    let kp = keypair.clone();
+    let peer_id = keypair.clone().peer_id();
 
     // transport -----------------------------------------------------
     let transport =
@@ -104,6 +101,7 @@ pub fn new(
     // mpsc pipes ---------------------------------------------------
     let (to_swarm_tx, mut to_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
     let (from_swarm_tx, from_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
+    let (from_swarm_event_tx, from_swarm_event_rx,) = mpsc::channel::<Message,>(64,);
 
     if swarm.listeners().count() > 0 {
         info!(
@@ -119,16 +117,16 @@ pub fn new(
         loop {
             tokio::select! {
                 /* outbound messages from game → swarm -------------- */
-                Some(blob) = to_swarm_rx.recv() => {
+                Some(signed_msg) = to_swarm_rx.recv() => {
                     // convert the typed message into bytes just before publish
-                    let bytes = match bincode::serialize(&blob) {
+                    let bytes = match bincode::serialize::<SignedMessage>(&signed_msg) {
                        Ok(b)=> b,
                         Err(e) => { log::error!("serialize: {e}"); continue; }
                     };
                     if let Err(e) =
                         swarm.behaviour_mut().gossipsub.publish(topic.clone(), bytes)
                     {
-                        log::warn!("publish error: {e}");
+                        warn!("publish error: {e}");
                     }
                 }
 
@@ -140,19 +138,16 @@ pub fn new(
                     ) => {
                         if let Ok(msg) = bincode::deserialize::<SignedMessage>(&message.data) {
                             let _ = from_swarm_tx.send(msg).await;
+                        } else {
+                            warn!("{} failed to deserialize message", peer_id);
                         }
                     }
                     SwarmEvent::NewListenAddr { listener_id,address }
                     => {
-                        let msg = Message::NewListenAddr {
-                            listener_id: listener_id.to_string(),
-                            multiaddr: address.clone(),
-                        };
-                        let signed = SignedMessage::new(&kp.clone().secret(), msg);
-                        let _ = from_swarm_tx.send(signed).await; 
+                        let msg = Message::NewListenAddr {listener_id: listener_id.to_string(), multiaddr: address};
+                        let _ = from_swarm_event_tx.send(msg).await;
                     }
                     _ => {
-                        info!("received event from gossipsub: {event:?}");
                     }       // ignore everything else
                 }
             }
@@ -166,6 +161,7 @@ pub fn new(
         },
         rx: P2pRx {
             receiver: from_swarm_rx,
+            event_receiver: from_swarm_event_rx,
         },
     }
 }
