@@ -3,18 +3,19 @@
 use std::sync::LazyLock;
 
 /// TLS and Noise protocol encrypted WebSocket connection types.
-use anyhow::{Result, anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use bytes::BytesMut;
 use futures_util::{SinkExt, StreamExt};
-use snow::TransportState;
 use snow::params::NoiseParams;
+use snow::TransportState;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
-use tokio_tungstenite::tungstenite::Message as WsMessage;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+use tokio_tungstenite::tungstenite::Message as WsMessage;
 use tokio_tungstenite::{self as websocket, MaybeTlsStream, WebSocketStream};
 use tracing::info;
+
 
 use crate::message::SignedMessage;
 use crate::net::{NetRx, NetTx};
@@ -182,7 +183,7 @@ mod tests {
     use tokio::net::TcpListener;
 
     use super::{ClientConnection, SecureWebSocket};
-    use crate::crypto::SigningKey;
+    use crate::crypto::KeyPair;
     use crate::message::{Message, SignedMessage};
     use crate::poker::{Chips, TableId};
 
@@ -212,8 +213,8 @@ mod tests {
         let url = format!("ws://{addr}");
         let mut con: ClientConnection =
             ClientConnection::connect_to(&url,).await.unwrap();
-        let keypair = SigningKey::default();
-        let peer_id = keypair.verifying_key().to_peer_id();
+        let keypair = KeyPair::default();
+        let peer_id = keypair.public().to_peer_id();
 
         let msg =
             SignedMessage::new(&keypair, Message::PlayerJoinTableRequest {

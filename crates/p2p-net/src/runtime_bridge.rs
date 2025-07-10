@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use poker_core::crypto::{KeyPair, SigningKey, VerifyingKey};
+use poker_core::crypto::KeyPair;
 use poker_core::game_state::{GameState, InternalTableState};
 use poker_core::message::SignedMessage;
 use poker_core::net::traits::P2pTransport;
@@ -58,9 +58,6 @@ pub fn start(
             crate::swarm_task::new(&table, kp.clone(), seed,);
 
         // 2) engine
-        let signing = SigningKey::new(&kp,);
-        let signing_a = Arc::new(signing.clone(),);
-        let verifying = VerifyingKey(kp.0.public());
 
         // 3) “loopback” closure → every *local* message is sent both
         // to the network layer and back to the GUI
@@ -72,7 +69,7 @@ pub fn start(
         };
 
         let mut eng = InternalTableState::new(
-            table, seats, signing_a, verifying, transport, loopback,
+            table, seats, kp, transport, loopback,
         );
 
         // 4) main loop
@@ -86,6 +83,12 @@ pub fn start(
             while let Ok(msg,) = eng.try_recv() {
                 eng.handle_message(msg,);
             }
+            
+            // d) gossip (event msg) -> engine
+            while let Ok(msg,) = eng.try_recv_event() {
+                eng.handle_event(msg,);
+            }
+            
 
             // c) timers
             eng.tick().await;

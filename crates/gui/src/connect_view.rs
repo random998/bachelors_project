@@ -1,8 +1,9 @@
 use eframe::egui::{
-    Align2, Button, Color32, Context, Event, FontFamily, FontId, RichText,
-    TextEdit, Window, vec2,
+    vec2, Align2, Button, Color32, Context, FontFamily, FontId,
+    RichText, TextEdit, Window,
 };
-use poker_core::crypto::{PeerId, SigningKey};
+use poker_core::crypto::KeyPair;
+use poker_core::crypto::PeerId;
 use poker_core::message::Message;
 use poker_core::poker::Chips;
 
@@ -18,7 +19,7 @@ pub struct ConnectView {
     chips:             Chips,
     error:             String,
     server_joined:     bool,
-    signing_key:       SigningKey,
+    key_pair: KeyPair,
     /// peer id of a player to connect to network.
     discovery_peer_id: String,
 }
@@ -26,32 +27,26 @@ pub struct ConnectView {
 impl ConnectView {
     /// Creates a new connect view.
     #[must_use]
-    pub fn new(storage: Option<&dyn eframe::Storage,>, app: &App,) -> Self {
+    pub fn new(storage: Option<&dyn eframe::Storage,>, app: &App, key_pair: KeyPair) -> Self {
         app.get_storage(storage,)
             .map(|d| {
-                let sk =
-                    SigningKey::from_phrase(&d.passphrase,).unwrap_or_default();
                 Self {
                     nickname:          d.nickname,
                     discovery_peer_id: String::default(),
                     chips:             Chips::default(),
                     error:             String::new(),
                     server_joined:     false,
-                    signing_key:       sk,
+                    key_pair, 
                 }
             },)
             .unwrap_or_default()
     }
 
     fn passphrase(&self,) -> String {
-        self.signing_key.phrase()
+        self.key_pair.secret().phrase().to_string()
     }
     fn player_id(&self,) -> PeerId {
-        self.signing_key.verifying_key().to_peer_id()
-    }
-
-    fn assign_key(&mut self, sk: &SigningKey,) {
-        self.signing_key = sk.clone();
+        self.key_pair.public().to_peer_id()
     }
 }
 
@@ -105,53 +100,6 @@ impl View for ConnectView {
                             .font(TEXT_FONT,)
                             .show(ui,);
                     },);
-                },);
-
-                ui.add_space(10.0,);
-
-                ui.group(|ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            RichText::new("Private Passphrase",)
-                                .font(LABEL_FONT,),
-                        );
-                        ui.add_space(125.0,);
-                        if ui
-                            .button(RichText::new("Generate").font(TEXT_FONT))
-                            .clicked()
-                        {
-                            self.error.clear();
-                            let sk = SigningKey::default();
-                            self.assign_key(&sk);
-                        }
-                    },);
-
-                    // Copy passphrase from clipboard by replacing current text
-                    ui.input(|i| {
-                        for event in &i.events {
-                            if let Event::Paste(text,) = event {
-                                if let Ok(sk,) = SigningKey::from_phrase(text,)
-                                {
-                                    self.error.clear();
-                                    self.assign_key(&sk,);
-                                } else {
-                                    self.error = "Invalid clipboard passphrase"
-                                        .to_string();
-                                }
-                            }
-                        }
-                    },);
-
-                    // Copy field value to avoid editing, these fields can only
-                    // be changed by pasting the passphrase
-                    // or with the generate button.
-                    let mut passphrase = self.passphrase();
-                    TextEdit::multiline(&mut passphrase,)
-                        .char_limit(108,)
-                        .desired_rows(3,)
-                        .desired_width(400.0,)
-                        .font(TEXT_FONT,)
-                        .show(ui,);
                 },);
 
                 ui.add_space(10.0,);

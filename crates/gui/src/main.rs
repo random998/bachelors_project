@@ -11,7 +11,7 @@ use clap::Parser;
 use eframe::egui::ViewportBuilder;
 use libp2p::Multiaddr;
 use p2p_net::runtime_bridge;
-use poker_core::crypto::{KeyPair, SigningKey};
+use poker_core::crypto::KeyPair;
 use poker_core::poker::TableId;
 use poker_gui::gui;
 // <-- background runtime
@@ -56,14 +56,13 @@ pub fn main() -> eframe::Result<(),> {
     //    let kp = load_or_generate_keypair(&opt.key_pair,)
     // .expect("cannot load/generate keypair",);
     let kp = KeyPair::default();
-    let signing = SigningKey::new(&kp,);
-    let peer_id = signing.verifying_key().to_peer_id();
+    let peer_id = kp.public().to_peer_id();
 
     // spawn background runtime (net + engine)
     let ui = runtime_bridge::start(
         opt.table_id(),
         opt.seats,
-        kp,
+        kp.clone(),
         opt.nick.clone(),
         opt.seed_addr(),
     );
@@ -89,6 +88,7 @@ pub fn main() -> eframe::Result<(),> {
                 peer_id,
                 opt.seats,
                 opt.table_id(),
+                kp.clone()
             ),),)
         },),
     )
