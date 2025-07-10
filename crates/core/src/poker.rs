@@ -98,7 +98,8 @@ impl Chips {
         self.0
     }
 
-    #[must_use] pub const fn default() -> Self {
+    #[must_use]
+    pub const fn default() -> Self {
         Self::new(1000,)
     }
 }
