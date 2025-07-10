@@ -34,7 +34,8 @@ pub struct Pot {
 }
 
 impl Pot {
-    #[must_use] pub const fn total_chips(&self,) -> Chips {
+    #[must_use]
+    pub const fn total_chips(&self,) -> Chips {
         self.total_chips
     }
 }
@@ -263,7 +264,8 @@ impl InternalTableState {
     pub fn board(&self,) -> Vec<Card,> {
         self.board.clone()
     }
-    #[must_use] pub fn pot(&self,) -> Pot {
+    #[must_use]
+    pub fn pot(&self,) -> Pot {
         self.current_pot.clone()
     }
 
@@ -430,9 +432,10 @@ impl InternalTableState {
 
     pub fn handle_event(&mut self, m: Message,) {
         if let Message::NewListenAddr {
-                listener_id,
-                multiaddr,
-            } = m {
+            listener_id,
+            multiaddr,
+        } = m
+        {
             self.listener_id = Some(listener_id,);
             self.listen_addr = Some(multiaddr,);
         }
@@ -641,7 +644,8 @@ impl GameState {
         }
     }
 
-    #[must_use] pub fn default() -> Self {
+    #[must_use]
+    pub fn default() -> Self {
         Self {
             table_id:     TableId::new_id(),
             seats:        0,
@@ -670,11 +674,13 @@ impl GameState {
         self.pot.total_chips
     }
 
-    #[must_use] pub fn players(&self,) -> Vec<PlayerPrivate,> {
+    #[must_use]
+    pub fn players(&self,) -> Vec<PlayerPrivate,> {
         self.players.players()
     }
 
-    #[must_use] pub fn player_id(&self,) -> String {
+    #[must_use]
+    pub fn player_id(&self,) -> String {
         self.player_id.to_string()
     }
 }

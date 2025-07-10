@@ -688,7 +688,7 @@ impl GameView {
 
         let pad = vec2(5.0, 5.0,);
         let x = rect.left() + pad.x;
-        let y = 7.0f32.mul_add(pad.y, rect.top());
+        let y = 7.0f32.mul_add(pad.y, rect.top(),);
         let bg = Rect::from_min_size(Pos2::new(x, y,), gal.size() + pad,);
         ui.painter().rect_filled(bg, 4.0, BG_COLOR,);
         ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
