@@ -84,11 +84,11 @@ pub fn main() -> eframe::Result<(),> {
             Ok(Box::new(gui::AppFrame::new(
                 cc,
                 ui,
-                opt.nick.clone(), 
+                opt.nick.clone(),
                 peer_id,
                 opt.seats,
                 opt.table_id(),
-                kp.clone()
+                kp.clone(),
             ),),)
         },),
     )
