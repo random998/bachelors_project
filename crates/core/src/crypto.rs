@@ -200,11 +200,13 @@ impl KeyPair {
         self.public().to_peer_id()
     }
 
-    #[must_use] pub fn secret(&self,) -> SecretKey {
+    #[must_use]
+    pub fn secret(&self,) -> SecretKey {
         SecretKey::new(self,)
     }
 
-    #[must_use] pub fn public(&self,) -> PublicKey {
+    #[must_use]
+    pub fn public(&self,) -> PublicKey {
         let pub_k = self.0.public();
         PublicKey(pub_k,)
     }
