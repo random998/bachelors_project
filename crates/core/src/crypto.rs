@@ -30,21 +30,21 @@ type SigHasher = Blake2s<consts::U32,>; // 32-byte Blake2s
 // SigningKey
 
 #[derive(Clone,)]
-pub struct SigningKey {
+pub struct SecretKey {
     kp:      ed25519::Keypair, // libp2p (public+secret)
     entropy: Zeroizing<Entropy,>,
 }
 
 // ---------- constructors -------------------------------------------
 
-impl Default for SigningKey {
+impl Default for SecretKey {
     fn default() -> Self {
         let mut rng = StdRng::from_os_rng();
         Self::generate_from_rng(&mut rng,)
     }
 }
 
-impl SigningKey {
+impl SecretKey {
     #[must_use]
     pub fn new(key_pair: &KeyPair,) -> Self {
         let entropy = Zeroizing::new([0u8; ENTROPY_LEN],);
@@ -55,7 +55,14 @@ impl SigningKey {
     }
 }
 
-impl SigningKey {
+impl PublicKey {
+    #[must_use]
+    pub fn new(key_pair: &KeyPair,) -> Self {
+        key_pair.public()
+    }
+}
+
+impl SecretKey {
     /// Deterministic constructor from fixed entropy.
     fn generate_from_entropy(entropy: Entropy,) -> Self {
         // Hash the entropy → 32-byte seed, then into Keypair
@@ -98,17 +105,6 @@ impl SigningKey {
             .phrase()
             .to_owned()
     }
-
-    #[must_use]
-    pub fn peer_id(&self,) -> PeerId {
-        VerifyingKey(self.kp.public(),).to_peer_id()
-    }
-
-    #[must_use]
-    pub fn verifying_key(&self,) -> VerifyingKey {
-        VerifyingKey(self.kp.public(),)
-    }
-
     #[must_use]
     pub fn secret_bytes(&self,) -> [u8; SECRET_LEN] {
         // copy because `SecretKey` keeps bytes private
@@ -124,20 +120,20 @@ impl SigningKey {
 
 // ---------- serde impls --------------------------------------------
 
-impl Serialize for SigningKey {
+impl Serialize for SecretKey {
     fn serialize<S,>(&self, s: S,) -> Result<S::Ok, S::Error,>
     where S: Serializer {
         s.serialize_bytes(&self.secret_bytes(),)
     }
 }
-impl Serialize for VerifyingKey {
+impl Serialize for PublicKey {
     fn serialize<S,>(&self, s: S,) -> Result<S::Ok, S::Error,>
     where S: Serializer {
         s.serialize_bytes(&self.to_bytes(),)
     }
 }
 
-impl<'de,> Deserialize<'de,> for SigningKey {
+impl<'de,> Deserialize<'de,> for SecretKey {
     fn deserialize<D,>(d: D,) -> Result<Self, D::Error,>
     where D: Deserializer<'de,> {
         let mut bytes: Vec<u8,> = <&[u8]>::deserialize(d,)?.to_vec();
@@ -149,7 +145,7 @@ impl<'de,> Deserialize<'de,> for SigningKey {
     }
 }
 
-impl<'de,> Deserialize<'de,> for VerifyingKey {
+impl<'de,> Deserialize<'de,> for PublicKey {
     fn deserialize<D,>(d: D,) -> Result<Self, D::Error,>
     where D: Deserializer<'de,> {
         let bytes: Vec<u8,> = <&[u8]>::deserialize(d,)?.to_vec();
@@ -161,7 +157,7 @@ impl<'de,> Deserialize<'de,> for VerifyingKey {
 
 // ---------- Debug --------------------------------------------------
 
-impl fmt::Debug for SigningKey {
+impl fmt::Debug for SecretKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(f, "SigningKey({})", self.phrase())
     }
@@ -171,20 +167,23 @@ impl fmt::Debug for SigningKey {
 // VerifyingKey + Signature
 
 #[derive(Clone,)]
-pub struct VerifyingKey(pub ed25519::PublicKey,);
+pub struct PublicKey(pub ed25519::PublicKey,);
 
 #[derive(Clone,)]
 pub struct Signature(Vec<u8,>,);
 
-#[derive(Clone, Debug,)]
+#[derive(Clone, Debug)]
 pub struct KeyPair(pub ed25519::Keypair,);
 
-impl KeyPair {
-    #[must_use]
-    pub fn default() -> Self {
+impl Default for KeyPair {
+    fn default() -> Self {
         let kp: ed25519::Keypair = ed25519::Keypair::generate();
         Self(kp,)
     }
+    
+}
+
+impl KeyPair {
     #[must_use]
     pub fn from_bytes(bytes: &[u8],) -> Self {
         let mut bytes: [u8; 64] = bytes.try_into().unwrap();
@@ -198,17 +197,21 @@ impl KeyPair {
     }
 
     #[must_use]
-    pub fn to_peer_id(self,) -> PeerId {
-        let pubk: libp2p_identity::PublicKey = self.0.public().into();
-        PeerId(pubk.to_peer_id(),)
+    pub fn peer_id(self,) -> PeerId {
+        self.public().to_peer_id()
+    }
+
+    pub fn secret(&self) -> SecretKey {
+        SecretKey::new(&self)
     }
     
-    pub fn secret(&self) -> SigningKey {
-        self.secret()
+    pub fn public(&self) -> PublicKey {
+        let pub_k = self.0.public();
+        PublicKey(pub_k)
     }
 }
 
-impl VerifyingKey {
+impl PublicKey {
     pub fn verify<T: Serialize,>(&self, msg: &T, sig: &Signature,) -> bool {
         let mut h = SigHasher::new();
         bincode::serialize_into(&mut h, msg,).unwrap();
@@ -227,7 +230,7 @@ impl VerifyingKey {
     }
 }
 
-impl fmt::Debug for VerifyingKey {
+impl fmt::Debug for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(
             f,
@@ -351,8 +354,8 @@ mod tests {
 
     #[test]
     fn phrase_round_trip() {
-        let sk = SigningKey::default();
-        let sk2 = SigningKey::from_phrase(&sk.phrase(),).unwrap();
+        let sk = SecretKey::default();
+        let sk2 = SecretKey::from_phrase(&sk.phrase(),).unwrap();
         assert_eq!(sk.secret_bytes(), sk2.secret_bytes());
     }
 
@@ -362,8 +365,10 @@ mod tests {
         struct Msg {
             a: u32,
         }
-        let sk = SigningKey::default();
+        let kp = KeyPair::default();
+        let sk = kp.secret();
+        let pk = kp.public();
         let sig = sk.sign(&Msg { a: 123, },);
-        assert!(sk.verifying_key().verify(&Msg { a: 123, }, &sig));
+        assert!(pk.verify(&Msg { a: 123, }, &sig));
     }
 }

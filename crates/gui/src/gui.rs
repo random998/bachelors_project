@@ -12,7 +12,7 @@ use eframe::egui::{Context, Theme};
 use log::trace;
 use p2p_net::runtime_bridge::UiHandle; // ← the two channels & runtime
 use poker_cards::egui::Textures;
-use poker_core::crypto::{KeyPair, PeerId, SigningKey};
+use poker_core::crypto::{KeyPair, PeerId};
 use poker_core::game_state::GameState;
 use poker_core::message::{Message, SignedMessage};
 use tokio::runtime::Runtime;
@@ -59,9 +59,9 @@ pub struct AppData {
 pub struct App {
     // static
     pub textures: Textures,
-    signing_key:  SigningKey,
     player_id:    PeerId,
     nickname:     String,
+    key_pair: KeyPair,
 
     // runtime ↔ GUI channels
     cmd_tx:        mpsc::Sender<SignedMessage,>, // GUI ➜ runtime
@@ -87,16 +87,16 @@ impl App {
         ui: UiHandle, // returned by `start`
         state: GameState,
         textures: Textures,
+        key_pair: KeyPair
     ) -> Self {
-        let sk = SigningKey::default();
 
         Self {
+            key_pair, 
             textures,
             cmd_tx: ui.cmd_tx.clone(),
             msg_rx: ui.msg_rx, // we *move* the receiver
             _rt: ui._rt,       // keep the runtime alive
             game_state_rx: ui.state_rx,
-            signing_key: sk.clone(),
             player_id: state.player_id,
             nickname: String::new(),
             game_state: state,
@@ -122,7 +122,7 @@ impl App {
         &self,
         msg: Message,
     ) -> Result<(), TrySendError<SignedMessage,>,> {
-        let signed = SignedMessage::new(&self.signing_key, msg,);
+        let signed = SignedMessage::new(&self.key_pair, msg,);
         self.cmd_tx.try_send(signed,)
     }
 
@@ -137,6 +137,12 @@ impl App {
     #[must_use]
     pub fn nickname(&self,) -> &str {
         &self.nickname
+    }
+    
+    #[inline]
+    #[must_use]
+    pub fn key_pair(&self) -> KeyPair {
+        self.key_pair.clone()
     }
 
     /// latest immutable snapshot (cheap `Clone`)
@@ -211,11 +217,12 @@ impl AppFrame {
         peer_id: PeerId,
         seats: usize,
         table_id: TableId,
+        key_pair: KeyPair,
     )-> Self {
         cc.egui_ctx.set_theme(Theme::Dark,);
         let textures = Textures::new(&cc.egui_ctx,);
-        let app = App::new(ui, GameState::new(peer_id,table_id, nickname, seats), textures,);
-        let panel = Box::new(ConnectView::new(cc.storage, &app,),);
+        let app = App::new(ui, GameState::new(peer_id,table_id, nickname, seats), textures, key_pair);
+        let panel = Box::new(ConnectView::new(cc.storage, &app, app.key_pair()),);
         Self { app, panel, }
     }
 }

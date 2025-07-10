@@ -3,10 +3,10 @@
 
 use std::fmt;
 use std::fmt::Formatter;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ahash::AHashSet;
+use libp2p::Multiaddr;
 use log::{info, warn};
 use rand::SeedableRng;
 use rand::rngs::StdRng;
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc;
 use poker_eval::HandValue;
-use crate::crypto::{PeerId, SigningKey, VerifyingKey};
+use crate::crypto::{PeerId, SecretKey, KeyPair};
 use crate::message::{
     HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
 };
@@ -61,8 +61,13 @@ pub struct PlayerPrivate {
 }
 
 impl PlayerPrivate {
-    pub(crate) fn start_hand(&self) {
-        todo!()
+    pub(crate) fn start_hand(&mut self) {
+        self.is_active = self.chips > Chips::ZERO;
+        self.has_button = false;
+        self.bet = Chips::ZERO;
+        self.action = PlayerAction::None;
+        self.public_cards = PlayerCards::None;
+        self.hole_cards = PlayerCards::None;
     }
 }
 
@@ -180,8 +185,7 @@ pub struct InternalTableState {
     table_id:    TableId,
     game_id: GameId,
     num_seats:   usize,
-    signing_key: Arc<SigningKey,>,
-    verifying_key: VerifyingKey,
+    key_pair: KeyPair,
 
     // networking ----------------------------------------------------------
     pub connection: P2pTransport,
@@ -207,6 +211,8 @@ pub struct InternalTableState {
     rng:              StdRng,
     new_hand_start_timer: Option<Instant,>,
     new_hand_timeout: Duration,
+    listen_addr: Option<Multiaddr>,
+    listener_id: Option<String>,
 }
 
 impl InternalTableState {
@@ -221,7 +227,7 @@ impl InternalTableState {
             seats:        self.num_seats,
             game_started: !matches!(self.phase, HandPhase::WaitingForPlayers),
 
-            player_id: self.signing_key.peer_id(),
+            player_id: self.key_pair.clone().peer_id(),
             nickname:  String::new(), // Optional: store locally if needed
 
             players:    self.players.clone(),
@@ -229,17 +235,18 @@ impl InternalTableState {
             pot:        self.current_pot.clone(),
             action_req: self.action_request.clone(),
             hand_phase: self.phase.clone(),
+            listen_addr: self.listen_addr.clone(),
         }
     }
 
     #[must_use]
-    pub fn signing_key(&self,) -> Arc<SigningKey,> {
-        self.signing_key.clone()
+    pub fn secret_key(&self,) -> SecretKey {
+        self.key_pair.secret()
     }
 
     #[must_use]
     pub fn peer_id(&self) -> PeerId {
-        self.verifying_key.to_peer_id()
+        self.key_pair.clone().peer_id()
     }
 
     #[must_use]
@@ -271,8 +278,7 @@ impl InternalTableState {
     pub fn new(
         table_id: TableId,
         num_seats: usize,
-        signing_key: Arc<SigningKey,>,
-        verifying_key: VerifyingKey,
+        key_pair: KeyPair,
         connection: P2pTransport,
         cb: impl FnMut(SignedMessage,) + Send + 'static,
     ) -> Self {
@@ -285,8 +291,7 @@ impl InternalTableState {
             active_player: None,
             table_id,
             num_seats,
-            signing_key,
-            verifying_key,
+            key_pair,
             connection,
             cb: Box::new(cb,),
 
@@ -302,6 +307,8 @@ impl InternalTableState {
             new_hand_start_timer: None,
             new_hand_timeout: Duration::from_millis(1_000,),
             action_request: None,
+            listener_id: None,
+            listen_addr: None,
         }
     }
 
@@ -314,12 +321,18 @@ impl InternalTableState {
         self.connection.rx.receiver.try_recv()
     }
 
+    pub fn try_recv_event(
+        &mut self,
+    ) -> Result<Message, mpsc::error::TryRecvError,> {
+        self.connection.rx.event_receiver.try_recv()
+    }
+
     /// Sign, broadcast **and** echo a local command.
     pub fn sign_and_send(
         &mut self,
         msg: Message,
     ) -> Result<(), mpsc::error::TrySendError<SignedMessage,>,> {
-        let signed = SignedMessage::new(&self.signing_key, msg,);
+        let signed = SignedMessage::new(&self.key_pair, msg,);
         self.send(signed,)
     }
 
@@ -328,6 +341,7 @@ impl InternalTableState {
         &mut self,
         msg: SignedMessage,
     ) -> Result<(), mpsc::error::TrySendError<SignedMessage,>,> {
+        info!("{} sending {}", self.peer_id(), msg.message().label());
         // network → gossipsub
         self.connection.tx.sender.try_send(msg.clone(),)?;
         // local echo → UI
@@ -347,18 +361,20 @@ impl InternalTableState {
     }
 
     pub fn try_join(&mut self, id: PeerId, nickname: &String, chips: &Chips,) {
+        info!("entered try join function");
         if self.players().iter().any(|p| p.id == id,) {
-            // player already joined.
+            info!("player already joined");
             return;
         }
 
         // if we are not the player sending a join request, then send a join
         // request for ourselves to that player
         if self.peer_id() != id {
+            info!("id of joined player is different from our own");
             if let Some(us,) =
                 self.players().iter().find(|p| p.id == self.peer_id(),)
             {
-                info!("sending join request from existing player to newly joined player...");
+                info!("sending join request from us to newly joined player...");
                 let rq = Message::PlayerJoinTableRequest {
                     table_id:  self.table_id,
                     player_id: us.id,
@@ -372,44 +388,46 @@ impl InternalTableState {
             } else {
                 info!("NOT sending join request from existing player to newly joined player...");
             }
+        } else {
+            info!("joined player id equals our own player id...");
         }
 
-        // TODO: check if chips amount is allowed, nickname is allowed etc.
-
         self.players.add(PlayerPrivate::new(id, nickname.clone(), *chips,),);
+        info!("added new player to players list...");
 
         // send confirmation that this player has joined our table.
+        info!("preparing confirmation message...");
         let confirmation = Message::PlayerJoinedConfirmation {
             table_id:  self.table_id,
             player_id: id,
             chips:     *chips,
             nickname:  nickname.clone(),
         };
-        let res = self.sign_and_send(confirmation,);
 
+        info!("sending confirmation message...");
+        let res = self.sign_and_send(confirmation,);
         if let Err(e,) = res {
             warn!("error: {e}");
         }
 
-        // since this player has just joined, we need to send a join
-        // confirmation message for each other player, such that they join the
-        // new players lobby.
-        for player in &mut self.players().clone() {
-            let msg = Message::PlayerJoinTableRequest{
-                table_id:  self.table_id,
-                player_id: player.id,
-                chips:     player.chips,
-                nickname:  player.nickname.clone(),
-            };
-            let res = self.sign_and_send(msg,);
-            if let Err(e,) = res {
-                warn!("error when trying to send message: {e}");
-            }
-        }
 
         if self.players().len() >= self.num_seats {
             info!("enough players joined the table, starting game");
             let _ = self.enter_start_game();
+        } else {
+            info!("not enough players joined the table, joined: {}, required: {}", self.players().len(), self.num_seats);
+        }
+    }
+
+
+    pub fn handle_event(&mut self, m: Message) {
+        match m {
+            Message::NewListenAddr {listener_id, multiaddr} => {
+                self.listener_id = Some(listener_id);
+                self.listen_addr = Some(multiaddr);
+
+            }
+            _ => {}
         }
     }
 
@@ -423,7 +441,7 @@ impl InternalTableState {
             sm.sender()
         );
         match sm.message() {
-            Message::PlayerJoinTableRequest {
+            Message::PlayerJoinTableRequest{
                 player_id,
                 nickname,
                 chips,
@@ -447,29 +465,7 @@ impl InternalTableState {
                 player_id,
                 chips,
                 nickname,
-            } => {
-                // check if player has actually joined
-                if !self.players.iter().any(|p| p.id == *player_id,) {
-                    self.players.add(PlayerPrivate::new(
-                        *player_id,
-                        nickname.clone(),
-                        *chips,
-                    ),);
-                    // send confirmation
-                    let confirmation = Message::PlayerJoinedConfirmation {
-                        table_id:  self.table_id,
-                        player_id: *player_id,
-                        chips:     *chips,
-                        nickname:  nickname.clone(),
-                    };
-                    let res = self.sign_and_send(confirmation,);
-                    if let Err(e,) = res {
-                        info!(
-                            "internal table state could not send message: {e}"
-                        );
-                    }
-                }
-            },
+            } => self.try_join(player_id.clone(), nickname, chips,),
             other => warn!("unhandled msg in InternalTableState: {other}"),
         }
     }
@@ -586,6 +582,7 @@ pub struct GameState {
     pub pot:        Pot,
     pub action_req: Option<ActionRequest,>,
     pub hand_phase: HandPhase,
+    pub listen_addr: Option<Multiaddr>,
 }
 
 impl GameState {
@@ -602,6 +599,7 @@ impl GameState {
             pot:          Pot::default(),
             action_req:   None,
             hand_phase: HandPhase::StartingGame,
+            listen_addr: None,
         }
     }
 
@@ -617,6 +615,7 @@ impl GameState {
             pot: Pot::default(),
             action_req: None,
             hand_phase: HandPhase::StartingGame,
+            listen_addr: None,
         }
     }
 
@@ -643,7 +642,7 @@ impl GameState {
 }
 
 impl InternalTableState {
-    async fn enter_start_game(&mut self,) {
+    fn enter_start_game(&mut self,) {
         self.phase = HandPhase::StartingGame;
 
         // Shuffle seats before starting the game.
@@ -658,11 +657,11 @@ impl InternalTableState {
             game_id:    GameId::new_id(),
         },);
 
-        self.enter_start_hand().await;
+        self.enter_start_hand();
     }
 
     /// Start a new hand.
-    async fn enter_start_hand(&mut self,) {
+    fn enter_start_hand(&mut self,) {
         self.phase = HandPhase::StartingHand;
 
         self.players.start_hand();
@@ -719,7 +718,7 @@ impl InternalTableState {
         }
 
         // Tell clients to update all players state.
-        self.broadcast_game_update().await;
+        let _ = self.broadcast_game_update();
 
         // Deal the cards to each player.
         for player in self.players() {
@@ -729,10 +728,10 @@ impl InternalTableState {
             }
         }
 
-        self.enter_preflop_betting().await;
+        self.enter_preflop_betting();
     }
 
-    async fn enter_preflop_betting(&mut self,) {
+    fn enter_preflop_betting(&mut self,) {
         self.phase = HandPhase::PreflopBetting;
         let _ = self.action_update();
     }
@@ -867,7 +866,7 @@ impl InternalTableState {
     }
 
     fn credit_player(&mut self, player_id: PeerId, chips: Chips) {
-        assert!(chips > Chips::ZERO);
+        assert!(chips >= Chips::ZERO);
         let new_balance = self.players.get(&player_id).unwrap().chips + chips;
         let msg = Message::AccountBalanceUpdate {
             player_id,
@@ -965,7 +964,7 @@ impl InternalTableState {
                     for (idx, (player, v, bh,),) in
                         hands.iter_mut().take(winners_count,).enumerate()
                     {
-                        // Give remaineder to first player.
+                        // Give remainder to first player.
                         let player_payoff = if idx == 0 {
                             win_payoff + win_remainder
                         } else {
