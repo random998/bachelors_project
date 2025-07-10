@@ -78,16 +78,7 @@ impl fmt::Display for TableId {
 
 /// data structure for storing the amount of chips for a given table.
 #[derive(
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Serialize,
-    Deserialize,
-    Copy,
-    Clone,
+    Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Copy, Clone,
 )]
 pub struct Chips(u32,);
 
@@ -105,6 +96,16 @@ impl Chips {
     #[must_use]
     pub const fn amount(&self,) -> u32 {
         self.0
+    }
+
+    #[must_use] pub const fn default() -> Self {
+        Self::new(1000,)
+    }
+}
+
+impl Default for Chips {
+    fn default() -> Self {
+        Self::new(1000,)
     }
 }
 

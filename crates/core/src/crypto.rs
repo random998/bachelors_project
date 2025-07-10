@@ -172,7 +172,7 @@ pub struct PublicKey(pub ed25519::PublicKey,);
 #[derive(Clone,)]
 pub struct Signature(Vec<u8,>,);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug,)]
 pub struct KeyPair(pub ed25519::Keypair,);
 
 impl Default for KeyPair {
@@ -180,7 +180,6 @@ impl Default for KeyPair {
         let kp: ed25519::Keypair = ed25519::Keypair::generate();
         Self(kp,)
     }
-    
 }
 
 impl KeyPair {
@@ -201,13 +200,13 @@ impl KeyPair {
         self.public().to_peer_id()
     }
 
-    pub fn secret(&self) -> SecretKey {
-        SecretKey::new(&self)
+    #[must_use] pub fn secret(&self,) -> SecretKey {
+        SecretKey::new(self,)
     }
-    
-    pub fn public(&self) -> PublicKey {
+
+    #[must_use] pub fn public(&self,) -> PublicKey {
         let pub_k = self.0.public();
-        PublicKey(pub_k)
+        PublicKey(pub_k,)
     }
 }
 
