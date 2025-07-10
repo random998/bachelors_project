@@ -5,7 +5,11 @@
 // -----------------------------------------------------------------------------
 
 use eframe::egui::text::LayoutJob;
-use eframe::egui::{Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId, Image, Key, Rect, RichText, Sense, Slider, Stroke, StrokeKind, TextFormat, Ui, Vec2, Window, pos2, text, vec2, Pos2};
+use eframe::egui::{
+    Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId,
+    Image, Key, Pos2, Rect, RichText, Sense, Slider, Stroke, StrokeKind,
+    TextFormat, Ui, Vec2, Window, pos2, text, vec2,
+};
 use eframe::epaint;
 use poker_cards::egui::Textures;
 use poker_core::game_state::{GameState, PlayerPrivate};
@@ -102,7 +106,11 @@ impl View for GameView {
         app: &mut App,
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {
-            Some(Box::new(ConnectView::new(frame.storage(), app, app.key_pair()),),)
+            Some(Box::new(ConnectView::new(
+                frame.storage(),
+                app,
+                app.key_pair(),
+            ),),)
         } else if let Some(chips,) = self.show_account.take() {
             Some(Box::new(AccountView::new(chips, app,),),)
         } else {
@@ -680,22 +688,18 @@ impl GameView {
 
         let pad = vec2(5.0, 5.0,);
         let x = rect.left() + pad.x;
-        let y = rect.top() + 7.0 * pad.y;
-        let bg = Rect::from_min_size(
-            Pos2::new(x, y),
-            gal.size() + pad,
-        );
+        let y = 7.0f32.mul_add(pad.y, rect.top());
+        let bg = Rect::from_min_size(Pos2::new(x, y,), gal.size() + pad,);
         ui.painter().rect_filled(bg, 4.0, BG_COLOR,);
         ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
-
     }
 
-    fn paint_listen_addr(&mut self, ui: &mut Ui, rect: &Rect) {
+    fn paint_listen_addr(&mut self, ui: &mut Ui, rect: &Rect,) {
         // build a `LayoutJob` manually instead of the old `.into_job()`
         let mut job = LayoutJob::default();
         let mut id: String = "addr: None".to_string();
-        if let Some(addr) = self.game_state.listen_addr.clone() {
-            id = format!("addr: {}", addr);
+        if let Some(addr,) = self.game_state.listen_addr.clone() {
+            id = format!("addr: {addr}");
         }
         job.append(&id, 0.0, TextFormat {
             font_id: TEXT_FONT,
@@ -709,18 +713,16 @@ impl GameView {
         // add 5 pixels of border to the right.
         let x = rect.right() - gal.size().x - pad.x;
         let y = rect.bottom() - gal.size().y - pad.y;
-        let bg = Rect::from_min_size(
-            Pos2::new(x, y),
-            gal.size() + pad,
-        );
+        let bg = Rect::from_min_size(Pos2::new(x, y,), gal.size() + pad,);
         ui.painter().rect_filled(bg, 4.0, BG_COLOR,);
         ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
     }
 
-    fn paint_hand_phase(&mut self, ui: &mut Ui, rect: &Rect) {
+    fn paint_hand_phase(&mut self, ui: &mut Ui, rect: &Rect,) {
         // build a `LayoutJob` manually instead of the old `.into_job()`
         let mut job = LayoutJob::default();
-        let id: String = format!("phase: {}", self.game_state.hand_phase.clone());
+        let id: String =
+            format!("phase: {}", self.game_state.hand_phase.clone());
         job.append(&id, 0.0, TextFormat {
             font_id: TEXT_FONT,
             color: TEXT_COLOR,
@@ -732,13 +734,9 @@ impl GameView {
         let pad = vec2(5.0, 5.0,);
         let x = rect.left() + pad.x;
         let y = rect.top() + pad.y;
-        let bg = Rect::from_min_size(
-            Pos2::new(x, y),
-            gal.size() + pad,
-        );
+        let bg = Rect::from_min_size(Pos2::new(x, y,), gal.size() + pad,);
         ui.painter().rect_filled(bg, 4.0, BG_COLOR,);
         ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
-
     }
 
     fn paint_legend(&mut self, ui: &mut Ui, rect: &Rect,) {

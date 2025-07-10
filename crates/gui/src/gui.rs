@@ -15,10 +15,11 @@ use poker_cards::egui::Textures;
 use poker_core::crypto::{KeyPair, PeerId};
 use poker_core::game_state::GameState;
 use poker_core::message::{Message, SignedMessage};
+use poker_core::poker::TableId;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::{TryRecvError, TrySendError};
-use poker_core::poker::TableId;
+
 use crate::ConnectView;
 
 // ─────────────────────────── CLI options (only on native) ───────────────
@@ -61,7 +62,7 @@ pub struct App {
     pub textures: Textures,
     player_id:    PeerId,
     nickname:     String,
-    key_pair: KeyPair,
+    key_pair:     KeyPair,
 
     // runtime ↔ GUI channels
     cmd_tx:        mpsc::Sender<SignedMessage,>, // GUI ➜ runtime
@@ -87,11 +88,10 @@ impl App {
         ui: UiHandle, // returned by `start`
         state: GameState,
         textures: Textures,
-        key_pair: KeyPair
+        key_pair: KeyPair,
     ) -> Self {
-
         Self {
-            key_pair, 
+            key_pair,
             textures,
             cmd_tx: ui.cmd_tx.clone(),
             msg_rx: ui.msg_rx, // we *move* the receiver
@@ -138,10 +138,10 @@ impl App {
     pub fn nickname(&self,) -> &str {
         &self.nickname
     }
-    
+
     #[inline]
     #[must_use]
-    pub fn key_pair(&self) -> KeyPair {
+    pub fn key_pair(&self,) -> KeyPair {
         self.key_pair.clone()
     }
 
@@ -218,11 +218,17 @@ impl AppFrame {
         seats: usize,
         table_id: TableId,
         key_pair: KeyPair,
-    )-> Self {
+    ) -> Self {
         cc.egui_ctx.set_theme(Theme::Dark,);
         let textures = Textures::new(&cc.egui_ctx,);
-        let app = App::new(ui, GameState::new(peer_id,table_id, nickname, seats), textures, key_pair);
-        let panel = Box::new(ConnectView::new(cc.storage, &app, app.key_pair()),);
+        let app = App::new(
+            ui,
+            GameState::new(peer_id, table_id, nickname, seats,),
+            textures,
+            key_pair,
+        );
+        let panel =
+            Box::new(ConnectView::new(cc.storage, &app, app.key_pair(),),);
         Self { app, panel, }
     }
 }

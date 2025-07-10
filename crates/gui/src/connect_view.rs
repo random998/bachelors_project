@@ -1,9 +1,8 @@
 use eframe::egui::{
-    vec2, Align2, Button, Color32, Context, FontFamily, FontId,
-    RichText, TextEdit, Window,
+    Align2, Button, Color32, Context, FontFamily, FontId, RichText, TextEdit,
+    Window, vec2,
 };
-use poker_core::crypto::KeyPair;
-use poker_core::crypto::PeerId;
+use poker_core::crypto::{KeyPair, PeerId};
 use poker_core::message::Message;
 use poker_core::poker::Chips;
 
@@ -19,7 +18,7 @@ pub struct ConnectView {
     chips:             Chips,
     error:             String,
     server_joined:     bool,
-    key_pair: KeyPair,
+    key_pair:          KeyPair,
     /// peer id of a player to connect to network.
     discovery_peer_id: String,
 }
@@ -27,23 +26,27 @@ pub struct ConnectView {
 impl ConnectView {
     /// Creates a new connect view.
     #[must_use]
-    pub fn new(storage: Option<&dyn eframe::Storage,>, app: &App, key_pair: KeyPair) -> Self {
+    pub fn new(
+        storage: Option<&dyn eframe::Storage,>,
+        app: &App,
+        key_pair: KeyPair,
+    ) -> Self {
         app.get_storage(storage,)
             .map(|d| {
                 Self {
-                    nickname:          d.nickname,
+                    nickname: d.nickname,
                     discovery_peer_id: String::default(),
-                    chips:             Chips::default(),
-                    error:             String::new(),
-                    server_joined:     false,
-                    key_pair, 
+                    chips: Chips::default(),
+                    error: String::new(),
+                    server_joined: false,
+                    key_pair,
                 }
             },)
             .unwrap_or_default()
     }
 
     fn passphrase(&self,) -> String {
-        self.key_pair.secret().phrase().to_string()
+        self.key_pair.secret().phrase()
     }
     fn player_id(&self,) -> PeerId {
         self.key_pair.public().to_peer_id()
