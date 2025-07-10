@@ -68,9 +68,8 @@ pub fn start(
             let _ = tx_ui.try_send(m,); // to GUI
         };
 
-        let mut eng = InternalTableState::new(
-            table, seats, kp, transport, loopback,
-        );
+        let mut eng =
+            InternalTableState::new(table, seats, kp, transport, loopback,);
 
         // 4) main loop
         loop {
@@ -83,12 +82,11 @@ pub fn start(
             while let Ok(msg,) = eng.try_recv() {
                 eng.handle_message(msg,);
             }
-            
+
             // d) gossip (event msg) -> engine
             while let Ok(msg,) = eng.try_recv_event() {
                 eng.handle_event(msg,);
             }
-            
 
             // c) timers
             eng.tick().await;

@@ -9,7 +9,7 @@ use eframe::egui::{
     Window, vec2,
 };
 use log::info;
-use poker_core::crypto::{PeerId};
+use poker_core::crypto::PeerId;
 use poker_core::game_state::GameState;
 use poker_core::message::Message;
 use poker_core::poker::{Chips, TableId};
@@ -146,7 +146,7 @@ impl View for AccountView {
                             nickname: self.nickname.clone(),
                             chips: self.chips,
                         };
-                        if let Err(e,) = app.sign_and_send(join.clone(),) {
+                        if let Err(e,) = app.sign_and_send(join,) {
                             self.error = format!("send failed: {e}");
                             info!("{}", self.error);
                         }
@@ -170,7 +170,11 @@ impl View for AccountView {
         app: &mut App,
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {
-            Some(Box::new(ConnectView::new(frame.storage(), app, app.key_pair()),),)
+            Some(Box::new(ConnectView::new(
+                frame.storage(),
+                app,
+                app.key_pair(),
+            ),),)
         } else if self.table_joined {
             let empty_state = GameState::default();
             Some(Box::new(GameView::new(

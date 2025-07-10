@@ -1,13 +1,12 @@
-use libp2p;
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
 /// Type definitions for p2p messages.
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
+use libp2p;
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
-
 
 use crate::crypto::{KeyPair, PeerId, PublicKey, Signature};
 use crate::game_state::Pot;
@@ -17,10 +16,9 @@ use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 pub enum Message {
     /// the network has given this peer a new listen address.
     NewListenAddr {
-       listener_id: String,
-       multiaddr: Multiaddr,
+        listener_id: String,
+        multiaddr:   Multiaddr,
     },
-
 
     /// response by server that particular client joined the server.
     JoinedTableConfirmation {
@@ -124,11 +122,11 @@ pub enum Message {
 
     /// Updated game state including players, board, and pot.
     GameStateUpdate {
-        player_updates:  Vec<PlayerUpdate,>,
-        board: Vec<Card,>,
-        pot:             Pot,
-        table_id:        TableId,
-        game_id:         GameId,
+        player_updates: Vec<PlayerUpdate,>,
+        board:          Vec<Card,>,
+        pot:            Pot,
+        table_id:       TableId,
+        game_id:        GameId,
     },
 
     /// Requests a specific player to make a game action (e.g., Call, Raise).
@@ -272,8 +270,8 @@ pub struct SignedMessage {
 /// Private signed message payload.
 #[derive(Debug, Clone, Serialize, Deserialize,)]
 struct Payload {
-    msg: Message,
-    sig: Signature,
+    msg:        Message,
+    sig:        Signature,
     public_key: PublicKey,
 }
 
@@ -298,7 +296,11 @@ impl SignedMessage {
             payload: Arc::new(payload,),
         };
 
-        if !sm.payload.public_key.verify(&sm.payload.msg, &sm.payload.sig,) {
+        if !sm
+            .payload
+            .public_key
+            .verify(&sm.payload.msg, &sm.payload.sig,)
+        {
             bail!("Invalid signature");
         }
 
@@ -338,10 +340,10 @@ mod tests {
 
     #[test]
     fn signed_message() {
-        let key_pair= KeyPair::default();
+        let key_pair = KeyPair::default();
         let public_key = key_pair.public();
         let secret_key = key_pair.secret();
-        let peer_id =  public_key.to_peer_id();
+        let peer_id = public_key.to_peer_id();
         let chips = Chips::default();
         let message = Message::PlayerJoinTableRequest {
             player_id: peer_id,

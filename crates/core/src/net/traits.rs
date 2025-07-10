@@ -56,8 +56,8 @@ pub struct P2pTx {
 /// Inbound half
 #[derive(Debug,)]
 pub struct P2pRx {
-    pub receiver: Receiver<SignedMessage,>,
-    pub event_receiver: Receiver<Message>
+    pub receiver:       Receiver<SignedMessage,>,
+    pub event_receiver: Receiver<Message,>,
 }
 
 /// ------------- NetTx implementation -----------------

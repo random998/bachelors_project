@@ -8,9 +8,7 @@ use libp2p::{
 };
 use log::{info, warn};
 use poker_core::message::{Message, SignedMessage};
-use poker_core::net::traits::P2pRx;
-use poker_core::net::traits::P2pTransport;
-use poker_core::net::traits::P2pTx;
+use poker_core::net::traits::{P2pRx, P2pTransport, P2pTx};
 use poker_core::poker::TableId;
 use tokio::sync::mpsc;
 // 1  Types & Behaviour ---------------------------------------------
@@ -101,7 +99,8 @@ pub fn new(
     // mpsc pipes ---------------------------------------------------
     let (to_swarm_tx, mut to_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
     let (from_swarm_tx, from_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
-    let (from_swarm_event_tx, from_swarm_event_rx,) = mpsc::channel::<Message,>(64,);
+    let (from_swarm_event_tx, from_swarm_event_rx,) =
+        mpsc::channel::<Message,>(64,);
 
     if swarm.listeners().count() > 0 {
         info!(
@@ -139,7 +138,7 @@ pub fn new(
                         if let Ok(msg) = bincode::deserialize::<SignedMessage>(&message.data) {
                             let _ = from_swarm_tx.send(msg).await;
                         } else {
-                            warn!("{} failed to deserialize message", peer_id);
+                            warn!("{peer_id} failed to deserialize message");
                         }
                     }
                     SwarmEvent::NewListenAddr { listener_id,address }
@@ -160,7 +159,7 @@ pub fn new(
             sender: to_swarm_tx,
         },
         rx: P2pRx {
-            receiver: from_swarm_rx,
+            receiver:       from_swarm_rx,
             event_receiver: from_swarm_event_rx,
         },
     }
