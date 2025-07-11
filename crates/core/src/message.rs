@@ -11,9 +11,13 @@ use serde::{Deserialize, Serialize};
 use crate::crypto::{KeyPair, PeerId, PublicKey, Signature};
 use crate::game_state::Pot;
 use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
+use crate::protocol::msg::LogEntry;
+
 /// Represents a message exchanged between peers in the P2P poker protocol.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
 pub enum Message {
+    /// protocol entry for zk log.
+    ProtocolEntry(LogEntry),
     /// the network has given this peer a new listen address.
     NewListenAddr {
         listener_id: String,
@@ -167,6 +171,7 @@ impl Message {
     #[must_use]
     pub const fn label(&self,) -> &'static str {
         match self {
+            Self::ProtocolEntry{ .. } => "ProtocolEntry",
             Self::AccountBalanceUpdate { .. } => "BalanceUpdateMsg",
             Self::Throttle { .. } => "ThrottleMsg",
             Self::PlayerJoinTableRequest { .. } => "PlayerJoinTableRequest",
