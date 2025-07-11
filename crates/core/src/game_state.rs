@@ -24,6 +24,8 @@ use crate::message::{
 use crate::net::traits::P2pTransport;
 use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId}; // per-player helper
+use crate::protocol::{msg::*, state as contract};
+
 
 // ────────────────────────────────────────────────────────────────────────────
 //  Small helpers
@@ -228,6 +230,10 @@ pub struct InternalTableState {
     new_hand_timeout:     Duration,
     listen_addr:          Option<Multiaddr,>,
     listener_id:          Option<String,>,
+
+    // crypto --------------------------------------------------------------
+    contract:       contract::ContractState,
+    hash_head:      blake3::Hash,
 }
 
 impl InternalTableState {
@@ -299,6 +305,8 @@ impl InternalTableState {
         cb: impl FnMut(SignedMessage,) + Send + 'static,
     ) -> Self {
         Self {
+            contract: Default::default(),
+            hash_head: contract::hash_state(&contract::ContractState::default()),
             game_started: false,
             hand_count: 0,
             min_raise: Chips::ZERO,
@@ -353,10 +361,28 @@ impl InternalTableState {
     /// Sign, broadcast **and** echo a local command.
     pub fn sign_and_send(
         &mut self,
-        msg: Message,
+        payload: WireMsg,
     ) -> Result<(), mpsc::error::TrySendError<SignedMessage,>,> {
-        let signed = SignedMessage::new(&self.key_pair, msg,);
-        self.send(signed,)
+        // 1. compute next contract state.
+        let next = contract::step(&self.contract, &payload).expect("contract step");
+        let next_hash = contract::hash_state(&next);
+
+        // 2. wrap in LogEntry (place holder with empty proof, to be augmented by actual zk proof).
+        let log_entry = LogEntry {
+            prev_hash: self.hash_head,
+            payload,
+            next_hash,
+            proof: Default::default(),
+        };
+
+        // 3. sign and broadcast entry.
+        let sm = SignedMessage::new(&self.key_pair, Message::ProtocolEntry(entry.clone()));
+        self.send(sm)?;
+
+        // advance local head of hash chain.
+        self.contract = next;
+        self.hash_head = next_hash;
+        Ok(())
     }
 
     /// Low-level send used by `sign_and_send` **and** by the gossip handler.
@@ -528,6 +554,16 @@ impl InternalTableState {
                     let _ = self.enter_start_game(1, 100).await;
                 }
             },
+            Message::ProtocolEntry(entry) => {
+                if entry.prev_hash != self.hash_head {
+                    warn!("hash chain mismatch – discarding");
+                    return;
+                }
+                // TODO verify ZK proof here
+                self.contract = contract::step(&self.contract, &entry.payload)
+                    .expect("contract step");
+                self.hash_head = entry.next_hash;
+            }
             other => warn!("unhandled msg in InternalTableState: {other}"),
         }
     }
