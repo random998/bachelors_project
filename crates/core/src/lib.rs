@@ -11,3 +11,5 @@ pub mod message;
 pub mod net;
 mod players_state;
 pub mod poker;
+pub mod protocol;
+pub mod zk;
