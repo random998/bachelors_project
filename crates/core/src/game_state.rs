@@ -14,7 +14,6 @@ use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc;
-use futures::FutureExt;
 use tokio::time::{sleep};
 
 use crate::crypto::{KeyPair, PeerId, SecretKey};
@@ -202,6 +201,8 @@ pub struct InternalTableState {
     game_id:   GameId,
     num_seats: usize,
     key_pair:  KeyPair,
+    /// whether player associated with key_pair has joined a table.
+    has_joined_table: bool,
 
     // networking ----------------------------------------------------------
     pub connection: P2pTransport,
@@ -233,7 +234,7 @@ pub struct InternalTableState {
 
     // crypto --------------------------------------------------------------
     contract:       contract::ContractState,
-    hash_head:      blake3::Hash,
+    hash_head:      Hash
 }
 
 impl InternalTableState {
@@ -244,6 +245,7 @@ impl InternalTableState {
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
         GameState {
+            has_joined_table: self.has_joined_table,
             table_id:     self.table_id,
             seats:        self.num_seats,
             game_started: !matches!(self.phase, HandPhase::WaitingForPlayers),
@@ -305,6 +307,7 @@ impl InternalTableState {
         cb: impl FnMut(SignedMessage,) + Send + 'static,
     ) -> Self {
         Self {
+            has_joined_table: false,
             contract: Default::default(),
             hash_head: contract::hash_state(&contract::ContractState::default()),
             game_started: false,
@@ -358,38 +361,11 @@ impl InternalTableState {
         self.connection.rx.event_receiver.try_recv()
     }
 
-    /// Sign, broadcast **and** echo a local command.
-    pub fn sign_and_send(
-        &mut self,
-        payload: WireMsg,
-    ) -> Result<(), mpsc::error::TrySendError<SignedMessage,>,> {
-        // 1. compute next contract state.
-        let next = contract::step(&self.contract, &payload).expect("contract step");
-        let next_hash = contract::hash_state(&next);
-
-        // 2. wrap in LogEntry (place holder with empty proof, to be augmented by actual zk proof).
-        let log_entry = LogEntry {
-            prev_hash: self.hash_head,
-            payload,
-            next_hash,
-            proof: Default::default(),
-        };
-
-        // 3. sign and broadcast entry.
-        let sm = SignedMessage::new(&self.key_pair, Message::ProtocolEntry(entry.clone()));
-        self.send(sm)?;
-
-        // advance local head of hash chain.
-        self.contract = next;
-        self.hash_head = next_hash;
-        Ok(())
-    }
-
     /// Low-level send used by `sign_and_send` **and** by the gossip handler.
     pub fn send(
         &mut self,
         msg: SignedMessage,
-    ) -> Result<(), mpsc::error::TrySendError<SignedMessage,>,> {
+    ) -> anyhow::Result<()> {
         info!("{} sending {}", self.peer_id(), msg.message().label());
         // network → gossipsub
         self.connection.tx.sender.try_send(msg.clone(),)?;
@@ -412,13 +388,19 @@ impl InternalTableState {
     pub fn try_join(&mut self, id: PeerId, nickname: &String, chips: &Chips,) {
         info!("entered try join function");
         if self.players().iter().any(|p| p.peer_id == id,) {
+            self.has_joined_table = true;
             info!("player already joined");
             return;
         }
 
+        self.players
+            .add(PlayerPrivate::new(id, nickname.clone(), *chips,),);
+        info!("added new player to players list...");
+
         // if we are not the player sending a join request, then send a join
         // request for ourselves to that player
         if self.peer_id() == id {
+            self.has_joined_table = true;
             info!("joined player id equals our own player id...");
         } else {
             info!("id of joined player is different from our own");
@@ -426,13 +408,13 @@ impl InternalTableState {
                 self.players().iter().find(|p| p.peer_id == self.peer_id(),)
             {
                 info!("sending join request from us to newly joined player...");
-                let rq = Message::PlayerJoinTableRequest {
-                    table_id:  self.table_id,
+                let rq = WireMsg::JoinTableReq {
+                    table: self.table_id,
                     player_id: us.peer_id,
-                    nickname:  nickname.clone(),
+                    nickname: nickname.clone(),
                     chips:     us.chips,
                 };
-                let res = self.sign_and_send(rq,);
+                let res = self.send_contract(rq,);
                 if let Err(e,) = res {
                     warn!("error sending message: {e}");
                 }
@@ -443,21 +425,17 @@ impl InternalTableState {
             }
         }
 
-        self.players
-            .add(PlayerPrivate::new(id, nickname.clone(), *chips,),);
-        info!("added new player to players list...");
-
         // send confirmation that this player has joined our table.
         info!("preparing confirmation message...");
-        let confirmation = Message::PlayerJoinedConfirmation {
-            table_id:  self.table_id,
+        let confirmation = WireMsg::PlayerJoinedConf{
+            table:  self.table_id,
             player_id: id,
             chips:     *chips,
-            nickname:  nickname.clone(),
+            seat_idx: (self.players().len() - 1) as u8
         };
 
         info!("sending confirmation message...");
-        let res = self.sign_and_send(confirmation,);
+        let res = self.send_contract(confirmation,);
         if let Err(e,) = res {
             warn!("error: {e}");
         }
@@ -562,7 +540,7 @@ impl InternalTableState {
                 // TODO verify ZK proof here
                 self.contract = contract::step(&self.contract, &entry.payload)
                     .expect("contract step");
-                self.hash_head = entry.next_hash;
+                self.hash_head = entry.clone().next_hash;
             }
             other => warn!("unhandled msg in InternalTableState: {other}"),
         }
@@ -675,6 +653,8 @@ pub struct GameState {
 
     pub player_id: PeerId, // local player
     pub nickname:  String,
+    /// player with player_id has joined table
+    pub has_joined_table: bool,
 
     pub players:     PlayerStateObjects,
     pub board:       Vec<Card,>,
@@ -704,12 +684,14 @@ impl GameState {
             action_req: None,
             hand_phase: HandPhase::StartingGame,
             listen_addr: None,
+            has_joined_table: false,
         }
     }
 
     #[must_use]
     pub fn default() -> Self {
         Self {
+            has_joined_table: false,
             table_id:     TableId::new_id(),
             seats:        0,
             game_started: false,
@@ -750,6 +732,45 @@ impl GameState {
 
 impl InternalTableState {
 
+    // send a protocol entry (hash-chained)
+    fn send_contract(&mut self, payload: WireMsg) -> anyhow::Result<()> {
+        // 1. compute next contract state.
+        let next = contract::step(&self.contract, &payload).expect("contract step");
+        let next_hash = contract::hash_state(&next);
+
+        // 2. wrap in LogEntry (place-holder with empty proof, to be augmented by actual zk proof).
+        let log_entry = LogEntry {
+            prev_hash: self.hash_head.clone(),
+            payload,
+            next_hash: next_hash.clone(),
+            proof: Default::default(),
+        };
+
+        // 3. sign and broadcast entry.
+        let sm = SignedMessage::new(&self.key_pair, Message::ProtocolEntry(log_entry.clone()));
+        self.send(sm)?;
+
+        // advance local head of hash chain.
+        self.contract = next;
+        self.hash_head = next_hash;
+        Ok(())
+    }
+
+    /* old api still needed for GUI / UX messages ---------------------*/
+    fn send_plain(&mut self, msg: Message) -> anyhow::Result<()> {
+        let sm = SignedMessage::new(&self.key_pair, msg);
+        self.send(sm).map(|_| ())
+    }
+
+    /* convenience wrappers ------------------------------------------*/
+    pub fn sign_and_send(&mut self, payload: WireMsg) -> anyhow::Result<()> {
+        self.send_contract(payload)
+    }
+
+    pub fn send_gui(&mut self, msg: Message) -> anyhow::Result<()> {
+        self.send_plain(msg)
+    }
+
     async fn enter_start_game(&mut self, timeout_s: u64, max_retries: u32) {
         self.phase = HandPhase::StartingGame;
         self.game_started = true;
@@ -758,10 +779,12 @@ impl InternalTableState {
          * 1)  broadcast our StartGameNotify and set *our* flag
          * --------------------------------------------------------- */
         let seats = self.players.iter().map(|p| p.peer_id).collect::<Vec<_>>();
-        let _ = self.sign_and_send(Message::StartGameNotify {
+        let _ = self.send_contract(WireMsg::StartGameNotify {
             seat_order: seats,
-            table_id:   self.table_id,
+            table:   self.table_id,
             game_id:    self.game_id,
+            sb: Self::START_GAME_SB,
+            bb: Self::START_GAME_BB,
         });
         if let Some(me) = self.players.get_mut(&self.peer_id()) {
             me.sent_start_game_notification();
@@ -825,12 +848,6 @@ impl InternalTableState {
         // Reset pots.
         self.pots = vec![Pot::default()];
 
-        // Tell clients to prepare for a new hand.
-        let _ = self.sign_and_send(Message::StartHand {
-            table_id: self.table_id,
-            game_id:  self.game_id,
-        },);
-
         // Deal cards to each player.
         for player in self.players.iter_mut() {
             if player.is_active {
@@ -849,20 +866,17 @@ impl InternalTableState {
             }
         }
 
-        // Tell clients to update all players state.
-        let _ = self.broadcast_game_update();
-
         // Deal the cards to each player.
         for player in self.players() {
             if let PlayerCards::Cards(c1, c2,) = player.hole_cards {
-                let msg = Message::DealCards {
+                let msg = WireMsg::DealCards{
                     card1:     c1,
                     card2:     c2,
                     player_id: player.peer_id,
-                    table_id:  self.table_id,
+                    table:  self.table_id,
                     game_id:   self.game_id,
                 };
-                let _ = self.sign_and_send(msg,);
+                let _ = self.send_contract(msg,);
             }
         }
 
@@ -876,7 +890,6 @@ impl InternalTableState {
 
     fn action_update(&mut self,) {
         self.players.activate_next_player();
-        let _ = self.broadcast_game_update();
 
         if self.is_round_complete() {
             self.next_round();
@@ -932,25 +945,17 @@ impl InternalTableState {
         self.phase = HandPhase::EndingHand;
 
         self.update_pots();
-        let _ = self.broadcast_game_update();
 
         // Give time to the UI to look at the updated pot and board.
-        let _ = self.send_throttle(Duration::from_millis(1_000,),);
+        let _ = self.send_throttle(100,);
 
         let winners = self.pay_bets();
 
         // Update players and broadcast update to all players.
         self.players.end_hand();
-        let _ = self.sign_and_send(Message::EndHand {
-            table_id: self.table_id,
-            game_id:  self.game_id,
+        let _ = self.send_contract(WireMsg::EndHand{
             payoffs:  winners,
-            board:    self.board.clone(),
-            cards:    self
-                .players
-                .iter()
-                .map(|p| (p.peer_id, p.public_cards,),)
-                .collect(),
+            pot: self.pot().total_chips,
         },);
 
         // End game if only player has chips or move to next hand.
@@ -962,9 +967,8 @@ impl InternalTableState {
             for player in self.players() {
                 if player.chips == Chips::ZERO {
                     // Notify the client that this player has left the table.
-                    let _ = self.sign_and_send(Message::PlayerLeaveRequest {
+                    let _ = self.send_contract(WireMsg::LeaveTable{
                         player_id: player.peer_id,
-                        table_id:  self.table_id,
                     },);
                 }
             }
@@ -977,21 +981,17 @@ impl InternalTableState {
     fn enter_end_game(&mut self,) {
         // Give time to the UI to look at winning results before ending the
         // game.
-        self.broadcast_throttle(Duration::from_millis(4500,),);
+        self.broadcast_throttle(4_500,);
 
         self.phase = HandPhase::EndingGame;
 
         for player in self.players() {
-            // Pay the winning player.
-            let () = self.credit_player(player.peer_id, player.chips,);
 
             // Notify the client that this player has left the table.
-            let msg = Message::PlayerLeftTable {
-                peer_id:  player.peer_id,
-                game_id:  self.game_id,
-                table_id: self.table_id,
+            let msg = WireMsg::LeaveTable{
+                player_id:  player.peer_id,
             };
-            let _ = self.sign_and_send(msg.clone(),);
+            let _ = self.send_contract(msg.clone(),);
         }
 
         self.players.clear();
@@ -1001,16 +1001,6 @@ impl InternalTableState {
 
         // Wait for players to join.
         self.phase = HandPhase::WaitingForPlayers;
-    }
-
-    fn credit_player(&mut self, player_id: PeerId, chips: Chips,) {
-        assert!(chips >= Chips::ZERO);
-        let new_balance = self.players.get(&player_id,).unwrap().chips + chips;
-        let msg = Message::AccountBalanceUpdate {
-            player_id,
-            chips: new_balance,
-        };
-        let _ = self.sign_and_send(msg,);
     }
 
     fn update_blinds(&mut self,) {
@@ -1210,7 +1200,7 @@ impl InternalTableState {
         self.update_pots();
 
         // Give some time to watch last action and pots.
-        self.broadcast_throttle(Duration::from_millis(1000,),);
+        self.broadcast_throttle(1_000);
 
         for player in self.players.iter_mut() {
             player.bet = Chips::ZERO;
@@ -1221,7 +1211,6 @@ impl InternalTableState {
 
         self.players.start_round();
 
-        let _ = self.broadcast_game_update();
         let _ = self.request_action();
     }
 
@@ -1265,48 +1254,6 @@ impl InternalTableState {
         }
     }
 
-    /// Broadcast a game state update to all connected players.
-    async fn broadcast_game_update(&mut self,) {
-        let players = self
-            .players
-            .iter()
-            .map(|p| {
-                let action_timer = p
-                    .action_timer
-                    .map(|t| Self::ACTION_TIMEOUT_MILLIS.saturating_sub(t,),);
-
-                PlayerUpdate {
-                    player_id: p.peer_id,
-                    chips: p.chips,
-                    bet: p.bet,
-                    action: p.action,
-                    action_timer,
-                    hole_cards: p.hole_cards,
-                    is_dealer: p.has_button,
-                    is_active: p.is_active,
-                }
-            },)
-            .collect();
-
-        let chips = self
-            .pots
-            .iter()
-            .map(|p| p.total_chips,)
-            .fold(Chips::ZERO, |acc, c| acc + c,);
-
-        self.current_pot.total_chips = chips;
-
-        let msg = Message::GameStateUpdate {
-            table_id:       self.table_id,
-            game_id:        self.game_id,
-            player_updates: players,
-            board:          self.board.clone(),
-            pot:            self.current_pot.clone(),
-        };
-        for _ in self.players() {
-            let _ = self.sign_and_send(msg.clone(),);
-        }
-    }
 
     /// Request action to the active player.
     async fn request_action(&mut self,) {
@@ -1334,28 +1281,28 @@ impl InternalTableState {
 
             player.action_timer = Some(0,);
 
-            let msg = Message::ActionRequest {
+            let msg = WireMsg::ActionRequest{
                 game_id: self.game_id,
-                table_id: self.table_id,
+                table: self.table_id,
                 player_id: player.peer_id,
                 min_raise: self.min_raise + self.last_bet,
                 big_blind: self.big_blind,
-                actions,
+                allowed: actions,
             };
 
-            let _ = self.sign_and_send(msg,);
+            let _ = self.send_contract(msg,);
         }
     }
 
     /// Broadcast a throttle message to all players at the table.
-    fn broadcast_throttle(&mut self, dt: Duration,) {
+    fn broadcast_throttle(&mut self, millis: u32,) {
         for _ in self.players() {
-            let _ = self.send_throttle(dt,);
+            let _ = self.send_throttle(millis,);
         }
     }
 
-    async fn send_throttle(&mut self, duration: Duration,) {
-        let msg = Message::Throttle { duration, };
-        let _ = self.sign_and_send(msg,);
+    async fn send_throttle(&mut self, millis: u32,) {
+        let msg = WireMsg::Throttle{ millis, };
+        let _ = self.send_contract(msg,);
     }
 }
