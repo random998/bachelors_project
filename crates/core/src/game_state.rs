@@ -23,7 +23,7 @@ use crate::message::{
 use crate::net::traits::P2pTransport;
 use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId}; /* per-player helper */
-use crate::protocol::msg::{Hash, WireMsg, LogEntry};
+use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 use crate::protocol::state as contract;
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -92,7 +92,8 @@ impl PlayerPrivate {
         self.has_sent_start_game_notification = true;
     }
 
-    #[must_use] pub const fn has_sent_start_game_notification(&self,) -> bool {
+    #[must_use]
+    pub const fn has_sent_start_game_notification(&self,) -> bool {
         self.has_sent_start_game_notification
     }
 }
@@ -191,34 +192,33 @@ impl fmt::Display for HandPhase {
     }
 }
 
-
 /// A *derived*, mutable view of the canonical contract state,
 /// enriched with peer–local convenience data.
 ///
 /// Most of it is what you already have in `InternalTableState`.
-#[derive(Debug)]
+#[derive(Debug,)]
 pub struct Projection {
-    /* 1. Canonical data – always equals contract after replay */
-    pub table_id:         TableId,
-    pub game_id:          GameId,
-    pub phase:            HandPhase,
-    pub players:        PlayerStateObjects,
-    pub board:          Vec<Card>,
-    pub pots:           Vec<Pot>,
-    pub small_blind:    Chips,
+    // 1. Canonical data – always equals contract after replay
+    pub table_id:     TableId,
+    pub game_id:      GameId,
+    pub phase:        HandPhase,
+    pub players:      PlayerStateObjects,
+    pub board:        Vec<Card,>,
+    pub pots:         Vec<Pot,>,
+    pub small_blind:  Chips,
     pub big_blind:    Chips,
     num_seats:        usize,
     key_pair:         KeyPair,
     /// whether player associated with `key_pair` has joined a table.
     has_joined_table: bool,
+    // 2. Peer-local “soft” state – NOT part of consensus
 
-    /* 2. Peer-local “soft” state – NOT part of consensus */
-    pub rng:              StdRng,           // used only when *we* deal
-    pub ui_action_req:    Option<ActionRequest>,
-    pub timers:           Timers, // fold countdowns etc.
-    pub listen_addr:      Option<Multiaddr>,
-    pub connection_info:  ConnectionStats,  // bytes/sec graphs, peer RTT …
-    pub my_hole_cards:    Option<(Card,Card)>,
+    pub rng:             StdRng, // used only when *we* deal
+    pub ui_action_req:   Option<ActionRequest,>,
+    pub timers:          Timers, // fold countdowns etc.
+    pub listen_addr:     Option<Multiaddr,>,
+    pub connection_info: ConnectionStats, // bytes/sec graphs, peer RTT …
+    pub my_hole_cards:   Option<(Card, Card,),>,
 
     // networking ----------------------------------------------------------
     pub connection: P2pTransport,
@@ -244,35 +244,59 @@ pub struct Projection {
     hash_head: Hash,
 }
 
-
 impl Projection {
-        pub fn apply(&mut self, msg: &WireMsg) {
-            use WireMsg::*;
-            match msg {
-                JoinTableReq{ player_id, nickname, chips, .. } => {
-                    self.players.add(PlayerPrivate::new(*player_id, nickname.clone(), *chips));
+    pub fn apply(&mut self, msg: &WireMsg,) {
+        use WireMsg::*;
+        match msg {
+            JoinTableReq {
+                player_id,
+                nickname,
+                chips,
+                ..
+            } => {
+                self.players.add(PlayerPrivate::new(
+                    *player_id,
+                    nickname.clone(),
+                    *chips,
+                ),);
+            },
+            PlayerJoinedConf {
+                player_id,
+                chips,
+                seat_idx,
+                ..
+            } => {
+                self.players.update_chips(*player_id, *chips,);
+                self.players.set_seat(*player_id, *seat_idx,);
+            },
+            StartGameNotify {
+                seat_order, sb, bb,
+            ..
+            } => {
+                self.players.reseat(seat_order,);
+                self.small_blind = *sb;
+                self.big_blind = *bb;
+                self.phase = HandPhase::StartingGame;
+            },
+            DealCards {
+                player_id,
+                card1,
+                card2,
+                ..
+            } => {
+                if *player_id == self.players.me() {
+                    self.my_hole_cards = Some((*card1, *card2,),);
                 }
-                PlayerJoinedConf{ player_id, chips, seat_idx, .. } => {
-                    self.players.update_chips(*player_id, *chips);
-                    self.players.set_seat(*player_id, *seat_idx);
-                }
-                StartGameNotify { seat_order, sb, bb, .. } => {
-                    self.players.reseat(seat_order);
-                    self.small_blind = *sb;
-                    self.big_blind   = *bb;
-                    self.phase       = HandPhase::StartingGame;
-                }
-                DealCards { player_id, card1, card2, .. } => {
-                    if *player_id == self.players.me() {
-                        self.my_hole_cards = Some((*card1, *card2));
-                    }
-                }
-                Bet{ player_id, amount, .. } => {
-                    self.players.place_bet(*player_id, *amount);
-                }
-                Fold{ player_id, .. } => {
-                    self.players.fold(*player_id);
-                }
+            },
+            Bet {
+                player_id, amount, ..
+            } => {
+                self.players.place_bet(*player_id, *amount,);
+            },
+            Fold { player_id, .. } => {
+                self.players.fold(*player_id,);
+            },
+        }
     }
 }
 
@@ -591,7 +615,7 @@ impl Projection {
                 self.contract = contract::step(&self.contract, &entry.payload,)
                     .expect("contract step",);
                 self.hash_head = entry.clone().next_hash;
-                self.projection.apply(&entry.payload);
+                self.projection.apply(&entry.payload,);
             },
             other => warn!("unhandled msg in InternalTableState: {other}"),
         }
@@ -850,7 +874,7 @@ impl Projection {
         // 2) wait until *everyone* has sent the notify
         // ---------------------------------------------------------
         let deadline = Instant::now()
-            + Duration::from_secs(timeout_s * u64::from(max_retries),);
+            + Duration::from_secs(timeout_s * u64::from(max_retries,),);
         loop {
             // the swarm-runner keeps calling `handle_message`, which
             // flips `has_sent_start_game_notification` for every peer.
