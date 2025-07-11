@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use poker_core::crypto::KeyPair;
-use poker_core::game_state::{GameState, InternalTableState};
+use poker_core::game_state::{GameState, Projection};
 use poker_core::message::SignedMessage;
 use poker_core::net::traits::P2pTransport;
 use poker_core::net::NetTx;
@@ -69,7 +69,7 @@ pub fn start(
         };
 
         let mut eng =
-            InternalTableState::new(table, seats, kp, transport, loopback,);
+            Projection::new(table, seats, kp, transport, loopback,);
 
         // 4) main loop
         loop {
