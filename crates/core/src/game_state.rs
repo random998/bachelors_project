@@ -14,6 +14,8 @@ use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc;
+use futures::FutureExt;
+use tokio::time::{sleep};
 
 use crate::crypto::{KeyPair, PeerId, SecretKey};
 use crate::message::{
@@ -60,6 +62,7 @@ pub struct PlayerPrivate {
     pub public_cards: PlayerCards,
     pub has_button:   bool,
     pub is_active:    bool,
+    has_sent_start_game_notification: bool,
 }
 
 impl PlayerPrivate {
@@ -83,6 +86,14 @@ impl PlayerPrivate {
     pub fn id_digits(&self,) -> String {
         self.peer_id.to_string()
     }
+
+    pub fn sent_start_game_notification(&mut self) {
+        self.has_sent_start_game_notification = true
+    }
+
+    pub fn has_sent_start_game_notification(&self) -> bool {
+        self.has_sent_start_game_notification
+    }
 }
 
 impl PlayerPrivate {
@@ -99,6 +110,7 @@ impl PlayerPrivate {
 impl PlayerPrivate {
     const fn new(id: PeerId, nickname: String, chips: Chips,) -> Self {
         Self {
+            has_sent_start_game_notification: false,
             peer_id: id,
             nickname,
             chips,
@@ -319,6 +331,12 @@ impl InternalTableState {
 
     // — public helpers (runtime ↔ UI) —
 
+    pub async fn update(&mut self) {
+        if self.game_started && self.phase == HandPhase::WaitingForPlayers {
+            self.enter_start_game(1, 10).await;
+        }
+    }
+
     /// Non-blocking pull used by the runtime loop.
     pub fn try_recv(
         &mut self,
@@ -417,7 +435,6 @@ impl InternalTableState {
         if let Err(e,) = res {
             warn!("error: {e}");
         }
-
     }
 
     pub fn handle_event(&mut self, m: Message,) {
@@ -433,7 +450,7 @@ impl InternalTableState {
 
     // — dispatcher called by runtime for every inbound network msg —
 
-    pub fn handle_message(&mut self, sm: SignedMessage,) {
+    pub async fn handle_message(&mut self, sm: SignedMessage,) {
         info!(
             "internal table state of peer {} handling message with label {:?} sent from peer {}",
             self.peer_id(),
@@ -467,10 +484,12 @@ impl InternalTableState {
                 nickname,
             } => {
                 self.try_join(*player_id, nickname, chips,);
-
                 if self.players().len() >= self.num_seats {
                     info!("enough players joined the table, starting game");
-                    let () = self.enter_start_game();
+                    if !self.game_started && self.phase != HandPhase::StartingGame {
+                        self.game_started = true;
+                        let () = self.enter_start_game(1, 10).await;
+                    }
                 } else {
                     info!(
                     "not enough players joined the table, joined: {}, required: {}",
@@ -483,8 +502,9 @@ impl InternalTableState {
                 table_id: _table_id, // TODO: use table id.
                 game_id: _game_id,   // TODO: use game id
             } => {
-                info!("peer ids according to msg from peer: {:?}", seats);
-                info!("peer ids according to our local state: {:?}", self.players());
+                let sender_id = sm.sender();
+                self.players.get(&sender_id).expect("err").sent_start_game_notification();
+
                 // Reorder seats according to the new order.
                 for (idx, seat_id,) in seats.iter().enumerate() {
                     let pos = self
@@ -502,7 +522,10 @@ impl InternalTableState {
                     .expect("Local player not found",);
                 self.players.rotate_left(pos,);
 
-                self.game_started = true;
+                if !self.game_started && self.phase != HandPhase::StartingGame {
+                    self.game_started = true;
+                    let _ = self.enter_start_game(1, 100).await;
+                }
             },
             other => warn!("unhandled msg in InternalTableState: {other}"),
         }
@@ -689,24 +712,49 @@ impl GameState {
 }
 
 impl InternalTableState {
-    fn enter_start_game(&mut self,) {
+
+    async fn enter_start_game(&mut self, timeout_s: u64, max_retries: u32) {
+        // Prevent re-entrance
+        if self.phase == HandPhase::StartingGame {
+            return;
+        }
         self.phase = HandPhase::StartingGame;
 
-        // Shuffle seats before starting the game.
-        self.players.shuffle_seats(&mut self.rng,);
-
-        // Tell players to update their seats order.
-        let seats = self.players.iter().map(|p| p.peer_id,).collect();
-
+        /* -----------------------------------------------------------
+         * 1)  broadcast our StartGameNotify and set *our* flag
+         * --------------------------------------------------------- */
+        let seats = self.players.iter().map(|p| p.peer_id).collect::<Vec<_>>();
         let _ = self.sign_and_send(Message::StartGameNotify {
             seat_order: seats,
             table_id:   self.table_id,
-            game_id:    GameId::new_id(),
-        },);
+            game_id:    self.game_id,
+        });
+        if let Some(me) = self.players.get_mut(&self.peer_id()) {
+            me.sent_start_game_notification();
+        }
 
-        self.enter_start_hand();
+        /* -----------------------------------------------------------
+         * 2) wait until *everyone* has sent the notify
+         * --------------------------------------------------------- */
+        let deadline = Instant::now() + Duration::from_secs(timeout_s * max_retries as u64);
+        loop {
+            // the swarm-runner keeps calling `handle_message`, which
+            // flips `has_sent_start_game_notification` for every peer.
+
+            if self.players.iter().all(|p| p.has_sent_start_game_notification()) {
+                // ✅ ready – enter the hand
+                self.enter_start_hand();
+                break;
+            }
+
+            if Instant::now() >= deadline {
+                warn!("start-game sync timed out – aborting");
+                break;
+            }
+
+            sleep(Duration::from_secs(timeout_s)).await;
+        }
     }
-
     /// Start a new hand.
     fn enter_start_hand(&mut self,) {
         self.phase = HandPhase::StartingHand;

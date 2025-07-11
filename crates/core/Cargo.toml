@@ -32,6 +32,7 @@ libp2p = {workspace = true}
 ahash = { version = "0.8.12" ,features = ["serde"]}
 thiserror = { version = "2.0.12", features = [] }
 log = "0.4.27"
+futures = "0.3.31"
 
 [features]
 connection = [

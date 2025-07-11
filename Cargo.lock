@@ -4620,6 +4620,7 @@ dependencies = [
  "blake2",
  "bs58",
  "bytes",
+ "futures",
  "futures-util",
  "getrandom 0.3.3",
  "libp2p",
