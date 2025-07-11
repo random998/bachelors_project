@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
-use crate::protocol::msg::{Hash, *};
+use crate::protocol::msg::{Hash, WireMsg};
 
-#[derive(Clone, Serialize, Deserialize,)]
+#[derive(Clone, Debug, Serialize, Deserialize,)]
 pub enum Phase {
     Waiting,
     Starting,
@@ -11,16 +11,12 @@ pub enum Phase {
 }
 
 #[derive(Clone, Serialize, Deserialize,)]
+#[derive(Default)]
 pub struct PlayerFlags {
     pub notified: bool,
 }
 
-impl Default for PlayerFlags {
-    fn default() -> Self {
-        PlayerFlags { notified: false, }
-    }
-}
-
+pub struct BTreeMap(pub std::collections::BTreeMap<PeerId, PlayerFlags>);
 #[derive(Clone, Serialize, Deserialize,)]
 pub struct ContractState {
     pub phase:   Phase,
@@ -33,6 +29,12 @@ impl Default for ContractState {
             phase:   Phase::Waiting,
             players: Default::default(),
         }
+    }
+}
+
+impl std::fmt::Debug for ContractState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("phase: {:?}, players tree len: {:?}", self.phase, self.players.len()))
     }
 }
 
@@ -64,7 +66,7 @@ pub fn step(
 }
 
 // helper for hashing
-pub fn hash_state(st: &ContractState,) -> Hash {
+#[must_use] pub fn hash_state(st: &ContractState,) -> Hash {
     let bytes = bincode::serialize(st,).unwrap();
     let hash = blake3::hash(&bytes,);
     Hash(hash,)

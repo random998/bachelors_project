@@ -8,7 +8,7 @@ use eframe::egui::{
     Align2, Button, Color32, Context, FontFamily, FontId, Grid, RichText,
     Window, vec2,
 };
-use log::{info, warn};
+use log::warn;
 use poker_core::crypto::PeerId;
 use poker_core::game_state::GameState;
 use poker_core::message::Message;
