@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::crypto::PeerId;
 use crate::message::{HandPayoff, PlayerAction};
-use crate::poker::{TableId, GameId, Card, Chips};
+use crate::poker::{Card, Chips, GameId, TableId};
 use crate::zk::{Commitment, Proof, RangeProof, ShuffleProof}; // empty stub today
 
 // ---------- Public envelope ------------------------------------------------
@@ -43,8 +43,6 @@ impl<'de,> Deserialize<'de,> for Hash {
         Ok(Self(hash,),)
     }
 }
-
-pub struct ContractState(pub contract::ContractState)
 
 // ---------- All message kinds ----------------------------------------------
 #[derive(Clone, Debug, Serialize, Deserialize,)]
