@@ -68,8 +68,7 @@ pub fn start(
             let _ = tx_ui.try_send(m,); // to GUI
         };
 
-        let mut eng =
-            Projection::new(table, seats, kp, transport, loopback,);
+        let mut eng = Projection::new(table, seats, kp, transport, loopback,);
 
         // 4) main loop
         loop {

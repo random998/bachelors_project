@@ -10,13 +10,12 @@ pub enum Phase {
     Ready,
 }
 
-#[derive(Clone, Serialize, Deserialize,)]
-#[derive(Default)]
+#[derive(Clone, Serialize, Deserialize, Default,)]
 pub struct PlayerFlags {
     pub notified: bool,
 }
 
-pub struct BTreeMap(pub std::collections::BTreeMap<PeerId, PlayerFlags>);
+pub struct BTreeMap(pub std::collections::BTreeMap<PeerId, PlayerFlags,>,);
 #[derive(Clone, Serialize, Deserialize,)]
 pub struct ContractState {
     pub phase:   Phase,
@@ -33,8 +32,12 @@ impl Default for ContractState {
 }
 
 impl std::fmt::Debug for ContractState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("phase: {:?}, players tree len: {:?}", self.phase, self.players.len()))
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_,>,) -> std::fmt::Result {
+        f.write_str(&format!(
+            "phase: {:?}, players tree len: {:?}",
+            self.phase,
+            self.players.len()
+        ),)
     }
 }
 
@@ -66,7 +69,8 @@ pub fn step(
 }
 
 // helper for hashing
-#[must_use] pub fn hash_state(st: &ContractState,) -> Hash {
+#[must_use]
+pub fn hash_state(st: &ContractState,) -> Hash {
     let bytes = bincode::serialize(st,).unwrap();
     let hash = blake3::hash(&bytes,);
     Hash(hash,)
