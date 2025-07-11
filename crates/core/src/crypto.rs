@@ -274,7 +274,7 @@ impl<'de,> Deserialize<'de,> for Signature {
 // --------------------------------------------------------------------
 // PeerId
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash,)]
+#[derive(Clone, Copy, Eq, Hash,)]
 pub struct PeerId(libp2p_identity::PeerId,);
 
 impl Default for PeerId {
@@ -297,7 +297,7 @@ impl PartialOrd<Self> for PeerId {
 }
 
 
-impl std::cmp::Ord for PeerId {
+impl Ord for PeerId {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0.cmp(&other.0)
     }

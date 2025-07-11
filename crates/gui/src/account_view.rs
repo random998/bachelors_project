@@ -8,7 +8,7 @@ use eframe::egui::{
     Align2, Button, Color32, Context, FontFamily, FontId, Grid, RichText,
     Window, vec2,
 };
-use log::info;
+use log::{info, warn};
 use poker_core::crypto::PeerId;
 use poker_core::game_state::GameState;
 use poker_core::message::Message;
@@ -28,7 +28,6 @@ pub struct AccountView {
     // ui-only state
     error:             String,
     info_msg:          String,
-    table_joined:      bool,
     connection_closed: bool,
 }
 
@@ -42,7 +41,6 @@ impl AccountView {
             chips,
             error: String::new(),
             info_msg: String::new(),
-            table_joined: false,
             connection_closed: false,
         }
     }
@@ -52,30 +50,7 @@ impl View for AccountView {
     fn update(
         &mut self, ctx: &Context, _f: &mut eframe::Frame, app: &mut App,
     ) {
-        // ── 1. pick up the latest state snapshot (if any) ─────────────
         self.game_state = app.snapshot();
-
-        // ── 2. pull echo messages (for status info) ───────────────────
-        while let Some(sm,) = app.try_recv() {
-            match sm.message() {
-                Message::PlayerJoinedConfirmation { .. } => {
-                    self.table_joined = true;
-                },
-                Message::NotEnoughChips { .. } => {
-                    self.info_msg =
-                        "Not enough chips – come back later.".into();
-                },
-                Message::NoTablesLeftNotification { .. } => {
-                    self.info_msg =
-                        "All tables are busy – try again later.".into();
-                },
-                Message::PlayerAlreadyJoined { .. } => {
-                    self.info_msg =
-                        "You are already seated at that table.".into();
-                },
-                _ => {},
-            }
-        }
 
         // ── 2. draw the account window ────────────────────────────
         Window::new("Account",)
@@ -137,7 +112,7 @@ impl View for AccountView {
                     );
 
                     if ui.add_sized(vec2(180.0, 30.0,), join_btn,).clicked()
-                        && !self.table_joined
+                        && !self.game_state.has_joined_table
                     {
                         let table_id: TableId = app.snapshot().table_id;
                         let join = Message::PlayerJoinTableRequest {
@@ -148,7 +123,7 @@ impl View for AccountView {
                         };
                         if let Err(e,) = app.sign_and_send(join,) {
                             self.error = format!("send failed: {e}");
-                            info!("{}", self.error);
+                            warn!("{}", self.error);
                         }
                     }
                 },);
@@ -175,7 +150,7 @@ impl View for AccountView {
                 app,
                 app.key_pair(),
             ),),)
-        } else if self.table_joined {
+        } else if self.game_state.has_joined_table {
             let empty_state = GameState::default();
             Some(Box::new(GameView::new(
                 ctx,
