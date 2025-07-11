@@ -1,58 +1,71 @@
-use serde::{Serialize, Deserialize};
-use crate::protocol::msg::*;
+use serde::{Deserialize, Serialize};
+
 use crate::crypto::PeerId;
-use crate::protocol::msg::Hash;
+use crate::protocol::msg::{Hash, *};
 
-#[derive(Clone, Serialize, Deserialize)]
-pub enum Phase { Waiting, Starting, Ready }
+#[derive(Clone, Serialize, Deserialize,)]
+pub enum Phase {
+    Waiting,
+    Starting,
+    Ready,
+}
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize,)]
 pub struct PlayerFlags {
     pub notified: bool,
 }
 
 impl Default for PlayerFlags {
     fn default() -> Self {
-        PlayerFlags { notified: false }
+        PlayerFlags { notified: false, }
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize,)]
 pub struct ContractState {
     pub phase:   Phase,
-    pub players: std::collections::BTreeMap<PeerId, PlayerFlags>,
+    pub players: std::collections::BTreeMap<PeerId, PlayerFlags,>,
 }
 
 impl Default for ContractState {
-    fn default() -> Self { Self { phase: Phase::Waiting, players: Default::default() } }
+    fn default() -> Self {
+        Self {
+            phase:   Phase::Waiting,
+            players: Default::default(),
+        }
+    }
 }
 
-/* ---------- single deterministic transition ------------------------------ */
-pub fn step(prev: &ContractState, msg: &WireMsg) -> anyhow::Result<ContractState> {
+// ---------- single deterministic transition ------------------------------
+pub fn step(
+    prev: &ContractState,
+    msg: &WireMsg,
+) -> anyhow::Result<ContractState,> {
     let mut st = prev.clone();
     match msg {
         WireMsg::PlayerJoinedConf { player_id, .. } => {
-            st.players.entry(*player_id).or_insert(PlayerFlags { notified: false });
-        }
+            st.players
+                .entry(*player_id,)
+                .or_insert(PlayerFlags { notified: false, },);
+        },
         WireMsg::StartGameNotify { seat_order, .. } => {
             for pid in seat_order {
-                st.players.entry(*pid).or_default().notified = true;
+                st.players.entry(*pid,).or_default().notified = true;
             }
-            if st.players.values().all(|f| f.notified) {
+            if st.players.values().all(|f| f.notified,) {
                 st.phase = Phase::Ready;
             } else {
                 st.phase = Phase::Starting;
             }
-        }
-        _ => {} // ignore others for now
+        },
+        _ => {}, // ignore others for now
     }
-    Ok(st)
+    Ok(st,)
 }
 
-/* helper for hashing */
-pub fn hash_state(st: &ContractState) -> Hash {
-    let bytes = bincode::serialize(st).unwrap();
-    let hash  = blake3::hash(&bytes);
-    Hash(hash)
+// helper for hashing
+pub fn hash_state(st: &ContractState,) -> Hash {
+    let bytes = bincode::serialize(st,).unwrap();
+    let hash = blake3::hash(&bytes,);
+    Hash(hash,)
 }
-

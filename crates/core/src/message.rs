@@ -17,7 +17,7 @@ use crate::protocol::msg::LogEntry;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
 pub enum Message {
     /// protocol entry for zk log.
-    ProtocolEntry(LogEntry),
+    ProtocolEntry(LogEntry,),
     /// the network has given this peer a new listen address.
     NewListenAddr {
         listener_id: String,
@@ -171,7 +171,7 @@ impl Message {
     #[must_use]
     pub const fn label(&self,) -> &'static str {
         match self {
-            Self::ProtocolEntry{ .. } => "ProtocolEntry",
+            Self::ProtocolEntry { .. } => "ProtocolEntry",
             Self::AccountBalanceUpdate { .. } => "BalanceUpdateMsg",
             Self::Throttle { .. } => "ThrottleMsg",
             Self::PlayerJoinTableRequest { .. } => "PlayerJoinTableRequest",
