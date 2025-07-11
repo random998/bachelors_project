@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, Deserializer};
 use blake3::Hash;
 use crate::protocol::msg::*;
 use crate::crypto::PeerId;
