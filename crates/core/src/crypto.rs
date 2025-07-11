@@ -284,22 +284,21 @@ impl Default for PeerId {
     }
 }
 
-impl PartialEq<Self> for PeerId {
-    fn eq(&self, other: &Self) -> bool {
+impl PartialEq<Self,> for PeerId {
+    fn eq(&self, other: &Self,) -> bool {
         self.0 == other.0
     }
 }
 
-impl PartialOrd<Self> for PeerId {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.0.partial_cmp(&other.0)
+impl PartialOrd<Self,> for PeerId {
+    fn partial_cmp(&self, other: &Self,) -> Option<Ordering,> {
+        self.0.partial_cmp(&other.0,)
     }
 }
 
-
 impl Ord for PeerId {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.cmp(&other.0)
+    fn cmp(&self, other: &Self,) -> std::cmp::Ordering {
+        self.0.cmp(&other.0,)
     }
 }
 impl Serialize for PeerId {

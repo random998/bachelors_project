@@ -93,8 +93,9 @@ pub fn start(
 
             // d) ship an immutable snapshot to the GUI (non-blocking)
             let _ = state_tx.try_send(eng.snapshot(),);
-           
-            // e) update the internal table state periodically (handle state transitions).
+
+            // e) update the internal table state periodically (handle state
+            // transitions).
             let _ = eng.update();
 
             tokio::time::sleep(Duration::from_millis(16,),).await;
