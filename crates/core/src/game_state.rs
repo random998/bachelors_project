@@ -1028,7 +1028,7 @@ impl InternalTableState {
 
                         // Sort by rank for the UI.
                         let mut cards = bh.to_vec();
-                        cards.sort_by_key(poker_eval::Card::rank,);
+                        cards.sort_by_key(Card::rank,);
 
                         // If a player has already a payoff add chips to that
                         // one.
