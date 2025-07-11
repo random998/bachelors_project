@@ -418,16 +418,6 @@ impl InternalTableState {
             warn!("error: {e}");
         }
 
-        if self.players().len() >= self.num_seats {
-            info!("enough players joined the table, starting game");
-            let () = self.enter_start_game();
-        } else {
-            info!(
-                "not enough players joined the table, joined: {}, required: {}",
-                self.players().len(),
-                self.num_seats
-            );
-        }
     }
 
     pub fn handle_event(&mut self, m: Message,) {
@@ -475,18 +465,31 @@ impl InternalTableState {
                 player_id,
                 chips,
                 nickname,
-            } => self.try_join(*player_id, nickname, chips,),
+            } => {
+                self.try_join(*player_id, nickname, chips,);
+
+                if self.players().len() >= self.num_seats {
+                    info!("enough players joined the table, starting game");
+                    let () = self.enter_start_game();
+                } else {
+                    info!(
+                    "not enough players joined the table, joined: {}, required: {}",
+                    self.players().len(),
+                    self.num_seats);
+                }
+            },
             Message::StartGameNotify {
                 seat_order: seats,
                 table_id: _table_id, // TODO: use table id.
                 game_id: _game_id,   // TODO: use game id
             } => {
+                info!("peer ids according to msg from peer: {:?}", seats);
+                info!("peer ids according to our local state: {:?}", self.players());
                 // Reorder seats according to the new order.
                 for (idx, seat_id,) in seats.iter().enumerate() {
                     let pos = self
-                        .players
-                        .iter()
-                        .position(|p| &p.peer_id == seat_id,)
+                        .players()
+                        .iter().position(|p| &p.peer_id == seat_id,)
                         .expect("Player not found",);
                     self.players.swap(idx, pos,);
                 }
