@@ -332,8 +332,8 @@ impl InternalTableState {
     // — public helpers (runtime ↔ UI) —
 
     pub async fn update(&mut self) {
-        if self.game_started && self.phase == HandPhase::WaitingForPlayers {
-            self.enter_start_game(1, 10).await;
+        if self.game_started && self.phase == HandPhase::StartingGame{
+            self.enter_start_game(1, 5).await;
         }
     }
 
@@ -507,11 +507,12 @@ impl InternalTableState {
 
                 // Reorder seats according to the new order.
                 for (idx, seat_id,) in seats.iter().enumerate() {
-                    let pos = self
-                        .players()
-                        .iter().position(|p| &p.peer_id == seat_id,)
-                        .expect("Player not found",);
-                    self.players.swap(idx, pos,);
+                    if let Some(pos) = self.players().iter().position(|p| &p.peer_id == seat_id,) {
+                        self.players.swap(idx, pos,);
+                    }
+                    else {
+                        break;
+                    }
                 }
 
                 // Move local player in first position.
@@ -714,11 +715,8 @@ impl GameState {
 impl InternalTableState {
 
     async fn enter_start_game(&mut self, timeout_s: u64, max_retries: u32) {
-        // Prevent re-entrance
-        if self.phase == HandPhase::StartingGame {
-            return;
-        }
         self.phase = HandPhase::StartingGame;
+        self.game_started = true;
 
         /* -----------------------------------------------------------
          * 1)  broadcast our StartGameNotify and set *our* flag
