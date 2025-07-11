@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::crypto::PeerId;
 use crate::message::{HandPayoff, PlayerAction};
-use crate::poker::*;
+use crate::poker::{TableId, GameId, Card, Chips};
 use crate::zk::{Commitment, Proof, RangeProof, ShuffleProof}; // empty stub today
 
 // ---------- Public envelope ------------------------------------------------
@@ -28,8 +28,8 @@ impl Serialize for Hash {
     }
 }
 
-impl PartialEq<Hash,> for Hash {
-    fn eq(&self, other: &Hash,) -> bool {
+impl PartialEq<Self,> for Hash {
+    fn eq(&self, other: &Self,) -> bool {
         self.0.as_bytes() == other.0.as_bytes()
     }
 }
@@ -40,9 +40,11 @@ impl<'de,> Deserialize<'de,> for Hash {
         let bytes = <&[u8]>::deserialize(deserializer,)?;
         let hash = blake3::Hash::from_slice(bytes,)
             .expect("error deserializing hash",);
-        Ok(Hash(hash,),)
+        Ok(Self(hash,),)
     }
 }
+
+pub struct ContractState(pub contract::ContractState)
 
 // ---------- All message kinds ----------------------------------------------
 #[derive(Clone, Debug, Serialize, Deserialize,)]
