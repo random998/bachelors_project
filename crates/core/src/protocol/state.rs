@@ -1,7 +1,7 @@
-use serde::{Serialize, Deserialize, Deserializer};
-use blake3::Hash;
+use serde::{Serialize, Deserialize};
 use crate::protocol::msg::*;
 use crate::crypto::PeerId;
+use crate::protocol::msg::Hash;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Phase { Waiting, Starting, Ready }
@@ -9,6 +9,12 @@ pub enum Phase { Waiting, Starting, Ready }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PlayerFlags {
     pub notified: bool,
+}
+
+impl Default for PlayerFlags {
+    fn default() -> Self {
+        PlayerFlags { notified: false }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -46,6 +52,7 @@ pub fn step(prev: &ContractState, msg: &WireMsg) -> anyhow::Result<ContractState
 /* helper for hashing */
 pub fn hash_state(st: &ContractState) -> Hash {
     let bytes = bincode::serialize(st).unwrap();
-    blake3::hash(&bytes)
+    let hash  = blake3::hash(&bytes);
+    Hash(hash)
 }
 

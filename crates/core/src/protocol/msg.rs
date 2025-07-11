@@ -3,7 +3,7 @@
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use crate::poker::*;
 use crate::crypto::PeerId;
-use crate::message::PlayerAction;
+use crate::message::{HandPayoff, PlayerAction};
 use crate::zk::{Proof, Commitment, ShuffleProof, RangeProof}; // empty stub today
 
 /* ---------- Public envelope ------------------------------------------------ */
@@ -18,7 +18,7 @@ pub struct LogEntry {
 }
 
 #[derive(Clone, Debug)]
-struct Hash(blake3::Hash);
+pub struct Hash(pub blake3::Hash);
 
 impl Serialize for Hash {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -26,6 +26,12 @@ impl Serialize for Hash {
         S: Serializer,
     {
         serializer.serialize_bytes(self.0.as_bytes())
+    }
+}
+
+impl PartialEq<Hash> for Hash {
+    fn eq(&self, other: &Hash) -> bool {
+        self.0.as_bytes() == other.0.as_bytes()
     }
 }
 
@@ -45,6 +51,16 @@ impl<'de> Deserialize<'de> for Hash {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum WireMsg {
     /* ── lobby ───────────────────────────────────────────── */
+    /// Dealer sends each player their two private cards (**plaintext – will be
+    /// replaced by commitments later**).
+    DealCards {
+        table:     TableId,
+        game_id:   GameId,
+        player_id: PeerId,     // receiver
+        card1:     Card,
+        card2:     Card,
+    },
+
     JoinTableReq {
         table: TableId, player_id: PeerId, nickname: String, chips: Chips,
     },
@@ -78,7 +94,7 @@ pub enum WireMsg {
 
     /* ── showdown ────────────────────────────────────────── */
     RevealCards { player_id: PeerId, c1: Card, c2: Card, open_rand: [u8;32] },
-    EndHand { pot: Chips, payoffs: Vec<(PeerId, Chips)>, },
+    EndHand { pot: Chips, payoffs: Vec<HandPayoff>, },
     EndGame {},
 
     /* ── misc ────────────────────────────────────────────── */
