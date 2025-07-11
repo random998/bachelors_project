@@ -75,12 +75,12 @@ pub fn start(
         loop {
             // a) commands from GUI
             while let Ok(cmd,) = cmd_rx.try_recv() {
-                eng.handle_message(cmd,);
+                eng.handle_message(cmd,).await;
             }
 
             // b) gossip → engine
             while let Ok(msg,) = eng.try_recv() {
-                eng.handle_message(msg,);
+                eng.handle_message(msg,).await;
             }
 
             // d) gossip (event msg) -> engine
@@ -93,6 +93,9 @@ pub fn start(
 
             // d) ship an immutable snapshot to the GUI (non-blocking)
             let _ = state_tx.try_send(eng.snapshot(),);
+           
+            // e) update the internal table state periodically (handle state transitions).
+            let _ = eng.update();
 
             tokio::time::sleep(Duration::from_millis(16,),).await;
         }
