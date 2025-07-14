@@ -427,7 +427,7 @@ impl Projection {
     pub fn send(&mut self, msg: SignedMessage,) -> anyhow::Result<(),> {
         info!("{} sending {}", self.peer_id(), msg.message().label());
         // engine → network
-        self.connection.tx.sender.try_send(msg,)?;
+        self.connection.tx.network_msg_sender.try_send(msg,)?;
         Ok((),)
     }
 

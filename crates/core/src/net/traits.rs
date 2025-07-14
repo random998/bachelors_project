@@ -37,7 +37,7 @@ impl P2pTransport {
         receiver: Receiver<SignedMessage,>,
     ) -> Self {
         Self {
-            tx: P2pTx { sender, },
+            tx: P2pTx { network_msg_sender: sender, },
             rx: P2pRx {
                 network_msg_receiver: receiver,
             },
@@ -48,7 +48,7 @@ impl P2pTransport {
 /// Outbound half
 #[derive(Clone, Debug,)]
 pub struct P2pTx {
-    pub sender: Sender<SignedMessage,>,
+    pub network_msg_sender: Sender<SignedMessage,>,
 }
 
 /// Inbound half
@@ -61,7 +61,7 @@ pub struct P2pRx {
 #[async_trait]
 impl NetTx for P2pTx {
     async fn send(&mut self, msg: SignedMessage,) -> Result<(), Error,> {
-        self.sender
+        self.network_msg_sender
             .send(msg,)
             .await
             .map_err(|e| anyhow!("{:?}", e),)
