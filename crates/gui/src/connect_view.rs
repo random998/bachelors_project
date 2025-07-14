@@ -17,7 +17,7 @@ pub struct ConnectView {
     game_state: GameState,
     error:      String,
     nickname:   String,
-    chips: Chips
+    chips:      Chips,
 }
 
 impl ConnectView {
@@ -25,9 +25,9 @@ impl ConnectView {
         self.game_state.has_joined_server
     }
 
-    fn update_chips(&mut self,){
-        let us = self.game_state.players.get_mut(&self.player_id());
-        if let Some(p) = us {
+    fn update_chips(&mut self,) {
+        let us = self.game_state.players.get_mut(&self.player_id(),);
+        if let Some(p,) = us {
             self.chips = p.chips;
         }
     }
