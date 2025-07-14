@@ -4,18 +4,19 @@
 //  (file name kept from the original freezeout example)
 // -----------------------------------------------------------------------------
 
-use crate::{AccountView, App, ConnectView, View};
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{
-    pos2, text, vec2, Align, Align2, Button, Color32, Context,
-    CornerRadius, FontFamily, FontId, Image, Key, Pos2, Rect, RichText, Sense,
-    Slider, Stroke, StrokeKind, TextFormat, Ui, Vec2, Window,
+    Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId,
+    Image, Key, Pos2, Rect, RichText, Sense, Slider, Stroke, StrokeKind,
+    TextFormat, Ui, Vec2, Window, pos2, text, vec2,
 };
 use eframe::epaint;
 use poker_cards::egui::Textures;
 use poker_core::game_state::{GameState, PlayerPrivate};
 use poker_core::message::{PlayerAction, UiCmd};
 use poker_core::poker::{Chips, PlayerCards};
+
+use crate::{AccountView, App, ConnectView, View};
 
 // ─────────────────────────────── configuration ────────────────────────────
 
@@ -31,10 +32,10 @@ const TEXT_COLOR: Color32 = Color32::from_rgb(20, 150, 20,);
 pub struct GameView {
     connection_closed: bool,
     error:             Option<String,>,
-    bet_params:   Option<BetParams,>,
-    show_account: Option<Chips,>,
-    show_legend:  bool,
-    game_state: GameState,
+    bet_params:        Option<BetParams,>,
+    show_account:      Option<Chips,>,
+    show_legend:       bool,
+    game_state:        GameState,
 }
 
 struct BetParams {
@@ -56,7 +57,6 @@ impl GameView {
     pub fn new(ctx: &Context, game_state: GameState,) -> Self {
         ctx.request_repaint(); // keep the UI animating
         Self {
-            
             game_state,
             connection_closed: false,
             error: None,
@@ -104,9 +104,7 @@ impl View for GameView {
         app: &mut App,
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {
-            Some(Box::new(ConnectView::new(
-                app,
-            ),),)
+            Some(Box::new(ConnectView::new(app,),),)
         } else if let Some(chips,) = self.show_account.take() {
             Some(Box::new(AccountView::new(chips, app,),),)
         } else {
@@ -576,7 +574,7 @@ impl GameView {
                 Self::paint_border(ui, &btn_rect,);
 
                 let label = match action {
-                    PlayerAction::Bet {..}| PlayerAction::Raise{..}
+                    PlayerAction::Bet { .. } | PlayerAction::Raise { .. }
                         if self.bet_params.is_some() =>
                     {
                         // Set the label for bet and raise to confirm if betting
@@ -609,7 +607,7 @@ impl GameView {
                             break;
                         }
                     },
-                    PlayerAction::Bet {.. } | PlayerAction::Raise {..} => {
+                    PlayerAction::Bet { .. } | PlayerAction::Raise { .. } => {
                         if ui.input(|i| i.key_pressed(Key::Enter,),) || clicked
                         {
                             if let Some(params,) = &self.bet_params {
@@ -649,7 +647,7 @@ impl GameView {
                 kind: action,
                 amount,
             };
-            
+
             let _ = app.send_cmd_to_engine(msg,);
         }
     }

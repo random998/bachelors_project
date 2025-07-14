@@ -1,11 +1,13 @@
-use crate::{AccountView, App, View};
 use eframe::egui::{
-    vec2, Align2, Button, Color32, Context, FontFamily, FontId, RichText,
-    TextEdit, Window,
+    Align2, Button, Color32, Context, FontFamily, FontId, RichText, TextEdit,
+    Window, vec2,
 };
 use poker_core::crypto::PeerId;
 use poker_core::game_state::GameState;
+use poker_core::message::UiCmd;
 use poker_core::poker::Chips;
+
+use crate::{AccountView, App, View};
 
 const TEXT_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 const LABEL_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
@@ -13,34 +15,39 @@ const LABEL_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 /// Connect view.
 pub struct ConnectView {
     game_state: GameState,
-    error: String,
-    nickname: String,
+    error:      String,
+    nickname:   String,
 }
 
 impl ConnectView {
-    fn joined_server(&self) -> bool {
+    const fn joined_server(&self,) -> bool {
         self.game_state.has_joined_server
     }
-    
-    fn chips(&self) -> Chips {
-        self.game_state.players.get(&self.peer_id()).expect("err").chips
+
+    fn chips(&self,) -> Chips {
+        self.game_state
+            .players
+            .get(&self.peer_id(),)
+            .expect("err",)
+            .chips
     }
-    
-    fn peer_id(&self) -> PeerId {
+
+    const fn peer_id(&self,) -> PeerId {
         self.game_state.player_id
     }
 }
 
 impl ConnectView {
-    
     /// Creates a new connect view.
     #[must_use]
-    pub fn new(
-        app: &App,
-    ) -> Self {
+    pub fn new(app: &App,) -> Self {
         let gs = app.game_state.clone();
         let nick = gs.nickname.clone();
-        ConnectView {game_state: gs, error: String::default(), nickname: nick}
+        Self {
+            game_state: gs,
+            error:      String::default(),
+            nickname:   nick,
+        }
     }
 
     fn passphrase(&self,) -> String {
@@ -58,8 +65,7 @@ impl View for ConnectView {
         _frame: &mut eframe::Frame,
         app: &mut App,
     ) {
-        self.game_state  = app.game_state.clone(); 
-        self.nickname = self.game_state.nickname.clone();
+        self.game_state = app.game_state.clone();
 
         Window::new("Login",)
             .collapsible(false,)
@@ -100,8 +106,17 @@ impl View for ConnectView {
 
                         if self.nickname.trim().is_empty() {
                             self.error = "Invalid nickname".to_string();
-                            return;
                         }
+                        
+                        self.game_state.nickname = self.nickname.clone();
+                        let msg = UiCmd::PlayerJoinTableRequest {
+                            table_id: self.game_state.table_id,
+                            player_id: self.player_id(),
+                            nickname: self.nickname.clone(),
+                            chips: self.chips(),
+                        };
+                        
+                        let _ = app.send_cmd_to_engine(msg);
                     }
                 },);
             },);
@@ -112,7 +127,7 @@ impl View for ConnectView {
         _frame: &mut eframe::Frame,
         app: &mut App,
     ) -> Option<Box<dyn View,>,> {
-        if self.joined_server(){
+        if self.joined_server() {
             Some(Box::new(AccountView::new(self.chips(), app,),),)
         } else {
             None

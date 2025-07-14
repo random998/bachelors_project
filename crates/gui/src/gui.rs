@@ -63,9 +63,9 @@ pub struct App {
     key_pair:     KeyPair,
 
     // runtime ↔ GUI channels
-    cmd_tx:        mpsc::Sender<UiCmd,>, // GUI ➜ runtime
-    msg_rx:        mpsc::Receiver<UiEvent,>, // runtime ➜ GUI
-    _rt:           Arc<Runtime,>,                // keep Tokio alive!
+    cmd_tx: mpsc::Sender<UiCmd,>, // GUI ➜ runtime
+    msg_rx: mpsc::Receiver<UiEvent,>, // runtime ➜ GUI
+    _rt:    Arc<Runtime,>,        // keep Tokio alive!
 
     // latest immutable snapshot
     pub game_state: GameState,
@@ -76,11 +76,11 @@ impl App {
 
     pub fn update(&mut self,) {
         if let Ok(res,) = self.msg_rx.try_recv() {
-            if let UiEvent::Snapshot(gs) = res {
+            if let UiEvent::Snapshot(gs,) = res {
                 self.game_state = gs;
             }
         }
-        // TODO: handle remaining UIEvent messages. 
+        // TODO: handle remaining UIEvent messages.
     }
 
     #[must_use]
@@ -116,7 +116,7 @@ impl App {
         }
     }
 
-    /// UI -> runtime 
+    /// UI -> runtime
     pub fn send_cmd_to_engine(
         &self,
         msg: UiCmd,
@@ -225,8 +225,7 @@ impl AppFrame {
             textures,
             key_pair,
         );
-        let panel =
-            Box::new(ConnectView::new(&app,),);
+        let panel = Box::new(ConnectView::new(&app,),);
         Self { app, panel, }
     }
 }
