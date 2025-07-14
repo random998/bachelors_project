@@ -546,7 +546,7 @@ impl Projection {
         match msg {
             UiCmd::PlayerJoinTableRequest {
                 table_id,
-                peer_id: peer_id,
+                peer_id,
                 nickname,
                 chips,
             } => {
@@ -554,15 +554,15 @@ impl Projection {
                     let wiremsg = WireMsg::JoinTableReq {
                         table: table_id,
                         player_id: peer_id,
-                        nickname: nickname,
+                        nickname,
                         chips,
                     };
-                    let _ = self.sign_and_send(wiremsg);
+                    let _ = self.sign_and_send(wiremsg,);
                 }
-            }
+            },
             _ => {
-                error!("handling of ui msg {} not implemented yet", msg);
-            }
+                error!("handling of ui msg {msg} not implemented yet");
+            },
         }
     }
 
