@@ -310,12 +310,12 @@ impl Projection {
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
         GameState {
-            key_pair:          self.key_pair.clone(),
-            prev_hash:         self.hash_head.clone(),
+            key_pair:         self.key_pair.clone(),
+            prev_hash:        self.hash_head.clone(),
             has_joined_table: self.has_joined_table,
-            table_id:          self.table_id,
-            seats:             self.num_seats,
-            game_started:      !matches!(
+            table_id:         self.table_id,
+            seats:            self.num_seats,
+            game_started:     !matches!(
                 self.phase,
                 HandPhase::WaitingForPlayers
             ),
@@ -426,8 +426,8 @@ impl Projection {
     /// Low-level send used by `sign_and_send` **and** by the gossip handler.
     pub fn send(&mut self, msg: SignedMessage,) -> anyhow::Result<(),> {
         info!("{} sending {}", self.peer_id(), msg.message().label());
-        // engine → network 
-        self.connection.tx.sender.try_send(msg.clone(),)?;
+        // engine → network
+        self.connection.tx.sender.try_send(msg,)?;
         Ok((),)
     }
 
@@ -539,7 +539,7 @@ impl Projection {
                         nickname,
                         chips,
                     };
-                    self.has_joined_table= true;
+                    self.has_joined_table = true;
                     let _ = self.sign_and_send(wiremsg,);
                 }
             },
@@ -658,8 +658,8 @@ pub struct GameState {
     pub seats:        usize,
     pub game_started: bool,
 
-    pub player_id:         PeerId, // local player
-    pub nickname:          String,
+    pub player_id:        PeerId, // local player
+    pub nickname:         String,
     /// player with `player_id` has joined table
     pub has_joined_table: bool,
 
@@ -704,20 +704,20 @@ impl GameState {
     #[must_use]
     pub fn default() -> Self {
         Self {
-            key_pair:          KeyPair::default(),
-            prev_hash:         GENESIS_HASH.clone(),
+            key_pair:         KeyPair::default(),
+            prev_hash:        GENESIS_HASH.clone(),
             has_joined_table: false,
-            table_id:          TableId::new_id(),
-            seats:             0,
-            game_started:      false,
-            player_id:         PeerId::default(),
-            players:           PlayerStateObjects::default(),
-            nickname:          String::default(),
-            board:             Vec::default(),
-            pot:               Pot::default(),
-            action_req:        None,
-            hand_phase:        HandPhase::StartingGame,
-            listen_addr:       None,
+            table_id:         TableId::new_id(),
+            seats:            0,
+            game_started:     false,
+            player_id:        PeerId::default(),
+            players:          PlayerStateObjects::default(),
+            nickname:         String::default(),
+            board:            Vec::default(),
+            pot:              Pot::default(),
+            action_req:       None,
+            hand_phase:       HandPhase::StartingGame,
+            listen_addr:      None,
         }
     }
 

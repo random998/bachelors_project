@@ -136,23 +136,22 @@ pub enum WireMsg {
 }
 
 impl WireMsg {
-    pub fn label(&self) -> String {
+    #[must_use] pub fn label(&self,) -> String {
         match self {
-            WireMsg::JoinTableReq{..} => "JoinTableReq".to_string(),
-            WireMsg::PlayerJoinedConf{..} => "PlayerJoinedConf".to_string(),
-            WireMsg::LeaveTable{..} => "LeaveTable".to_string(),
-            WireMsg::StartGameNotify{..} => "StartGameNotify".to_string(),
-            WireMsg::ShuffleCommit {..} => "ShuffleCommit".to_string(),
-            WireMsg::ActionRequest {..} => "ActionRequest".to_string(),
-            WireMsg::PlayerAction{..} => "PlayerAction".to_string(),
-            WireMsg::TimeoutFold {..} => "TimeoutFold".to_string(),
-            WireMsg::RevealCards{..} => "RevealCards".to_string(),
-            WireMsg::EndHand{..} => "EndHand".to_string(),
-            WireMsg::EndGame{..} => "EndGame".to_string(),
-            WireMsg::Throttle{..} => "Throttle".to_string(),
-            WireMsg::Ping => "Ping".to_string(),
-            WireMsg::DealCards {..} => "DealCards".to_string(),
+            Self::JoinTableReq { .. } => "JoinTableReq".to_string(),
+            Self::PlayerJoinedConf { .. } => "PlayerJoinedConf".to_string(),
+            Self::LeaveTable { .. } => "LeaveTable".to_string(),
+            Self::StartGameNotify { .. } => "StartGameNotify".to_string(),
+            Self::ShuffleCommit { .. } => "ShuffleCommit".to_string(),
+            Self::ActionRequest { .. } => "ActionRequest".to_string(),
+            Self::PlayerAction { .. } => "PlayerAction".to_string(),
+            Self::TimeoutFold { .. } => "TimeoutFold".to_string(),
+            Self::RevealCards { .. } => "RevealCards".to_string(),
+            Self::EndHand { .. } => "EndHand".to_string(),
+            Self::EndGame { .. } => "EndGame".to_string(),
+            Self::Throttle { .. } => "Throttle".to_string(),
+            Self::Ping => "Ping".to_string(),
+            Self::DealCards { .. } => "DealCards".to_string(),
         }
-        
     }
 }
