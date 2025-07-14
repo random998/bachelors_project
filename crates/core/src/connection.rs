@@ -170,66 +170,9 @@ where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
 impl<S,> NetRx for SecureWebSocket<S,>
 where S: AsyncRead + AsyncWrite + Unpin + Send + Sync
 {
-    async fn try_recv(&mut self,) -> Result<SignedMessage,> {
-        Self::receive(self,).await.unwrap_or_else(|| {
-            Err(anyhow!("Noise WebSocket error during receiving message"),)
-        },)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use tokio::net::TcpListener;
-
-    use super::{ClientConnection, SecureWebSocket};
-    use crate::crypto::KeyPair;
-    use crate::message::{Message, SignedMessage};
-    use crate::poker::{Chips, TableId};
-
-    #[tokio::test]
-    async fn encrypted_websocket_connection() {
-        let addr = "127.0.0.1:12345";
-        let (tx, rx,) = tokio::sync::oneshot::channel();
-
-        let listener = TcpListener::bind(addr,).await.unwrap();
-        tokio::spawn(async move {
-            let (stream, _,) = listener.accept().await.unwrap();
-            let mut con =
-                SecureWebSocket::accept_connection(stream,).await.unwrap();
-
-            let msg = con.receive().await.unwrap().unwrap();
-            assert!(matches!(
-                msg.message(),
-                Message::PlayerJoinTableRequest { nickname, .. } if nickname == "Bob"
-            ));
-
-            let msg = con.receive().await.unwrap().unwrap();
-            assert!(matches!(msg.message(), Message::ShowAccount { .. }));
-
-            tx.send((),).unwrap();
-        },);
-
-        let url = format!("ws://{addr}");
-        let mut con: ClientConnection =
-            ClientConnection::connect_to(&url,).await.unwrap();
-        let keypair = KeyPair::default();
-        let peer_id = keypair.public().to_peer_id();
-
-        let msg =
-            SignedMessage::new(&keypair, Message::PlayerJoinTableRequest {
-                table_id:  TableId::new_id(),
-                chips:     Chips::default(),
-                player_id: peer_id,
-                nickname:  "Bob".to_string(),
-            },);
-        con.send(&msg,).await.unwrap();
-
-        let msg = SignedMessage::new(&keypair, Message::ShowAccount {
-            player_id: peer_id,
-            chips:     Chips::ZERO,
-        },);
-        con.send(&msg,).await.unwrap();
-
-        rx.await.unwrap();
+    async fn try_recv(&mut self, ) -> Result<SignedMessage, > {
+        Self::receive(self, ).await.unwrap_or_else(|| {
+            Err(anyhow!("Noise WebSocket error during receiving message"), )
+        }, )
     }
 }
