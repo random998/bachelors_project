@@ -17,7 +17,7 @@ use tokio::sync::mpsc;
 use tokio::time::sleep;
 use crate::connection_stats::ConnectionStats;
 use crate::crypto::{KeyPair, PeerId, SecretKey};
-use crate::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
+use crate::message::{UiCmd, HandPayoff, NetworkMessage, PlayerAction, PlayerUpdate, SignedMessage};
 use crate::net::traits::P2pTransport;
 use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId}; /* per-player helper */
@@ -282,7 +282,9 @@ impl Projection {
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
         GameState {
-            has_joined_table: self.has_joined_table,
+            key_pair: self.key_pair.clone(),
+            prev_hash: self.hash_head.clone(), 
+            has_joined_server: self.has_joined_table,
             table_id:         self.table_id,
             seats:            self.num_seats,
             game_started:     !matches!(
@@ -396,7 +398,7 @@ impl Projection {
 
     pub fn try_recv_event(
         &mut self,
-    ) -> Result<Message, mpsc::error::TryRecvError,> {
+    ) -> Result<NetworkMessage, mpsc::error::TryRecvError,> {
         self.connection.rx.event_receiver.try_recv()
     }
 
@@ -477,8 +479,8 @@ impl Projection {
         }
     }
 
-    pub fn handle_event(&mut self, m: Message,) {
-        if let Message::NewListenAddr {
+    pub fn handle_event(&mut self, m: NetworkMessage,) {
+        if let NetworkMessage::NewListenAddr {
             listener_id,
             multiaddr,
         } = m
@@ -488,8 +490,7 @@ impl Projection {
     }
 
     // — dispatcher called by runtime for every inbound network msg —
-
-    pub async fn handle_message(&mut self, sm: SignedMessage,) {
+    pub async fn handle_peer_msg(&mut self, sm: SignedMessage,) {
         info!(
             "internal table state of peer {} handling message with label {:?} sent from peer {}",
             self.peer_id(),
@@ -497,86 +498,7 @@ impl Projection {
             sm.sender()
         );
         match sm.message() {
-            Message::PlayerJoinTableRequest {
-                player_id,
-                nickname,
-                chips,
-                ..
-            } => self.try_join(*player_id, nickname, chips,),
-            Message::PlayerLeaveRequest { player_id, .. } => {
-                self.players().retain(|p| &p.peer_id != player_id,);
-            },
-            Message::GameStateUpdate {
-                board,
-                pot,
-                player_updates,
-                ..
-            } => {
-                self.board = board.clone();
-                self.current_pot.total_chips = pot.total_chips;
-                self.update_players(player_updates,);
-            },
-            Message::PlayerJoinedConfirmation {
-                table_id: _table_id,
-                player_id,
-                chips,
-                nickname,
-            } => {
-                self.try_join(*player_id, nickname, chips,);
-                if self.players().len() >= self.num_seats {
-                    info!("enough players joined the table, starting game");
-                    if !self.game_started
-                        && self.phase != HandPhase::StartingGame
-                    {
-                        self.game_started = true;
-                        let () = self.enter_start_game(1, 10,).await;
-                    }
-                } else {
-                    info!(
-                        "not enough players joined the table, joined: {}, required: {}",
-                        self.players().len(),
-                        self.num_seats
-                    );
-                }
-            },
-            Message::StartGameNotify {
-                seat_order: seats,
-                table_id: _table_id, // TODO: use table id.
-                game_id: _game_id,   // TODO: use game id
-            } => {
-                let sender_id = sm.sender();
-                self.players
-                    .get(&sender_id,)
-                    .expect("err",)
-                    .sent_start_game_notification();
-
-                // Reorder seats according to the new order.
-                for (idx, seat_id,) in seats.iter().enumerate() {
-                    if let Some(pos,) = self
-                        .players()
-                        .iter()
-                        .position(|p| &p.peer_id == seat_id,)
-                    {
-                        self.players.swap(idx, pos,);
-                    } else {
-                        break;
-                    }
-                }
-
-                // Move local player in first position.
-                let pos = self
-                    .players
-                    .iter()
-                    .position(|p| p.peer_id == self.peer_id(),)
-                    .expect("Local player not found",);
-                self.players.rotate_left(pos,);
-
-                if !self.game_started && self.phase != HandPhase::StartingGame {
-                    self.game_started = true;
-                    let () = self.enter_start_game(1, 100,).await;
-                }
-            },
-            Message::ProtocolEntry(entry,) => {
+            NetworkMessage::ProtocolEntry(entry,) => {
                 if entry.prev_hash != self.hash_head {
                     warn!("hash chain mismatch – discarding");
                     warn!("prev hash of sender: {}", entry.prev_hash);
@@ -591,6 +513,10 @@ impl Projection {
             },
             other => warn!("unhandled msg in InternalTableState: {other}"),
         }
+    }
+    
+    pub async fn handle_ui_msg(&mut self, msg: UiCmd) {
+        todo!()
     }
 
     #[must_use]
@@ -701,7 +627,7 @@ pub struct GameState {
     pub player_id:        PeerId, // local player
     pub nickname:         String,
     /// player with `player_id` has joined table
-    pub has_joined_table: bool,
+    pub has_joined_server: bool,
 
     pub players:     PlayerStateObjects,
     pub board:       Vec<Card,>,
@@ -709,6 +635,10 @@ pub struct GameState {
     pub action_req:  Option<ActionRequest,>,
     pub hand_phase:  HandPhase,
     pub listen_addr: Option<Multiaddr,>,
+    
+    // -- crypto
+    pub prev_hash: Hash,
+    pub key_pair: KeyPair,
 }
 
 impl GameState {
@@ -720,6 +650,8 @@ impl GameState {
         seats: usize,
     ) -> Self {
         Self {
+            key_pair: KeyPair::default(),
+            prev_hash: GENESIS_HASH.clone(),
             table_id,
             seats,
             game_started: false,
@@ -731,14 +663,16 @@ impl GameState {
             action_req: None,
             hand_phase: HandPhase::StartingGame,
             listen_addr: None,
-            has_joined_table: false,
+            has_joined_server: false,
         }
     }
 
     #[must_use]
     pub fn default() -> Self {
         Self {
-            has_joined_table: false,
+            key_pair: KeyPair::default(),
+            prev_hash: GENESIS_HASH.clone(),
+            has_joined_server: false,
             table_id:         TableId::new_id(),
             seats:            0,
             game_started:     false,
@@ -797,7 +731,7 @@ impl Projection {
         // 3. sign and broadcast entry.
         let sm = SignedMessage::new(
             &self.key_pair,
-            Message::ProtocolEntry(log_entry,),
+            NetworkMessage::ProtocolEntry(log_entry,),
         );
         self.send(sm,)?;
 
@@ -808,7 +742,7 @@ impl Projection {
     }
 
     // old api still needed for GUI / UX messages ---------------------
-    fn send_plain(&mut self, msg: Message,) -> anyhow::Result<(),> {
+    fn send_plain(&mut self, msg: NetworkMessage,) -> anyhow::Result<(),> {
         let sm = SignedMessage::new(&self.key_pair, msg,);
         self.send(sm,)
     }
@@ -818,7 +752,7 @@ impl Projection {
         self.send_contract(payload,)
     }
 
-    pub fn send_gui(&mut self, msg: Message,) -> anyhow::Result<(),> {
+    pub fn send_gui(&mut self, msg: NetworkMessage,) -> anyhow::Result<(),> {
         self.send_plain(msg,)
     }
 

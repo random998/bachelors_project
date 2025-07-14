@@ -11,7 +11,7 @@ use eframe::egui::{
 use log::warn;
 use poker_core::crypto::PeerId;
 use poker_core::game_state::GameState;
-use poker_core::message::Message;
+use poker_core::message::{UiCmd, NetworkMessage};
 use poker_core::poker::{Chips, TableId};
 
 use crate::{App, ConnectView, GameView, View};
@@ -112,16 +112,16 @@ impl View for AccountView {
                     );
 
                     if ui.add_sized(vec2(180.0, 30.0,), join_btn,).clicked()
-                        && !self.game_state.has_joined_table
+                        && !self.game_state.has_joined_server
                     {
                         let table_id: TableId = app.snapshot().table_id;
-                        let join = Message::PlayerJoinTableRequest {
+                        let join = UiCmd::PlayerJoinTableRequest {
                             table_id,
                             player_id: self.player_id,
                             nickname: self.nickname.clone(),
                             chips: self.chips,
                         };
-                        if let Err(e,) = app.sign_and_send(join,) {
+                        if let Err(e,) = app.send_cmd_to_engine(join,) {
                             self.error = format!("send failed: {e}");
                             warn!("{}", self.error);
                         }
@@ -146,11 +146,9 @@ impl View for AccountView {
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {
             Some(Box::new(ConnectView::new(
-                frame.storage(),
                 app,
-                app.key_pair(),
             ),),)
-        } else if self.game_state.has_joined_table {
+        } else if self.game_state.has_joined_server {
             let empty_state = GameState::default();
             Some(Box::new(GameView::new(
                 ctx,

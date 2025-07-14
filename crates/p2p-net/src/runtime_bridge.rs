@@ -8,8 +8,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use poker_core::crypto::KeyPair;
-use poker_core::game_state::{GameState, Projection};
-use poker_core::message::SignedMessage;
+use poker_core::game_state::Projection;
+use poker_core::message::{SignedMessage, UiCmd, UiEvent};
 use poker_core::net::traits::P2pTransport;
 use poker_core::net::NetTx;
 use poker_core::poker::TableId;
@@ -19,11 +19,9 @@ use tokio::sync::mpsc;
 /// Handle returned to the GUI
 pub struct UiHandle {
     /// GUI ➜ runtime  –  signed commands produced by user input
-    pub cmd_tx:   mpsc::Sender<SignedMessage,>,
+    pub cmd_tx:   mpsc::Sender<UiCmd,>,
     /// runtime ➜ GUI  –  every locally generated or echoed message
-    pub msg_rx:   mpsc::Receiver<SignedMessage,>,
-    /// runtime ➜ GUI  –  immutable snapshot of the whole table state
-    pub state_rx: mpsc::Receiver<GameState,>,
+    pub msg_rx:   mpsc::Receiver<UiEvent,>,
     pub _rt:      Arc<Runtime,>, // keep Tokio alive
 }
 
@@ -46,9 +44,8 @@ pub fn start(
     );
 
     // ─────────────── channels GUI ↔ runtime (unbounded) ────────────────
-    let (cmd_tx, mut cmd_rx,) = mpsc::channel::<SignedMessage,>(64,);
-    let (msg_tx, msg_rx,) = mpsc::channel::<SignedMessage,>(64,);
-    let (state_tx, state_rx,) = mpsc::channel::<GameState,>(32,);
+    let (cmd_tx, mut cmd_rx,) = mpsc::channel::<UiCmd,>(64,); // UI -> Runtime
+    let (msg_tx, msg_rx,) = mpsc::channel::<UiEvent,>(64,); // Runtime -> UI
 
     // ─────────────────────── background task ───────────────────────────
     let rt_handle = rt.handle().clone();
@@ -62,36 +59,31 @@ pub fn start(
         // 3) “loopback” closure → every *local* message is sent both
         // to the network layer and back to the GUI
         let mut tx_net = transport.tx.clone();
-        let tx_ui = msg_tx.clone();
         let loopback = move |m: SignedMessage| {
             let _ = tx_net.send(m.clone(),); // to peers
-            let _ = tx_ui.try_send(m,); // to GUI
         };
 
         let mut eng = Projection::new(table, seats, kp, transport, loopback,);
 
         // 4) main loop
         loop {
-            // a) commands from GUI
+            // a) GUI -> engine
             while let Ok(cmd,) = cmd_rx.try_recv() {
-                eng.handle_message(cmd,).await;
+                eng.handle_ui_msg(cmd,).await;
             }
 
-            // b) gossip → engine
+            // b) network → engine
             while let Ok(msg,) = eng.try_recv() {
-                eng.handle_message(msg,).await;
-            }
-
-            // d) gossip (event msg) -> engine
-            while let Ok(msg,) = eng.try_recv_event() {
-                eng.handle_event(msg,);
+                eng.handle_peer_msg(msg,).await;
             }
 
             // c) timers
             eng.tick().await;
 
-            // d) ship an immutable snapshot to the GUI (non-blocking)
-            let _ = state_tx.try_send(eng.snapshot(),);
+            // d) engine -> Ui, send a snapshot of the engine. 
+            let sp = eng.snapshot();
+            let msg = UiEvent::Snapshot(sp);
+            let _ = msg_tx.try_send(msg);
 
             // e) update the internal table state periodically (handle state
             // transitions).
@@ -104,7 +96,6 @@ pub fn start(
     UiHandle {
         cmd_tx,
         msg_rx,
-        state_rx,
         _rt: rt,
     }
 }

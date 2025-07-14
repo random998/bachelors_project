@@ -4,19 +4,18 @@
 //  (file name kept from the original freezeout example)
 // -----------------------------------------------------------------------------
 
+use crate::{AccountView, App, ConnectView, View};
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{
-    Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId,
-    Image, Key, Pos2, Rect, RichText, Sense, Slider, Stroke, StrokeKind,
-    TextFormat, Ui, Vec2, Window, pos2, text, vec2,
+    pos2, text, vec2, Align, Align2, Button, Color32, Context,
+    CornerRadius, FontFamily, FontId, Image, Key, Pos2, Rect, RichText, Sense,
+    Slider, Stroke, StrokeKind, TextFormat, Ui, Vec2, Window,
 };
 use eframe::epaint;
 use poker_cards::egui::Textures;
 use poker_core::game_state::{GameState, PlayerPrivate};
-use poker_core::message::{Message, PlayerAction};
+use poker_core::message::{PlayerAction, UiCmd};
 use poker_core::poker::{Chips, PlayerCards};
-
-use crate::{AccountView, App, ConnectView, View};
 
 // ─────────────────────────────── configuration ────────────────────────────
 
@@ -32,11 +31,9 @@ const TEXT_COLOR: Color32 = Color32::from_rgb(20, 150, 20,);
 pub struct GameView {
     connection_closed: bool,
     error:             Option<String,>,
-
     bet_params:   Option<BetParams,>,
     show_account: Option<Chips,>,
     show_legend:  bool,
-
     game_state: GameState,
 }
 
@@ -59,6 +56,7 @@ impl GameView {
     pub fn new(ctx: &Context, game_state: GameState,) -> Self {
         ctx.request_repaint(); // keep the UI animating
         Self {
+            
             game_state,
             connection_closed: false,
             error: None,
@@ -107,9 +105,7 @@ impl View for GameView {
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {
             Some(Box::new(ConnectView::new(
-                frame.storage(),
                 app,
-                app.key_pair(),
             ),),)
         } else if let Some(chips,) = self.show_account.take() {
             Some(Box::new(AccountView::new(chips, app,),),)
@@ -649,8 +645,12 @@ impl GameView {
         }
 
         if let Some((action, amount,),) = send_action {
-            let msg = Message::ActionResponse { action, amount, };
-            let _ = app.sign_and_send(msg,);
+            let msg = UiCmd::Action {
+                kind: action,
+                amount,
+            };
+            
+            let _ = app.send_cmd_to_engine(msg,);
         }
     }
 
