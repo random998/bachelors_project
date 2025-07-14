@@ -37,7 +37,9 @@ impl P2pTransport {
         receiver: Receiver<SignedMessage,>,
     ) -> Self {
         Self {
-            tx: P2pTx { network_msg_sender: sender, },
+            tx: P2pTx {
+                network_msg_sender: sender,
+            },
             rx: P2pRx {
                 network_msg_receiver: receiver,
             },

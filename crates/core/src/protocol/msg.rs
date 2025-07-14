@@ -136,7 +136,8 @@ pub enum WireMsg {
 }
 
 impl WireMsg {
-    #[must_use] pub fn label(&self,) -> String {
+    #[must_use]
+    pub fn label(&self,) -> String {
         match self {
             Self::JoinTableReq { .. } => "JoinTableReq".to_string(),
             Self::PlayerJoinedConf { .. } => "PlayerJoinedConf".to_string(),
