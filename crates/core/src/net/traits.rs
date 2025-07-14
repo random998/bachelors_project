@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result, anyhow};
 use async_trait::async_trait;
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -74,7 +74,7 @@ impl NetRx for P2pRx {
     async fn try_recv(&mut self,) -> Result<SignedMessage,> {
         match self.network_msg_receiver.recv().await {
             Some(msg,) => Ok(msg,),
-            _err => Err(anyhow!("{:?}", self)),
+            _err => Err(anyhow!("{:?}", self),),
         }
     }
 }
