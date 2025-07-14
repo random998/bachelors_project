@@ -626,9 +626,9 @@ impl Projection {
             },
             Message::ProtocolEntry(entry,) => {
                 if entry.prev_hash != self.hash_head {
+                    warn!("hash chain mismatch – discarding");
                     warn!("prev hash of sender: {}", entry.prev_hash);
                     warn!("prev hash of receiver (us) : {}", self.hash_head);
-                    warn!("hash chain mismatch – discarding");
                     return;
                 }
                 // TODO verify ZK proof here
