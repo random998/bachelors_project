@@ -34,6 +34,7 @@ thiserror = { version = "2.0.12", features = [] }
 log = "0.4.27"
 futures = "0.3.31"
 blake2 = "0.10.6"
+once_cell = "1.21.3"
 
 [features]
 connection = [
