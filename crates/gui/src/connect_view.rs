@@ -17,6 +17,7 @@ pub struct ConnectView {
     game_state: GameState,
     error:      String,
     nickname:   String,
+    chips: Chips
 }
 
 impl ConnectView {
@@ -24,12 +25,11 @@ impl ConnectView {
         self.game_state.has_joined_server
     }
 
-    fn chips(&self,) -> Chips {
-        self.game_state
-            .players
-            .get(&self.peer_id(),)
-            .expect("err",)
-            .chips
+    fn update_chips(&mut self,){
+        let us = self.game_state.players.get_mut(&self.player_id());
+        if let Some(p) = us {
+            self.chips = p.chips;
+        }
     }
 
     const fn peer_id(&self,) -> PeerId {
@@ -46,6 +46,7 @@ impl ConnectView {
             game_state: gs,
             error:      String::default(),
             nickname:   String::default(),
+            chips:      Chips::default(),
         }
     }
 
@@ -65,6 +66,7 @@ impl View for ConnectView {
         app: &mut App,
     ) {
         self.game_state = app.game_state.clone();
+        self.update_chips();
 
         Window::new("Login",)
             .collapsible(false,)
@@ -112,7 +114,7 @@ impl View for ConnectView {
                             table_id:  self.game_state.table_id,
                             player_id: self.player_id(),
                             nickname:  self.nickname.clone(),
-                            chips:     self.chips(),
+                            chips:     self.chips,
                         };
 
                         let _ = app.send_cmd_to_engine(msg,);
@@ -127,7 +129,7 @@ impl View for ConnectView {
         app: &mut App,
     ) -> Option<Box<dyn View,>,> {
         if self.joined_server() {
-            Some(Box::new(AccountView::new(self.chips(), app,),),)
+            Some(Box::new(AccountView::new(self.chips, app,),),)
         } else {
             None
         }
