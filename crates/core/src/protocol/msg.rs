@@ -1,6 +1,7 @@
 //! Hash-chained packet format (ready for ZK integration)
 
 use std::fmt::Write;
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::crypto::PeerId;
@@ -23,8 +24,8 @@ pub struct LogEntry {
 pub struct Hash(pub blake3::Hash,);
 
 impl std::fmt::Display for Hash {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.0.fmt(f)
+    fn fmt(&self, f: &mut std::fmt::Formatter,) -> std::fmt::Result {
+        self.0.fmt(f,)
     }
 }
 impl Serialize for Hash {
@@ -105,7 +106,7 @@ pub enum WireMsg {
     PlayerAction {
         table:       TableId,
         game_id:     GameId,
-        peer_id:   PeerId,
+        peer_id:     PeerId,
         action:      PlayerAction,
         bet_commit:  Commitment,
         range_proof: RangeProof,

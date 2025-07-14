@@ -2,13 +2,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
 use crate::protocol::msg::{Hash, WireMsg};
-use once_cell::sync::Lazy;
 
-pub static GENESIS_HASH: Lazy<Hash> = Lazy::new(|| {
+pub static GENESIS_HASH: std::sync::LazyLock<Hash,> = std::sync::LazyLock::new(|| {
     let empty = ContractState::default();
-    hash_state(&empty)
-});
-
+    hash_state(&empty,)
+},);
 
 #[derive(Clone, Debug, Serialize, Deserialize,)]
 pub enum Phase {

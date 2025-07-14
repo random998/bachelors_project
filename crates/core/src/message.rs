@@ -27,30 +27,47 @@ pub enum NetworkMessage {
 /// Represents a message send from the p2p poker instance to the ui.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
 pub enum UiEvent {
-    Snapshot(GameState),              // fresh projection every frame / on tick
-    ActionRequest { allowed: Vec<PlayerAction>, min_raise: Chips },
-    Error(String),                    // protocol or network issues
-    PeerUpdate { peer_id: PeerId, online: bool },
-    Chat { from: PeerId, text: String },
+    Snapshot(GameState,), // fresh projection every frame / on tick
+    ActionRequest {
+        allowed:   Vec<PlayerAction,>,
+        min_raise: Chips,
+    },
+    Error(String,), // protocol or network issues
+    PeerUpdate {
+        peer_id: PeerId,
+        online:  bool,
+    },
+    Chat {
+        from: PeerId,
+        text: String,
+    },
 }
 
 /// Sent from egui/iced/etc. into the Tokio task driving Projection.
 pub enum UiCmd {
-    Connect          { nickname: String, buy_in: Chips },
-    SeatRequest      { seat: u8 },
+    Connect {
+        nickname: String,
+        buy_in:   Chips,
+    },
+    SeatRequest {
+        seat: u8,
+    },
     LeaveTable,
-    Action { kind: PlayerAction, amount: Chips }, // Bet/Call/Check/Fold
-    ToggleReady,                                         // “I’m ready to deal”
-    Chat             { text: String },
+    Action {
+        kind:   PlayerAction,
+        amount: Chips,
+    }, // Bet/Call/Check/Fold
+    ToggleReady, // “I’m ready to deal”
+    Chat {
+        text: String,
+    },
     PlayerJoinTableRequest {
-        table_id: TableId,
+        table_id:  TableId,
         player_id: PeerId,
-        nickname: String, 
-        chips: Chips, 
-    }
+        nickname:  String,
+        chips:     Chips,
+    },
 }
-
-
 
 impl NetworkMessage {
     // Returns a label of the message variant as a string.
@@ -96,13 +113,9 @@ pub enum PlayerAction {
     /// Player checks.
     Check,
     /// Player bets.
-    Bet {
-        bet_amount: Chips,
-    },
+    Bet { bet_amount: Chips, },
     /// Player raises.
-    Raise {
-        bet_amount: Chips,
-    },
+    Raise { bet_amount: Chips, },
     /// Player folds.
     Fold,
 }
@@ -116,8 +129,8 @@ impl PlayerAction {
             Self::BigBlind => "BB",
             Self::Call => "CALL",
             Self::Check => "CHECK",
-            Self::Bet {..} => "BET",
-            Self::Raise {..} => "RAISE",
+            Self::Bet { .. } => "BET",
+            Self::Raise { .. } => "RAISE",
             Self::Fold => "FOLD",
             Self::None => "",
         }
@@ -147,7 +160,7 @@ pub struct SignedMessage {
 /// Private signed message payload.
 #[derive(Debug, Clone, Serialize, Deserialize,)]
 struct Payload {
-    msg: NetworkMessage,
+    msg:        NetworkMessage,
     sig:        Signature,
     public_key: PublicKey,
 }

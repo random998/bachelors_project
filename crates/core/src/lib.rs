@@ -2,10 +2,10 @@
 
 //! poker core types shared by peers.
 #![warn(clippy::all, rust_2018_idioms, missing_docs)]
-extern crate core;
 
 #[cfg(feature = "connection")]
 pub mod connection;
+mod connection_stats;
 pub mod crypto;
 pub mod game_state;
 pub mod message;
@@ -13,6 +13,5 @@ pub mod net;
 mod players_state;
 pub mod poker;
 pub mod protocol;
-pub mod zk;
 pub mod timers;
-mod connection_stats;
+pub mod zk;

@@ -15,18 +15,19 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
+
 use crate::connection_stats::ConnectionStats;
 use crate::crypto::{KeyPair, PeerId, SecretKey};
-use crate::message::{UiCmd, HandPayoff, NetworkMessage, PlayerAction, PlayerUpdate, SignedMessage};
+use crate::message::{
+    HandPayoff, NetworkMessage, PlayerAction, PlayerUpdate, SignedMessage,
+    UiCmd,
+};
 use crate::net::traits::P2pTransport;
 use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId}; /* per-player helper */
 use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 use crate::protocol::state as contract;
 use crate::protocol::state::{ContractState, GENESIS_HASH};
-use crate::zk::{Commitment, RangeProof};
-
-
 
 // ────────────────────────────────────────────────────────────────────────────
 //  Small helpers
@@ -134,7 +135,7 @@ impl PlayerPrivate {
         self.action = PlayerAction::Fold;
     }
 
-    pub fn place_bet(&mut self, total_bet: Chips, action: PlayerAction) {
+    pub fn place_bet(&mut self, total_bet: Chips, action: PlayerAction,) {
         let required = total_bet - self.bet;
         let actual_bet = required.min(self.chips,);
 
@@ -212,8 +213,8 @@ pub struct Projection {
     key_pair:         KeyPair,
     /// whether player associated with `key_pair` has joined a table.
     has_joined_table: bool,
-    // 2. Peer-local “soft” state – NOT part of consensus
 
+    // 2. Peer-local “soft” state – NOT part of consensus
     pub rng:             StdRng, // used only when *we* deal
     pub listen_addr:     Option<Multiaddr,>,
     pub connection_info: ConnectionStats, // bytes/sec graphs, peer RTT …
@@ -240,36 +241,66 @@ pub struct Projection {
     // crypto --------------------------------------------------------------
     contract:  ContractState,
     hash_head: Hash,
-
 }
 
 impl Projection {
-    pub fn apply(&mut self, msg: &WireMsg) {
+    pub fn apply(&mut self, msg: &WireMsg,) {
         match msg {
-            WireMsg::JoinTableReq { player_id, nickname, chips, .. } => {
-                self.players.add(PlayerPrivate::new(*player_id, nickname.clone(), *chips));
-            }
-            WireMsg::PlayerJoinedConf { player_id, chips, seat_idx, .. } => {
-                self.players.update_chips(*player_id, *chips);
-                self.players.set_seat(*player_id, *seat_idx);
-            }
-            WireMsg::StartGameNotify { seat_order, sb, bb, .. } => {
-                self.players.reseat(seat_order);
-                self.small_blind = *sb;
-                self.big_blind   = *bb;
-                self.phase       = HandPhase::StartingGame;
-            }
-            WireMsg::DealCards { player_id, card1, card2, .. } if *player_id == self.peer_id() => {
-                self.players.get_mut(&self.peer_id()).unwrap().hole_cards = PlayerCards::Cards(*card1, *card2);
-            }
-            WireMsg::PlayerAction { peer_id, action, .. } => match action {
-                PlayerAction::Bet { bet_amount } =>
-                    self.players.place_bet(*peer_id, *bet_amount, action.clone()),
-                PlayerAction::Fold =>
-                    self.players.fold(*peer_id),
-                _ => {}
+            WireMsg::JoinTableReq {
+                player_id,
+                nickname,
+                chips,
+                ..
+            } => {
+                self.players.add(PlayerPrivate::new(
+                    *player_id,
+                    nickname.clone(),
+                    *chips,
+                ),);
             },
-            _ => {}
+            WireMsg::PlayerJoinedConf {
+                player_id,
+                chips,
+                seat_idx,
+                ..
+            } => {
+                self.players.update_chips(*player_id, *chips,);
+                self.players.set_seat(*player_id, *seat_idx,);
+            },
+            WireMsg::StartGameNotify {
+                seat_order, sb, bb,
+            ..
+            } => {
+                self.players.reseat(seat_order,);
+                self.small_blind = *sb;
+                self.big_blind = *bb;
+                self.phase = HandPhase::StartingGame;
+            },
+            WireMsg::DealCards {
+                player_id,
+                card1,
+                card2,
+                ..
+            } if *player_id == self.peer_id() => {
+                self.players.get_mut(&self.peer_id(),).unwrap().hole_cards =
+                    PlayerCards::Cards(*card1, *card2,);
+            },
+            WireMsg::PlayerAction {
+                peer_id, action, ..
+            } => {
+                match action {
+                    PlayerAction::Bet { bet_amount, } => {
+                        self.players.place_bet(
+                            *peer_id,
+                            *bet_amount,
+                            *action,
+                        );
+                    },
+                    PlayerAction::Fold => self.players.fold(*peer_id,),
+                    _ => {},
+                }
+            },
+            _ => {},
         }
     }
 }
@@ -282,12 +313,12 @@ impl Projection {
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
         GameState {
-            key_pair: self.key_pair.clone(),
-            prev_hash: self.hash_head.clone(), 
+            key_pair:          self.key_pair.clone(),
+            prev_hash:         self.hash_head.clone(),
             has_joined_server: self.has_joined_table,
-            table_id:         self.table_id,
-            seats:            self.num_seats,
-            game_started:     !matches!(
+            table_id:          self.table_id,
+            seats:             self.num_seats,
+            game_started:      !matches!(
                 self.phase,
                 HandPhase::WaitingForPlayers
             ),
@@ -351,7 +382,7 @@ impl Projection {
             connection_info: ConnectionStats::default(),
             has_joined_table: false,
             contract: Default::default(),
-            hash_head: GENESIS_HASH.clone(), 
+            hash_head: GENESIS_HASH.clone(),
             game_started: false,
             hand_count: 0,
             min_raise: Chips::ZERO,
@@ -514,8 +545,8 @@ impl Projection {
             other => warn!("unhandled msg in InternalTableState: {other}"),
         }
     }
-    
-    pub async fn handle_ui_msg(&mut self, msg: UiCmd) {
+
+    pub async fn handle_ui_msg(&mut self, msg: UiCmd,) {
         todo!()
     }
 
@@ -586,14 +617,18 @@ impl ActionRequest {
 
     /// Check if a bet action is in the request.
     #[must_use]
-    pub fn can_bet(&self, amount: Chips) -> bool {
-        self.can_do_action(PlayerAction::Bet {bet_amount: amount},)
+    pub fn can_bet(&self, amount: Chips,) -> bool {
+        self.can_do_action(PlayerAction::Bet {
+            bet_amount: amount,
+        },)
     }
 
     /// Check if a raise action is in the request.
     #[must_use]
-    pub fn can_raise(&self, amount: Chips) -> bool {
-        self.can_do_action(PlayerAction::Raise{ bet_amount: amount},)
+    pub fn can_raise(&self, amount: Chips,) -> bool {
+        self.can_do_action(PlayerAction::Raise {
+            bet_amount: amount,
+        },)
     }
 
     fn can_do_action(&self, action: PlayerAction,) -> bool {
@@ -624,8 +659,8 @@ pub struct GameState {
     pub seats:        usize,
     pub game_started: bool,
 
-    pub player_id:        PeerId, // local player
-    pub nickname:         String,
+    pub player_id:         PeerId, // local player
+    pub nickname:          String,
     /// player with `player_id` has joined table
     pub has_joined_server: bool,
 
@@ -635,10 +670,10 @@ pub struct GameState {
     pub action_req:  Option<ActionRequest,>,
     pub hand_phase:  HandPhase,
     pub listen_addr: Option<Multiaddr,>,
-    
+
     // -- crypto
     pub prev_hash: Hash,
-    pub key_pair: KeyPair,
+    pub key_pair:  KeyPair,
 }
 
 impl GameState {
@@ -670,20 +705,20 @@ impl GameState {
     #[must_use]
     pub fn default() -> Self {
         Self {
-            key_pair: KeyPair::default(),
-            prev_hash: GENESIS_HASH.clone(),
+            key_pair:          KeyPair::default(),
+            prev_hash:         GENESIS_HASH.clone(),
             has_joined_server: false,
-            table_id:         TableId::new_id(),
-            seats:            0,
-            game_started:     false,
-            player_id:        PeerId::default(),
-            players:          PlayerStateObjects::default(),
-            nickname:         String::default(),
-            board:            Vec::default(),
-            pot:              Pot::default(),
-            action_req:       None,
-            hand_phase:       HandPhase::StartingGame,
-            listen_addr:      None,
+            table_id:          TableId::new_id(),
+            seats:             0,
+            game_started:      false,
+            player_id:         PeerId::default(),
+            players:           PlayerStateObjects::default(),
+            nickname:          String::default(),
+            board:             Vec::default(),
+            pot:               Pot::default(),
+            action_req:        None,
+            hand_phase:        HandPhase::StartingGame,
+            listen_addr:       None,
         }
     }
 
@@ -782,9 +817,6 @@ impl Projection {
         let deadline = Instant::now()
             + Duration::from_secs(timeout_s * u64::from(max_retries,),);
         loop {
-            // the swarm-runner keeps calling `handle_message`, which
-            // flips `has_sent_start_game_notification` for every peer.
-
             if self
                 .players
                 .iter()
@@ -819,12 +851,12 @@ impl Projection {
 
         // Pay small and big blind.
         if let Some(p,) = &mut self.active_player {
-            p.place_bet(self.small_blind, PlayerAction::SmallBlind);
+            p.place_bet(self.small_blind, PlayerAction::SmallBlind,);
         }
 
         // Pay small and big blind.
         if let Some(p,) = &mut self.active_player {
-            p.place_bet(self.big_blind, PlayerAction::BigBlind);
+            p.place_bet(self.big_blind, PlayerAction::BigBlind,);
         }
 
         self.last_bet = self.big_blind;
@@ -840,7 +872,7 @@ impl Projection {
         self.pots = vec![Pot::default()];
 
         // Deal cards to each player.
-        for player in self.players.iter_mut() {
+        for player in &mut self.players {
             if player.is_active {
                 player.public_cards = PlayerCards::Covered;
 
@@ -914,7 +946,7 @@ impl Projection {
     fn enter_showdown(&mut self,) {
         self.phase = HandPhase::Showdown;
 
-        for player in self.players.iter_mut() {
+        for player in &mut self.players {
             player.action = PlayerAction::None;
             if player.is_active {
                 player.public_cards = player.hole_cards;
@@ -1125,7 +1157,7 @@ impl Projection {
             return true;
         }
 
-        for player in self.players.iter() {
+        for player in &self.players {
             // If a player didn't match the last bet and is not all-in then the
             // player has to act and the round is not complete.
             if player.is_active
@@ -1141,7 +1173,7 @@ impl Projection {
             return true;
         }
 
-        for player in self.players.iter() {
+        for player in &self.players {
             if player.is_active {
                 // If a player didn't act the round is not complete.
                 match player.action {
@@ -1192,7 +1224,7 @@ impl Projection {
         // Give some time to watch last action and pots.
         self.broadcast_throttle(1_000,);
 
-        for player in self.players.iter_mut() {
+        for player in &mut self.players {
             player.bet = Chips::ZERO;
             player.action = PlayerAction::None;
         }
@@ -1223,7 +1255,7 @@ impl Projection {
                 }
 
                 let mut went_all_in = false;
-                for player in self.players.iter_mut() {
+                for player in &mut self.players {
                     let pot = self.pots.last_mut().unwrap();
                     if player.bet > Chips::ZERO {
                         player.bet -= min_bet;
@@ -1258,14 +1290,18 @@ impl Projection {
             }
 
             if self.last_bet == Chips::ZERO && player.chips > Chips::ZERO {
-                actions.push(PlayerAction::Bet {bet_amount:self.last_bet} ,);
+                actions.push(PlayerAction::Bet {
+                    bet_amount: self.last_bet,
+                },);
             }
 
             if player.chips + player.bet > self.last_bet
                 && self.last_bet > Chips::ZERO
                 && player.chips > Chips::ZERO
             {
-                actions.push(PlayerAction::Raise {bet_amount: self.last_bet},);
+                actions.push(PlayerAction::Raise {
+                    bet_amount: self.last_bet,
+                },);
             }
 
             player.action_timer = Some(0,);
