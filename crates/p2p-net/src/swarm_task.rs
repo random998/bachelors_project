@@ -97,8 +97,10 @@ pub fn new(
     }
 
     // mpsc pipes ---------------------------------------------------
-    let (from_game_to_swarm_tx, mut from_game_to_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
-    let (from_swarm_to_game_tx, from_swarm_to_game_rx,) = mpsc::channel::<SignedMessage,>(64,);
+    let (from_game_to_swarm_tx, mut from_game_to_swarm_rx,) =
+        mpsc::channel::<SignedMessage,>(64,);
+    let (from_swarm_to_game_tx, from_swarm_to_game_rx,) =
+        mpsc::channel::<SignedMessage,>(64,);
 
     if swarm.listeners().count() > 0 {
         info!(

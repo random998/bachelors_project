@@ -1,7 +1,5 @@
 use std::fmt;
-use std::fmt::Formatter;
-use std::fmt::Display;
-use std::fmt::Write;
+use std::fmt::{Display, Formatter, Write};
 use std::sync::Arc;
 
 /// Type definitions for p2p messages.
@@ -91,11 +89,16 @@ impl NetworkMessage {
     // Returns a label of the message variant as a string.
     #[must_use]
     pub fn label(&self,) -> String {
-        let str = match self {
-            Self::ProtocolEntry(logentry)=> format!("ProtocolEntry: {}", logentry.payload.label().to_string()),
+        
+        match self {
+            Self::ProtocolEntry(logentry,) => {
+                format!(
+                    "ProtocolEntry: {}",
+                    logentry.payload.label()
+                )
+            },
             Self::NewListenAddr { .. } => "NewListenAddr".to_string(),
-        };
-        str
+        }
     }
 }
 
