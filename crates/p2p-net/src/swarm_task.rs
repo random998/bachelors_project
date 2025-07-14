@@ -144,7 +144,7 @@ pub fn new(
                     SwarmEvent::NewListenAddr { listener_id,address }
                     => {
                         let msg = NetworkMessage::NewListenAddr {listener_id: listener_id.to_string(), multiaddr: address};
-                        let smsg = SignedMessage::new(&keypair.clone(), msg); 
+                        let smsg = SignedMessage::new(&keypair.clone(), msg);
                         let _ = from_swarm_event_tx.send(smsg).await;
                     }
                     _ => {
