@@ -97,10 +97,8 @@ pub fn new(
     }
 
     // mpsc pipes ---------------------------------------------------
-    let (to_swarm_tx, mut to_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
-    let (from_swarm_tx, from_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
-    let (from_swarm_event_tx, from_swarm_event_rx,) =
-        mpsc::channel::<SignedMessage,>(64,);
+    let (from_game_to_swarm_tx, mut from_game_to_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
+    let (from_swarm_to_game_tx, from_swarm_to_game_rx,) = mpsc::channel::<SignedMessage,>(64,);
 
     if swarm.listeners().count() > 0 {
         info!(
@@ -115,8 +113,8 @@ pub fn new(
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                /* outbound messages from game → swarm -------------- */
-                Some(signed_msg) = to_swarm_rx.recv() => {
+                /* outbound messages from game → swarm network -------------- */
+                Some(signed_msg) = from_game_to_swarm_rx.recv() => {
                     // convert the typed message into bytes just before publish
                     let bytes = match bincode::serialize::<SignedMessage>(&signed_msg) {
                        Ok(b)=> b,
@@ -129,14 +127,14 @@ pub fn new(
                     }
                 }
 
-                /* inbound network events → game ---------------------- */
+                /* swarm network → game ---------------------- */
                 event = swarm.select_next_some()
                 => match event {
                     SwarmEvent::Behaviour(
                         BehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. })
                     ) => {
                         if let Ok(msg) = bincode::deserialize::<SignedMessage>(&message.data) {
-                            let _ = from_swarm_tx.send(msg).await;
+                            let _ = from_swarm_to_game_tx.send(msg).await;
                         } else {
                             warn!("{peer_id} failed to deserialize message");
                         }
@@ -145,7 +143,7 @@ pub fn new(
                     => {
                         let msg = NetworkMessage::NewListenAddr {listener_id: listener_id.to_string(), multiaddr: address};
                         let smsg = SignedMessage::new(&keypair.clone(), msg);
-                        let _ = from_swarm_event_tx.send(smsg).await;
+                        let _ = from_swarm_to_game_tx.send(smsg).await;
                     }
                     _ => {
                     }       // ignore everything else
@@ -157,10 +155,10 @@ pub fn new(
     // return the transport handle ---------------------------------
     P2pTransport {
         tx: P2pTx {
-            sender: to_swarm_tx,
+            network_msg_sender: from_game_to_swarm_tx,
         },
         rx: P2pRx {
-            network_msg_receiver: from_swarm_event_rx,
+            network_msg_receiver: from_swarm_to_game_rx,
         },
     }
 }
