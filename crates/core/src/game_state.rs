@@ -15,17 +15,15 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
-
+use crate::connection_stats::ConnectionStats;
 use crate::crypto::{KeyPair, PeerId, SecretKey};
-use crate::message::{
-    HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage,
-};
+use crate::message::{HandPayoff, Message, PlayerAction, PlayerUpdate, SignedMessage};
 use crate::net::traits::P2pTransport;
 use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId}; /* per-player helper */
 use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 use crate::protocol::state as contract;
-
+use crate::zk::{Commitment, RangeProof};
 // ────────────────────────────────────────────────────────────────────────────
 //  Small helpers
 // ────────────────────────────────────────────────────────────────────────────
@@ -132,7 +130,7 @@ impl PlayerPrivate {
         self.action = PlayerAction::Fold;
     }
 
-    pub fn place_bet(&mut self, action: PlayerAction, total_bet: Chips,) {
+    pub fn place_bet(&mut self, total_bet: Chips, action: PlayerAction) {
         let required = total_bet - self.bet;
         let actual_bet = required.min(self.chips,);
 
@@ -196,7 +194,6 @@ impl fmt::Display for HandPhase {
 /// enriched with peer–local convenience data.
 ///
 /// Most of it is what you already have in `InternalTableState`.
-#[derive(Debug,)]
 pub struct Projection {
     // 1. Canonical data – always equals contract after replay
     pub table_id:     TableId,
@@ -214,11 +211,8 @@ pub struct Projection {
     // 2. Peer-local “soft” state – NOT part of consensus
 
     pub rng:             StdRng, // used only when *we* deal
-    pub ui_action_req:   Option<ActionRequest,>,
-    pub timers:          Timers, // fold countdowns etc.
     pub listen_addr:     Option<Multiaddr,>,
     pub connection_info: ConnectionStats, // bytes/sec graphs, peer RTT …
-    pub my_hole_cards:   Option<(Card, Card,),>,
 
     // networking ----------------------------------------------------------
     pub connection: P2pTransport,
@@ -245,57 +239,83 @@ pub struct Projection {
 }
 
 impl Projection {
-    pub fn apply(&mut self, msg: &WireMsg,) {
+    pub fn apply(&mut self, msg: &WireMsg) {
         use WireMsg::*;
+        use crate::message::PlayerAction as Act;   // local alias
         match msg {
-            JoinTableReq {
-                player_id,
-                nickname,
-                chips,
-                ..
-            } => {
-                self.players.add(PlayerPrivate::new(
-                    *player_id,
-                    nickname.clone(),
-                    *chips,
-                ),);
-            },
-            PlayerJoinedConf {
-                player_id,
-                chips,
-                seat_idx,
-                ..
-            } => {
-                self.players.update_chips(*player_id, *chips,);
-                self.players.set_seat(*player_id, *seat_idx,);
-            },
-            StartGameNotify {
-                seat_order, sb, bb,
-            ..
-            } => {
-                self.players.reseat(seat_order,);
+            //----------------------------------------------------------------
+            //  Lobby & seating messages
+            //----------------------------------------------------------------
+            JoinTableReq { player_id, nickname, chips, .. } => {
+            
+                self.players
+            .add(PlayerPrivate::new(*player_id, nickname.clone(), *chips));
+            }
+
+            PlayerJoinedConf { player_id, chips, seat_idx, .. } => {
+            self.players.update_chips(*player_id, *chips);
+            self.players.set_seat(*player_id, *seat_idx);
+            }
+
+            //----------------------------------------------------------------
+            //  Game-setup messages
+            //----------------------------------------------------------------
+            StartGameNotify { seat_order, sb, bb, .. } => {
+                self.players.reseat(seat_order);
                 self.small_blind = *sb;
-                self.big_blind = *bb;
-                self.phase = HandPhase::StartingGame;
-            },
-            DealCards {
-                player_id,
-                card1,
-                card2,
-                ..
-            } => {
-                if *player_id == self.players.me() {
-                    self.my_hole_cards = Some((*card1, *card2,),);
+                self.big_blind   = *bb;
+                self.phase       = HandPhase::StartingGame;
+            }
+
+            DealCards { player_id, card1, card2, .. } => {
+                if *player_id == self.peer_id() {
+                    if let Some(player) = self.players.get(&self.peer_id()) {
+                        player.hole_cards = PlayerCards::Cards(*card1, *card2)
+                    }
                 }
-            },
-            Bet {
-                player_id, amount, ..
-            } => {
-                self.players.place_bet(*player_id, *amount,);
-            },
-            Fold { player_id, .. } => {
-                self.players.fold(*player_id,);
-            },
+            }
+
+            //----------------------------------------------------------------
+            //  The *only* “player acted” message during a hand
+            //----------------------------------------------------------------
+            PlayerAction { peer_id, action, .. } => {
+                match action {
+                    // Bet and Raise both carry an explicit amount
+                    Act::Bet   { bet_amount }
+                    | Act::Raise { bet_amount } => {
+                        self.players.place_bet(*peer_id, *bet_amount, action.clone());
+                        self.last_bet = self.last_bet.max(*bet_amount);
+                    }
+
+                    // Call means: bring the player up to `last_bet`
+                    Act::Call => {
+                        self.players
+                        .place_bet(*peer_id, self.last_bet, action.clone());
+                    }
+
+                    // Check touches no chips
+                    Act::Check => { /* nothing to do */ }
+
+                    // Fold is just a flag on the player
+                    Act::Fold => {
+                        self.players.fold(*peer_id);
+                    }
+                    
+                    Act::BigBlind => {
+                        todo!()
+                    },
+                    
+                    Act::SmallBlind => {
+                        todo!()
+                    }
+                    
+                    Act::None => {}
+                }
+            }
+            //----------------------------------------------------------------
+            //  Everything else: ignore in the projection layer
+            //----------------------------------------------------------------
+            _ => { /* not relevant for the local snapshot */ }
         }
     }
 }
@@ -363,7 +383,6 @@ impl Projection {
 
 impl Projection {
     // — constructors —
-
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         table_id: TableId,
@@ -373,6 +392,7 @@ impl Projection {
         cb: impl FnMut(SignedMessage,) + Send + 'static,
     ) -> Self {
         Self {
+            connection_info: ConnectionStats::default(),
             has_joined_table: false,
             contract: Default::default(),
             hash_head: contract::hash_state(
@@ -403,7 +423,6 @@ impl Projection {
             new_hand_start_timer: None,
             new_hand_timeout: Duration::from_millis(1_000,),
             action_request: None,
-            listener_id: None,
             listen_addr: None,
         }
     }
@@ -512,7 +531,6 @@ impl Projection {
             multiaddr,
         } = m
         {
-            self.listener_id = Some(listener_id,);
             self.listen_addr = Some(multiaddr,);
         }
     }
@@ -615,7 +633,7 @@ impl Projection {
                 self.contract = contract::step(&self.contract, &entry.payload,)
                     .expect("contract step",);
                 self.hash_head = entry.clone().next_hash;
-                self.projection.apply(&entry.payload,);
+                self.apply(&entry.payload,);
             },
             other => warn!("unhandled msg in InternalTableState: {other}"),
         }
@@ -677,28 +695,28 @@ impl ActionRequest {
     /// Check if a call action is in the request.
     #[must_use]
     pub fn can_call(&self,) -> bool {
-        self.check_action(PlayerAction::Call,)
+        self.can_do_action(PlayerAction::Call,)
     }
 
     /// Check if a check action is in the request.
     #[must_use]
     pub fn can_check(&self,) -> bool {
-        self.check_action(PlayerAction::Check,)
+        self.can_do_action(PlayerAction::Check,)
     }
 
     /// Check if a bet action is in the request.
     #[must_use]
-    pub fn can_bet(&self,) -> bool {
-        self.check_action(PlayerAction::Bet,)
+    pub fn can_bet(&self, amount: Chips) -> bool {
+        self.can_do_action(PlayerAction::Bet {bet_amount: amount},)
     }
 
     /// Check if a raise action is in the request.
     #[must_use]
-    pub fn can_raise(&self,) -> bool {
-        self.check_action(PlayerAction::Raise,)
+    pub fn can_raise(&self, amount: Chips) -> bool {
+        self.can_do_action(PlayerAction::Raise{ bet_amount: amount},)
     }
 
-    fn check_action(&self, action: PlayerAction,) -> bool {
+    fn can_do_action(&self, action: PlayerAction,) -> bool {
         self.actions.iter().any(|a| a == &action,)
     }
 }
@@ -913,12 +931,12 @@ impl Projection {
 
         // Pay small and big blind.
         if let Some(p,) = &mut self.active_player {
-            p.place_bet(PlayerAction::SmallBlind, self.small_blind,);
+            p.place_bet(self.small_blind, PlayerAction::SmallBlind);
         }
 
         // Pay small and big blind.
         if let Some(p,) = &mut self.active_player {
-            p.place_bet(PlayerAction::BigBlind, self.big_blind,);
+            p.place_bet(self.big_blind, PlayerAction::BigBlind);
         }
 
         self.last_bet = self.big_blind;
@@ -1352,14 +1370,14 @@ impl Projection {
             }
 
             if self.last_bet == Chips::ZERO && player.chips > Chips::ZERO {
-                actions.push(PlayerAction::Bet,);
+                actions.push(PlayerAction::Bet {bet_amount:self.last_bet} ,);
             }
 
             if player.chips + player.bet > self.last_bet
                 && self.last_bet > Chips::ZERO
                 && player.chips > Chips::ZERO
             {
-                actions.push(PlayerAction::Raise,);
+                actions.push(PlayerAction::Raise {bet_amount: self.last_bet},);
             }
 
             player.action_timer = Some(0,);

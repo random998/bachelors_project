@@ -99,7 +99,7 @@ pub enum WireMsg {
     PlayerAction {
         table:       TableId,
         game_id:     GameId,
-        player_id:   PeerId,
+        peer_id:   PeerId,
         action:      PlayerAction,
         bet_commit:  Commitment,
         range_proof: RangeProof,
