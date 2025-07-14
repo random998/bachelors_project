@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use ahash::AHashSet;
 use libp2p::Multiaddr;
-use log::{info, warn};
+use log::{error, info, warn};
 use poker_eval::HandValue;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
@@ -543,7 +543,27 @@ impl Projection {
     }
 
     pub async fn handle_ui_msg(&mut self, msg: UiCmd,) {
-        todo!()
+        match msg {
+            UiCmd::PlayerJoinTableRequest {
+                table_id,
+                peer_id: peer_id,
+                nickname,
+                chips,
+            } => {
+                if table_id == self.table_id && peer_id == self.peer_id() {
+                    let wiremsg = WireMsg::JoinTableReq {
+                        table: table_id,
+                        player_id: peer_id,
+                        nickname: nickname,
+                        chips,
+                    };
+                    let _ = self.sign_and_send(wiremsg);
+                }
+            }
+            _ => {
+                error!("handling of ui msg {} not implemented yet", msg);
+            }
+        }
     }
 
     #[must_use]

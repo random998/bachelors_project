@@ -117,7 +117,7 @@ impl View for AccountView {
                         let table_id: TableId = app.snapshot().table_id;
                         let join = UiCmd::PlayerJoinTableRequest {
                             table_id,
-                            player_id: self.player_id,
+                            peer_id: self.player_id,
                             nickname: self.nickname.clone(),
                             chips: self.chips,
                         };
