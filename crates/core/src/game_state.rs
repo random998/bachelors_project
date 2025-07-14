@@ -558,6 +558,7 @@ impl Projection {
                         nickname,
                         chips,
                     };
+                    self.has_joined_table = true;
                     let _ = self.sign_and_send(wiremsg,);
                 }
             },
