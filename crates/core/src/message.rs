@@ -228,9 +228,13 @@ pub enum PlayerAction {
     /// Player checks.
     Check,
     /// Player bets.
-    Bet,
+    Bet {
+        bet_amount: Chips,
+    },
     /// Player raises.
-    Raise,
+    Raise {
+        bet_amount: Chips,
+    },
     /// Player folds.
     Fold,
 }
@@ -244,8 +248,8 @@ impl PlayerAction {
             Self::BigBlind => "BB",
             Self::Call => "CALL",
             Self::Check => "CHECK",
-            Self::Bet => "BET",
-            Self::Raise => "RAISE",
+            Self::Bet {..} => "BET",
+            Self::Raise {..} => "RAISE",
             Self::Fold => "FOLD",
             Self::None => "",
         }
@@ -347,7 +351,6 @@ mod tests {
     fn signed_message() {
         let key_pair = KeyPair::default();
         let public_key = key_pair.public();
-        let secret_key = key_pair.secret();
         let peer_id = public_key.to_peer_id();
         let chips = Chips::default();
         let message = Message::PlayerJoinTableRequest {

@@ -580,7 +580,7 @@ impl GameView {
                 Self::paint_border(ui, &btn_rect,);
 
                 let label = match action {
-                    PlayerAction::Bet | PlayerAction::Raise
+                    PlayerAction::Bet {..}| PlayerAction::Raise{..}
                         if self.bet_params.is_some() =>
                     {
                         // Set the label for bet and raise to confirm if betting
@@ -613,7 +613,7 @@ impl GameView {
                             break;
                         }
                     },
-                    PlayerAction::Bet | PlayerAction::Raise => {
+                    PlayerAction::Bet {.. } | PlayerAction::Raise {..} => {
                         if ui.input(|i| i.key_pressed(Key::Enter,),) || clicked
                         {
                             if let Some(params,) = &self.bet_params {
