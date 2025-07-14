@@ -23,7 +23,11 @@ use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId}; /* per-player helper */
 use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 use crate::protocol::state as contract;
+use crate::protocol::state::{ContractState, GENESIS_HASH};
 use crate::zk::{Commitment, RangeProof};
+
+
+
 // ────────────────────────────────────────────────────────────────────────────
 //  Small helpers
 // ────────────────────────────────────────────────────────────────────────────
@@ -234,88 +238,38 @@ pub struct Projection {
     new_hand_timeout:     Duration,
 
     // crypto --------------------------------------------------------------
-    contract:  contract::ContractState,
+    contract:  ContractState,
     hash_head: Hash,
+
 }
 
 impl Projection {
     pub fn apply(&mut self, msg: &WireMsg) {
-        use WireMsg::*;
-        use crate::message::PlayerAction as Act;   // local alias
         match msg {
-            //----------------------------------------------------------------
-            //  Lobby & seating messages
-            //----------------------------------------------------------------
-            JoinTableReq { player_id, nickname, chips, .. } => {
-            
-                self.players
-            .add(PlayerPrivate::new(*player_id, nickname.clone(), *chips));
+            WireMsg::JoinTableReq { player_id, nickname, chips, .. } => {
+                self.players.add(PlayerPrivate::new(*player_id, nickname.clone(), *chips));
             }
-
-            PlayerJoinedConf { player_id, chips, seat_idx, .. } => {
-            self.players.update_chips(*player_id, *chips);
-            self.players.set_seat(*player_id, *seat_idx);
+            WireMsg::PlayerJoinedConf { player_id, chips, seat_idx, .. } => {
+                self.players.update_chips(*player_id, *chips);
+                self.players.set_seat(*player_id, *seat_idx);
             }
-
-            //----------------------------------------------------------------
-            //  Game-setup messages
-            //----------------------------------------------------------------
-            StartGameNotify { seat_order, sb, bb, .. } => {
+            WireMsg::StartGameNotify { seat_order, sb, bb, .. } => {
                 self.players.reseat(seat_order);
                 self.small_blind = *sb;
                 self.big_blind   = *bb;
                 self.phase       = HandPhase::StartingGame;
             }
-
-            DealCards { player_id, card1, card2, .. } => {
-                if *player_id == self.peer_id() {
-                    if let Some(player) = self.players.get(&self.peer_id()) {
-                        player.hole_cards = PlayerCards::Cards(*card1, *card2)
-                    }
-                }
+            WireMsg::DealCards { player_id, card1, card2, .. } if *player_id == self.peer_id() => {
+                self.players.get_mut(&self.peer_id()).unwrap().hole_cards = PlayerCards::Cards(*card1, *card2);
             }
-
-            //----------------------------------------------------------------
-            //  The *only* “player acted” message during a hand
-            //----------------------------------------------------------------
-            PlayerAction { peer_id, action, .. } => {
-                match action {
-                    // Bet and Raise both carry an explicit amount
-                    Act::Bet   { bet_amount }
-                    | Act::Raise { bet_amount } => {
-                        self.players.place_bet(*peer_id, *bet_amount, action.clone());
-                        self.last_bet = self.last_bet.max(*bet_amount);
-                    }
-
-                    // Call means: bring the player up to `last_bet`
-                    Act::Call => {
-                        self.players
-                        .place_bet(*peer_id, self.last_bet, action.clone());
-                    }
-
-                    // Check touches no chips
-                    Act::Check => { /* nothing to do */ }
-
-                    // Fold is just a flag on the player
-                    Act::Fold => {
-                        self.players.fold(*peer_id);
-                    }
-                    
-                    Act::BigBlind => {
-                        todo!()
-                    },
-                    
-                    Act::SmallBlind => {
-                        todo!()
-                    }
-                    
-                    Act::None => {}
-                }
-            }
-            //----------------------------------------------------------------
-            //  Everything else: ignore in the projection layer
-            //----------------------------------------------------------------
-            _ => { /* not relevant for the local snapshot */ }
+            WireMsg::PlayerAction { peer_id, action, .. } => match action {
+                PlayerAction::Bet { bet_amount } =>
+                    self.players.place_bet(*peer_id, *bet_amount, action.clone()),
+                PlayerAction::Fold =>
+                    self.players.fold(*peer_id),
+                _ => {}
+            },
+            _ => {}
         }
     }
 }
@@ -395,9 +349,7 @@ impl Projection {
             connection_info: ConnectionStats::default(),
             has_joined_table: false,
             contract: Default::default(),
-            hash_head: contract::hash_state(
-                &contract::ContractState::default(),
-            ),
+            hash_head: GENESIS_HASH.clone(), 
             game_started: false,
             hand_count: 0,
             min_raise: Chips::ZERO,
