@@ -1,4 +1,5 @@
 use std::fmt;
+use std::fmt::{Formatter, Write};
 use std::sync::Arc;
 
 /// Type definitions for p2p messages.
@@ -44,6 +45,7 @@ pub enum UiEvent {
 }
 
 /// Sent from egui/iced/etc. into the Tokio task driving Projection.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum UiCmd {
     Connect {
         nickname: String,
@@ -63,11 +65,26 @@ pub enum UiCmd {
     },
     PlayerJoinTableRequest {
         table_id:  TableId,
-        player_id: PeerId,
+        peer_id: PeerId,
         nickname:  String,
         chips:     Chips,
     },
 }
+impl fmt::Display for UiCmd {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let str = match self {
+            UiCmd::Connect { .. } => {"connect"}
+            UiCmd::SeatRequest {  .. } => {"seat"}
+            UiCmd::LeaveTable => "leave_table",
+            UiCmd::Action { .. } => "action",
+            UiCmd::ToggleReady => "toggle_ready",
+            UiCmd::Chat { .. } => "chat",
+            UiCmd::PlayerJoinTableRequest { .. } => "player_join_table_request",
+        };
+        write!(f, "{}", str)
+    }
+}
+
 
 impl NetworkMessage {
     // Returns a label of the message variant as a string.
@@ -81,7 +98,7 @@ impl NetworkMessage {
 }
 
 impl fmt::Display for NetworkMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
         self.label().fmt(f,)
     }
 }
@@ -219,7 +236,7 @@ impl SignedMessage {
 }
 
 impl fmt::Display for SignedMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
         write!(f, "{}", self.message().label())
     }
 }

@@ -112,7 +112,7 @@ impl View for ConnectView {
                         self.game_state.nickname = self.nickname.clone();
                         let msg = UiCmd::PlayerJoinTableRequest {
                             table_id:  self.game_state.table_id,
-                            player_id: self.player_id(),
+                            peer_id: self.player_id(),
                             nickname:  self.nickname.clone(),
                             chips:     self.chips,
                         };
