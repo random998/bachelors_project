@@ -45,7 +45,7 @@ pub enum UiEvent {
 }
 
 /// Sent from egui/iced/etc. into the Tokio task driving Projection.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
 pub enum UiCmd {
     Connect {
         nickname: String,
@@ -64,27 +64,26 @@ pub enum UiCmd {
         text: String,
     },
     PlayerJoinTableRequest {
-        table_id:  TableId,
-        peer_id: PeerId,
-        nickname:  String,
-        chips:     Chips,
+        table_id: TableId,
+        peer_id:  PeerId,
+        nickname: String,
+        chips:    Chips,
     },
 }
 impl fmt::Display for UiCmd {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
         let str = match self {
-            UiCmd::Connect { .. } => {"connect"}
-            UiCmd::SeatRequest {  .. } => {"seat"}
-            UiCmd::LeaveTable => "leave_table",
-            UiCmd::Action { .. } => "action",
-            UiCmd::ToggleReady => "toggle_ready",
-            UiCmd::Chat { .. } => "chat",
-            UiCmd::PlayerJoinTableRequest { .. } => "player_join_table_request",
+            Self::Connect { .. } => "connect",
+            Self::SeatRequest { .. } => "seat",
+            Self::LeaveTable => "leave_table",
+            Self::Action { .. } => "action",
+            Self::ToggleReady => "toggle_ready",
+            Self::Chat { .. } => "chat",
+            Self::PlayerJoinTableRequest { .. } => "player_join_table_request",
         };
-        write!(f, "{}", str)
+        write!(f, "{str}")
     }
 }
-
 
 impl NetworkMessage {
     // Returns a label of the message variant as a string.
