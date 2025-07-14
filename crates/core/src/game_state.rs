@@ -29,9 +29,6 @@ use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 use crate::protocol::state as contract;
 use crate::protocol::state::{ContractState, GENESIS_HASH};
 
-// ────────────────────────────────────────────────────────────────────────────
-//  Small helpers
-// ────────────────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize,)]
 pub struct Pot {
@@ -531,6 +528,7 @@ impl Projection {
             },
         }
     }
+
 
     async fn check_and_apply(&mut self, entry: &LogEntry,) {
         info!("updating local state...");
