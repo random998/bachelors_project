@@ -2,7 +2,7 @@ use anyhow::{Error, Result, anyhow};
 use async_trait::async_trait;
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::message::{Message, SignedMessage};
+use crate::message::{NetworkMessage, SignedMessage};
 
 #[async_trait]
 pub trait NetTx: Send + Sync {
@@ -35,7 +35,7 @@ impl P2pTransport {
     pub async fn new(
         sender: Sender<SignedMessage,>,
         receiver: Receiver<SignedMessage,>,
-        event_receiver: Receiver<Message,>,
+        event_receiver: Receiver<NetworkMessage,>,
     ) -> Self {
         Self {
             tx: P2pTx { sender, },
@@ -57,7 +57,7 @@ pub struct P2pTx {
 #[derive(Debug,)]
 pub struct P2pRx {
     pub receiver:       Receiver<SignedMessage,>,
-    pub event_receiver: Receiver<Message,>,
+    pub event_receiver: Receiver<NetworkMessage,>,
 }
 
 /// ------------- NetTx implementation -----------------

@@ -1,5 +1,3 @@
-// crates/gui/src/gui.rs
-//
 //  Top-level GUI glue (egui + our App model)
 
 use std::clone::Clone;
@@ -14,7 +12,7 @@ use p2p_net::runtime_bridge::UiHandle; // ← the two channels & runtime
 use poker_cards::egui::Textures;
 use poker_core::crypto::{KeyPair, PeerId};
 use poker_core::game_state::GameState;
-use poker_core::message::{Message, SignedMessage};
+use poker_core::message::{UiCmd, UiEvent};
 use poker_core::poker::TableId;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
@@ -65,22 +63,24 @@ pub struct App {
     key_pair:     KeyPair,
 
     // runtime ↔ GUI channels
-    cmd_tx:        mpsc::Sender<SignedMessage,>, // GUI ➜ runtime
-    msg_rx:        mpsc::Receiver<SignedMessage,>, // runtime ➜ GUI
+    cmd_tx:        mpsc::Sender<UiCmd,>, // GUI ➜ runtime
+    msg_rx:        mpsc::Receiver<UiEvent,>, // runtime ➜ GUI
     _rt:           Arc<Runtime,>,                // keep Tokio alive!
-    game_state_rx: mpsc::Receiver<GameState,>,   // gamestate snapshots
 
     // latest immutable snapshot
-    game_state: GameState,
+    pub game_state: GameState,
 }
 
 impl App {
     const STORAGE_KEY: &'static str = "appdata";
 
     pub fn update(&mut self,) {
-        if let Ok(res,) = self.game_state_rx.try_recv() {
-            self.game_state = res;
+        if let Ok(res,) = self.msg_rx.try_recv() {
+            if let UiEvent::Snapshot(gs) = res {
+                self.game_state = gs;
+            }
         }
+        // TODO: handle remaining UIEvent messages. 
     }
 
     #[must_use]
@@ -96,7 +96,6 @@ impl App {
             cmd_tx: ui.cmd_tx.clone(),
             msg_rx: ui.msg_rx, // we *move* the receiver
             _rt: ui._rt,       // keep the runtime alive
-            game_state_rx: ui.state_rx,
             player_id: state.player_id,
             nickname: String::new(),
             game_state: state,
@@ -106,7 +105,7 @@ impl App {
     // ----------- message plumbing --------------------------------
 
     /// non-blocking pull from the runtime ➜ GUI channel
-    pub fn try_recv(&mut self,) -> Option<SignedMessage,> {
+    pub fn try_recv_event(&mut self,) -> Option<UiEvent,> {
         match self.msg_rx.try_recv() {
             Ok(m,) => Some(m,),
             Err(TryRecvError::Empty,) => None,
@@ -117,13 +116,12 @@ impl App {
         }
     }
 
-    /// sign locally & push to runtime
-    pub fn sign_and_send(
+    /// UI -> runtime 
+    pub fn send_cmd_to_engine(
         &self,
-        msg: Message,
-    ) -> Result<(), TrySendError<SignedMessage,>,> {
-        let signed = SignedMessage::new(&self.key_pair, msg,);
-        self.cmd_tx.try_send(signed,)
+        msg: UiCmd,
+    ) -> Result<(), TrySendError<UiCmd,>,> {
+        self.cmd_tx.try_send(msg,)
     }
 
     // ------------- helpers exposed to views ----------------------
@@ -228,7 +226,7 @@ impl AppFrame {
             key_pair,
         );
         let panel =
-            Box::new(ConnectView::new(cc.storage, &app, app.key_pair(),),);
+            Box::new(ConnectView::new(&app,),);
         Self { app, panel, }
     }
 }

@@ -119,12 +119,12 @@ impl PlayerStateObjects {
         self.players.push(p,);
     }
 
-    pub fn get(&mut self, id: &PeerId,) -> Option<&mut PlayerPrivate,> {
+    pub fn get_mut(&mut self, id: &PeerId,) -> Option<&mut PlayerPrivate,> {
         self.players.iter_mut().find(|p| p.peer_id == *id,)
     }
 
-    pub fn get_mut(&mut self, id: &PeerId,) -> Option<&mut PlayerPrivate,> {
-        self.players.iter_mut().find(|p| &p.peer_id == id,)
+    pub fn get(&self, id: &PeerId,) -> Option<&PlayerPrivate,> {
+        self.players.iter().find(|p| &p.peer_id == id,)
     }
 
     pub fn remove(&mut self, id: &PeerId,) -> Option<PlayerPrivate,> {
