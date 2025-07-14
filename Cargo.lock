@@ -4646,6 +4646,7 @@ dependencies = [
  "libp2p",
  "libp2p-identity",
  "log",
+ "once_cell",
  "poker-cards",
  "poker-eval",
  "rand 0.9.1",
