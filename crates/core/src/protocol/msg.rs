@@ -24,9 +24,15 @@ pub struct Hash(pub blake3::Hash,);
 
 impl std::fmt::Display for Hash {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.write_str(self.to_string().as_str())
+        f.write_str(&self.to_hex_str())
     }
-    
+
+}
+
+impl Hash {
+    pub fn to_hex_str(&self) -> String {
+        self.0.to_hex().to_string()
+    }
 }
 
 impl Serialize for Hash {
