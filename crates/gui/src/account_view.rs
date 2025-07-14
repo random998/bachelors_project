@@ -11,7 +11,7 @@ use eframe::egui::{
 use log::warn;
 use poker_core::crypto::PeerId;
 use poker_core::game_state::GameState;
-use poker_core::message::{UiCmd, NetworkMessage};
+use poker_core::message::UiCmd;
 use poker_core::poker::{Chips, TableId};
 
 use crate::{App, ConnectView, GameView, View};
@@ -145,9 +145,7 @@ impl View for AccountView {
         app: &mut App,
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {
-            Some(Box::new(ConnectView::new(
-                app,
-            ),),)
+            Some(Box::new(ConnectView::new(app,),),)
         } else if self.game_state.has_joined_server {
             let empty_state = GameState::default();
             Some(Box::new(GameView::new(
