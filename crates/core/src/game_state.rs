@@ -499,7 +499,7 @@ impl Projection {
     }
 
     // — dispatcher called by runtime for every inbound network msg —
-    pub async fn handle_peer_msg(&mut self, sm: SignedMessage,) {
+    pub async fn handle_network_msg(&mut self, sm: SignedMessage,) {
         info!(
             "internal table state of peer {} handling message with label {:?} sent from peer {}",
             self.peer_id(),
@@ -520,7 +520,12 @@ impl Projection {
                 self.hash_head = entry.clone().next_hash;
                 self.apply(&entry.payload,);
             },
-            other => warn!("unhandled msg in InternalTableState: {other}"),
+            NetworkMessage::NewListenAddr {
+                listener_id: _listener_id,
+                multiaddr,
+            } => {
+                self.listen_addr = Some(multiaddr.clone());
+            }
         }
     }
 

@@ -74,7 +74,7 @@ pub fn start(
 
             // b) network → engine
             while let Ok(msg,) = eng.try_recv() {
-                eng.handle_peer_msg(msg,).await;
+                eng.handle_network_msg(msg,).await;
             }
 
             // c) timers
