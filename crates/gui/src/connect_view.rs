@@ -107,16 +107,16 @@ impl View for ConnectView {
                         if self.nickname.trim().is_empty() {
                             self.error = "Invalid nickname".to_string();
                         }
-                        
+
                         self.game_state.nickname = self.nickname.clone();
                         let msg = UiCmd::PlayerJoinTableRequest {
-                            table_id: self.game_state.table_id,
+                            table_id:  self.game_state.table_id,
                             player_id: self.player_id(),
-                            nickname: self.nickname.clone(),
-                            chips: self.chips(),
+                            nickname:  self.nickname.clone(),
+                            chips:     self.chips(),
                         };
-                        
-                        let _ = app.send_cmd_to_engine(msg);
+
+                        let _ = app.send_cmd_to_engine(msg,);
                     }
                 },);
             },);

@@ -21,7 +21,8 @@ impl Timers {
     }
 
     /// Returns the list of players whose deadline has expired *right now*
-    #[must_use] pub fn expired(&self,) -> Vec<PeerId,> {
+    #[must_use]
+    pub fn expired(&self,) -> Vec<PeerId,> {
         let now = Instant::now();
         self.deadlines
             .iter()
