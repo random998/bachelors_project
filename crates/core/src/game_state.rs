@@ -257,6 +257,7 @@ impl Projection {
                     nickname.clone(),
                     *chips,
                 ),);
+                self.has_joined_table = true;
             },
             WireMsg::PlayerJoinedConf {
                 player_id,
