@@ -16,6 +16,18 @@ pub enum Phase {
     Ready,
 }
 
+/// Pure transition result
+pub struct StepResult {
+    pub next:   ContractState,
+    pub effects: Vec<Effect>,   // <-- new
+}
+
+/// Things that _should_ be sent after the state is committed
+#[derive(Clone, Serialize, Deserialize)]
+pub enum Effect {
+    Send(WireMsg),
+}
+
 #[derive(Clone, Serialize, Deserialize, Default,)]
 pub struct PlayerFlags {
     pub notified: bool,
@@ -67,6 +79,19 @@ pub fn step(
                 st.phase = Phase::Ready;
             } else {
                 st.phase = Phase::Starting;
+            }
+        },
+        WireMsg::JoinTableReq { player_id, .. } => {
+            st.players.insert(*player_id, PlayerFlags{ notified:false });
+
+            // ↯ If _I_ am not yet in the table, queue my own Join request
+            if !st.players.contains_key(&self.p) {
+                st.effects.push(Effect::Send(WireMsg::JoinTableReq {
+                    table: *table,
+                    player_id: my_peer_id,
+                    nickname: my_nick.clone(),
+                    chips: my_chips,
+                }));
             }
         },
         _ => {}, // ignore others for now
