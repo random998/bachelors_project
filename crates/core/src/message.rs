@@ -1,5 +1,7 @@
 use std::fmt;
-use std::fmt::{Formatter, Write};
+use std::fmt::Formatter;
+use std::fmt::Display;
+use std::fmt::Write;
 use std::sync::Arc;
 
 /// Type definitions for p2p messages.
@@ -70,7 +72,7 @@ pub enum UiCmd {
         chips:    Chips,
     },
 }
-impl fmt::Display for UiCmd {
+impl Display for UiCmd {
     fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
         let str = match self {
             Self::Connect { .. } => "connect",
@@ -88,15 +90,16 @@ impl fmt::Display for UiCmd {
 impl NetworkMessage {
     // Returns a label of the message variant as a string.
     #[must_use]
-    pub const fn label(&self,) -> &'static str {
-        match self {
-            Self::ProtocolEntry { .. } => "ProtocolEntry",
-            Self::NewListenAddr { .. } => "NewListenAddr",
-        }
+    pub fn label(&self,) -> String {
+        let str = match self {
+            Self::ProtocolEntry(logentry)=> format!("ProtocolEntry: {}", logentry.payload.label().to_string()),
+            Self::NewListenAddr { .. } => "NewListenAddr".to_string(),
+        };
+        str
     }
 }
 
-impl fmt::Display for NetworkMessage {
+impl Display for NetworkMessage {
     fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
         self.label().fmt(f,)
     }
@@ -234,7 +237,7 @@ impl SignedMessage {
     }
 }
 
-impl fmt::Display for SignedMessage {
+impl Display for SignedMessage {
     fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
         write!(f, "{}", self.message().label())
     }
