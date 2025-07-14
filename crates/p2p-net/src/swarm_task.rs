@@ -64,7 +64,7 @@ pub fn new(
     };
 
     let mut swarm = SwarmBuilder::with_existing_identity(
-        libp2p_identity::Keypair::from(keypair.0,),
+        libp2p_identity::Keypair::from(keypair.clone().0,),
     )
     .with_tokio() // runtime
     .with_tcp(
@@ -100,7 +100,7 @@ pub fn new(
     let (to_swarm_tx, mut to_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
     let (from_swarm_tx, from_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
     let (from_swarm_event_tx, from_swarm_event_rx,) =
-        mpsc::channel::<NetworkMessage,>(64,);
+        mpsc::channel::<SignedMessage,>(64,);
 
     if swarm.listeners().count() > 0 {
         info!(
@@ -129,7 +129,7 @@ pub fn new(
                     }
                 }
 
-                /* inbound swarm events → game ---------------------- */
+                /* inbound network events → game ---------------------- */
                 event = swarm.select_next_some()
                 => match event {
                     SwarmEvent::Behaviour(
@@ -144,7 +144,8 @@ pub fn new(
                     SwarmEvent::NewListenAddr { listener_id,address }
                     => {
                         let msg = NetworkMessage::NewListenAddr {listener_id: listener_id.to_string(), multiaddr: address};
-                        let _ = from_swarm_event_tx.send(msg).await;
+                        let smsg = SignedMessage::new(&keypair.clone(), msg); 
+                        let _ = from_swarm_event_tx.send(smsg).await;
                     }
                     _ => {
                     }       // ignore everything else
@@ -159,8 +160,7 @@ pub fn new(
             sender: to_swarm_tx,
         },
         rx: P2pRx {
-            receiver:       from_swarm_rx,
-            event_receiver: from_swarm_event_rx,
+            network_msg_receiver: from_swarm_event_rx,
         },
     }
 }

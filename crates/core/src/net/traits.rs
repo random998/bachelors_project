@@ -1,8 +1,8 @@
-use anyhow::{Error, Result, anyhow};
+use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::message::{NetworkMessage, SignedMessage};
+use crate::message::SignedMessage;
 
 #[async_trait]
 pub trait NetTx: Send + Sync {
@@ -35,13 +35,11 @@ impl P2pTransport {
     pub async fn new(
         sender: Sender<SignedMessage,>,
         receiver: Receiver<SignedMessage,>,
-        event_receiver: Receiver<NetworkMessage,>,
     ) -> Self {
         Self {
             tx: P2pTx { sender, },
             rx: P2pRx {
-                receiver,
-                event_receiver,
+                network_msg_receiver: receiver,
             },
         }
     }
@@ -56,8 +54,7 @@ pub struct P2pTx {
 /// Inbound half
 #[derive(Debug,)]
 pub struct P2pRx {
-    pub receiver:       Receiver<SignedMessage,>,
-    pub event_receiver: Receiver<NetworkMessage,>,
+    pub network_msg_receiver: Receiver<SignedMessage,>,
 }
 
 /// ------------- NetTx implementation -----------------
@@ -75,9 +72,9 @@ impl NetTx for P2pTx {
 #[async_trait]
 impl NetRx for P2pRx {
     async fn try_recv(&mut self,) -> Result<SignedMessage,> {
-        match self.receiver.recv().await {
+        match self.network_msg_receiver.recv().await {
             Some(msg,) => Ok(msg,),
-            None => Err(anyhow!("P2pRx closed"),),
+            _err => Err(anyhow!("{:?}", self)),
         }
     }
 }

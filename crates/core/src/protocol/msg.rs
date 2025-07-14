@@ -134,3 +134,25 @@ pub enum WireMsg {
     },
     Ping,
 }
+
+impl WireMsg {
+    pub fn label(&self) -> String {
+        match self {
+            WireMsg::JoinTableReq{..} => "JoinTableReq".to_string(),
+            WireMsg::PlayerJoinedConf{..} => "PlayerJoinedConf".to_string(),
+            WireMsg::LeaveTable{..} => "LeaveTable".to_string(),
+            WireMsg::StartGameNotify{..} => "StartGameNotify".to_string(),
+            WireMsg::ShuffleCommit {..} => "ShuffleCommit".to_string(),
+            WireMsg::ActionRequest {..} => "ActionRequest".to_string(),
+            WireMsg::PlayerAction{..} => "PlayerAction".to_string(),
+            WireMsg::TimeoutFold {..} => "TimeoutFold".to_string(),
+            WireMsg::RevealCards{..} => "RevealCards".to_string(),
+            WireMsg::EndHand{..} => "EndHand".to_string(),
+            WireMsg::EndGame{..} => "EndGame".to_string(),
+            WireMsg::Throttle{..} => "Throttle".to_string(),
+            WireMsg::Ping => "Ping".to_string(),
+            WireMsg::DealCards {..} => "DealCards".to_string(),
+        }
+        
+    }
+}
