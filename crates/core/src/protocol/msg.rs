@@ -1,5 +1,6 @@
 //! Hash-chained packet format (ready for ZK integration)
 
+use std::fmt::Write;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::crypto::PeerId;
@@ -20,6 +21,13 @@ pub struct LogEntry {
 
 #[derive(Clone, Debug,)]
 pub struct Hash(pub blake3::Hash,);
+
+impl std::fmt::Display for Hash {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str(self.to_string().as_str())
+    }
+    
+}
 
 impl Serialize for Hash {
     fn serialize<S,>(&self, serializer: S,) -> Result<S::Ok, S::Error,>
