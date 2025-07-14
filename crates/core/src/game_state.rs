@@ -290,11 +290,7 @@ impl Projection {
             } => {
                 match action {
                     PlayerAction::Bet { bet_amount, } => {
-                        self.players.place_bet(
-                            *peer_id,
-                            *bet_amount,
-                            *action,
-                        );
+                        self.players.place_bet(*peer_id, *bet_amount, *action,);
                     },
                     PlayerAction::Fold => self.players.fold(*peer_id,),
                     _ => {},

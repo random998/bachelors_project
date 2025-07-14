@@ -3,10 +3,11 @@ use serde::{Deserialize, Serialize};
 use crate::crypto::PeerId;
 use crate::protocol::msg::{Hash, WireMsg};
 
-pub static GENESIS_HASH: std::sync::LazyLock<Hash,> = std::sync::LazyLock::new(|| {
-    let empty = ContractState::default();
-    hash_state(&empty,)
-},);
+pub static GENESIS_HASH: std::sync::LazyLock<Hash,> =
+    std::sync::LazyLock::new(|| {
+        let empty = ContractState::default();
+        hash_state(&empty,)
+    },);
 
 #[derive(Clone, Debug, Serialize, Deserialize,)]
 pub enum Phase {
