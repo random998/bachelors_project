@@ -244,9 +244,8 @@ pub struct Projection {
 }
 
 impl Projection {
-
-    pub fn me(&mut self) -> &mut PlayerPrivate {
-        self.players.get_mut(&self.peer_id()).unwrap()
+    pub fn me(&mut self,) -> &mut PlayerPrivate {
+        self.players.get_mut(&self.peer_id(),).unwrap()
     }
     pub fn apply(&mut self, msg: &WireMsg,) {
         match msg {
@@ -313,7 +312,7 @@ impl Projection {
     /// grab an immutable snapshot for the GUI
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
-        GameState{
+        GameState {
             key_pair:         self.key_pair.clone(),
             prev_hash:        self.hash_head.clone(),
             has_joined_table: self.has_joined_table,
@@ -522,35 +521,38 @@ impl Projection {
                 self.contract = contract::step(&self.contract, &entry.payload,)
                     .expect("contract step",);
                 self.hash_head = entry.clone().next_hash;
-                let _ = self.check_and_apply(&entry,);
+                let _ = self.check_and_apply(entry,);
             },
             NetworkMessage::NewListenAddr {
                 listener_id: _listener_id,
                 multiaddr,
             } => {
-                self.listen_addr = Some(multiaddr.clone());
-            }
+                self.listen_addr = Some(multiaddr.clone(),);
+            },
         }
     }
 
-    async fn check_and_apply(&mut self, entry: &LogEntry) {
+    async fn check_and_apply(&mut self, entry: &LogEntry,) {
         info!("updating local state...");
-        self.apply(&entry.payload);
+        self.apply(&entry.payload,);
 
         info!("{} applying side effect...", self.peer_id());
         // side effect: if *they* joined, we must join *them*
-        if let WireMsg::JoinTableReq { player_id, table, ..} = &entry.payload {
+        if let WireMsg::JoinTableReq {
+            player_id, table, ..
+        } = &entry.payload
+        {
             if *player_id != self.peer_id() && *table == self.table_id {
                 // we’re not yet in their seat map → send our JoinTableReq
                 let me = self.me().clone();
                 let my_req = WireMsg::JoinTableReq {
-                    table: self.table_id,
+                    table:     self.table_id,
                     player_id: self.peer_id(),
-                    nickname: me.nickname.clone(),
-                    chips: me.chips.clone(),
+                    nickname:  me.nickname.clone(),
+                    chips:     me.chips,
                 };
                 info!("sending join table request...");
-                let _ = self.sign_and_send(my_req);
+                let _ = self.sign_and_send(my_req,);
             }
         }
     }
