@@ -19,10 +19,10 @@ use tokio::sync::mpsc;
 /// Handle returned to the GUI
 pub struct UiHandle {
     /// GUI ➜ runtime  –  signed commands produced by user input
-    pub cmd_tx:   mpsc::Sender<UiCmd,>,
+    pub cmd_tx: mpsc::Sender<UiCmd,>,
     /// runtime ➜ GUI  –  every locally generated or echoed message
-    pub msg_rx:   mpsc::Receiver<UiEvent,>,
-    pub _rt:      Arc<Runtime,>, // keep Tokio alive
+    pub msg_rx: mpsc::Receiver<UiEvent,>,
+    pub _rt:    Arc<Runtime,>, // keep Tokio alive
 }
 
 /// Spawn the background runtime and give the GUI its three channel ends.
@@ -60,7 +60,7 @@ pub fn start(
         // to the network layer and back to the GUI
         let mut tx_net = transport.tx.clone();
         let loopback = move |m: SignedMessage| {
-            let _ = tx_net.send(m.clone(),); // to peers
+            let _ = tx_net.send(m,); // to peers
         };
 
         let mut eng = Projection::new(table, seats, kp, transport, loopback,);
@@ -80,10 +80,10 @@ pub fn start(
             // c) timers
             eng.tick().await;
 
-            // d) engine -> Ui, send a snapshot of the engine. 
+            // d) engine -> Ui, send a snapshot of the engine.
             let sp = eng.snapshot();
-            let msg = UiEvent::Snapshot(sp);
-            let _ = msg_tx.try_send(msg);
+            let msg = UiEvent::Snapshot(sp,);
+            let _ = msg_tx.try_send(msg,);
 
             // e) update the internal table state periodically (handle state
             // transitions).
