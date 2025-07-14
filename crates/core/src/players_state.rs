@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
 use crate::game_state::PlayerPrivate;
+use crate::message::PlayerAction;
 use crate::poker::Chips;
 
 /// Thin wrapper around `Vec<PlayerPrivate>` with a few helpers that the
@@ -49,7 +50,65 @@ impl PlayerStateObjects {
     pub fn clear(&mut self,) {
         self.players.clear();
     }
-}
+    
+    pub fn update_chips(&mut self, peer_id: PeerId, updated_balance: Chips) {
+        for p in self.players.iter_mut() {
+            if p.peer_id == peer_id {
+               p.chips = updated_balance; 
+            }
+        }
+    }
+    /// Re-order seats according to `seat_order`, which is the list of
+    /// peer-ids the dealer sends in `StartGameNotify`.
+    pub fn reseat(&mut self, seat_order: &[PeerId]) {
+        for (desired_pos, pid) in seat_order.iter().enumerate() {
+            if let Some(curr_pos) =
+                self.players.iter().position(|p| &p.peer_id == pid)
+            {
+                self.players.swap(desired_pos, curr_pos);
+            }
+        }
+    }
+
+    /// Put one player at an explicit seat index (used by
+    /// `PlayerJoinedConf`).
+    pub fn set_seat(&mut self, pid: PeerId, seat_idx: u8) {
+        if let Some(curr) =
+            self.players.iter().position(|p| p.peer_id == pid)
+        {
+            self.players.swap(curr, seat_idx as usize);
+        }
+    }
+    
+    pub fn place_bet(&mut self, peer_id: PeerId, bet_amount: Chips, action: PlayerAction) {
+        for p in self.players.iter_mut() {
+            if p.peer_id == peer_id {
+                p.place_bet(bet_amount, action)
+            }
+        }
+    }
+
+    // seat helpers -----------------------------------------------------
+    pub fn seat_of(&self, pid: PeerId) -> Option<u8> {
+        let mut idx : u8 = 0;
+        for p in self.players.iter() {
+            let idx = idx + 1;
+            if p.peer_id == pid {
+               return Some(idx)
+            }
+        }
+        None
+    }
+
+    // tiny helpers used from Projection::apply -------------------------
+    pub fn fold(&mut self, pid: PeerId) {
+        for p in self.players.iter_mut() {
+            if p.peer_id == pid {
+                p.fold();
+            }
+        }
+    }
+}    
 
 impl PlayerStateObjects {
     // ────────────────────────────────────────────────────────────────
@@ -77,13 +136,6 @@ impl PlayerStateObjects {
             return Some(self.players.remove(pos,),);
         }
         None
-    }
-
-    pub fn iter(&self,) -> impl Iterator<Item = &PlayerPrivate,> {
-        self.players.iter()
-    }
-    pub fn iter_mut(&mut self,) -> impl Iterator<Item = &mut PlayerPrivate,> {
-        self.players.iter_mut()
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -242,5 +294,43 @@ impl PlayerStateObjects {
 impl fmt::Display for PlayerStateObjects {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(f, "{:?}", self.players)
+    }
+}
+
+impl PlayerStateObjects {
+    /* iterator helpers – point to `players` -------------------------------- */
+    pub fn iter(&self) -> std::slice::Iter<'_, PlayerPrivate> {
+        self.players.iter()
+    }
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, PlayerPrivate> {
+        self.players.iter_mut()
+    }
+
+    pub fn into_inner(self) -> Vec<PlayerPrivate> {
+        self.players            // moves out; no `.clone()` needed
+    }
+}
+
+impl IntoIterator for PlayerStateObjects {
+    type Item     = PlayerPrivate;
+    type IntoIter = std::vec::IntoIter<PlayerPrivate>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.players.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a PlayerStateObjects {
+    type Item     = &'a PlayerPrivate;
+    type IntoIter = std::slice::Iter<'a, PlayerPrivate>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.players.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut PlayerStateObjects {
+    type Item     = &'a mut PlayerPrivate;
+    type IntoIter = std::slice::IterMut<'a, PlayerPrivate>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.players.iter_mut()
     }
 }
