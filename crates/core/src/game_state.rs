@@ -312,7 +312,7 @@ impl Projection {
         GameState {
             key_pair:          self.key_pair.clone(),
             prev_hash:         self.hash_head.clone(),
-            has_joined_server: self.has_joined_table,
+            has_joined_table: self.has_joined_table,
             table_id:          self.table_id,
             seats:             self.num_seats,
             game_started:      !matches!(
@@ -417,26 +417,17 @@ impl Projection {
         }
     }
 
-    /// Non-blocking pull used by the runtime loop.
     pub fn try_recv(
         &mut self,
     ) -> Result<SignedMessage, mpsc::error::TryRecvError,> {
-        self.connection.rx.receiver.try_recv()
-    }
-
-    pub fn try_recv_event(
-        &mut self,
-    ) -> Result<NetworkMessage, mpsc::error::TryRecvError,> {
-        self.connection.rx.event_receiver.try_recv()
+        self.connection.rx.network_msg_receiver.try_recv()
     }
 
     /// Low-level send used by `sign_and_send` **and** by the gossip handler.
     pub fn send(&mut self, msg: SignedMessage,) -> anyhow::Result<(),> {
         info!("{} sending {}", self.peer_id(), msg.message().label());
-        // network → gossipsub
+        // engine → network 
         self.connection.tx.sender.try_send(msg.clone(),)?;
-        // local echo → UI
-        (self.cb)(msg,);
         Ok((),)
     }
 
@@ -507,16 +498,6 @@ impl Projection {
         }
     }
 
-    pub fn handle_event(&mut self, m: NetworkMessage,) {
-        if let NetworkMessage::NewListenAddr {
-            listener_id,
-            multiaddr,
-        } = m
-        {
-            self.listen_addr = Some(multiaddr,);
-        }
-    }
-
     // — dispatcher called by runtime for every inbound network msg —
     pub async fn handle_peer_msg(&mut self, sm: SignedMessage,) {
         info!(
@@ -558,7 +539,7 @@ impl Projection {
                         nickname,
                         chips,
                     };
-                    self.has_joined_table = true;
+                    self.has_joined_table= true;
                     let _ = self.sign_and_send(wiremsg,);
                 }
             },
@@ -680,7 +661,7 @@ pub struct GameState {
     pub player_id:         PeerId, // local player
     pub nickname:          String,
     /// player with `player_id` has joined table
-    pub has_joined_server: bool,
+    pub has_joined_table: bool,
 
     pub players:     PlayerStateObjects,
     pub board:       Vec<Card,>,
@@ -716,7 +697,7 @@ impl GameState {
             action_req: None,
             hand_phase: HandPhase::StartingGame,
             listen_addr: None,
-            has_joined_server: false,
+            has_joined_table: false,
         }
     }
 
@@ -725,7 +706,7 @@ impl GameState {
         Self {
             key_pair:          KeyPair::default(),
             prev_hash:         GENESIS_HASH.clone(),
-            has_joined_server: false,
+            has_joined_table: false,
             table_id:          TableId::new_id(),
             seats:             0,
             game_started:      false,

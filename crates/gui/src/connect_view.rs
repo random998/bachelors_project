@@ -22,7 +22,7 @@ pub struct ConnectView {
 
 impl ConnectView {
     const fn joined_server(&self,) -> bool {
-        self.game_state.has_joined_server
+        self.game_state.has_joined_table
     }
 
     fn update_chips(&mut self,) {
@@ -65,7 +65,7 @@ impl View for ConnectView {
         _frame: &mut eframe::Frame,
         app: &mut App,
     ) {
-        self.game_state = app.game_state.clone();
+        self.game_state = app.snapshot();
         self.update_chips();
 
         Window::new("Login",)

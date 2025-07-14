@@ -112,7 +112,7 @@ impl View for AccountView {
                     );
 
                     if ui.add_sized(vec2(180.0, 30.0,), join_btn,).clicked()
-                        && !self.game_state.has_joined_server
+                        && !self.game_state.has_joined_table
                     {
                         let table_id: TableId = app.snapshot().table_id;
                         let join = UiCmd::PlayerJoinTableRequest {
@@ -146,7 +146,7 @@ impl View for AccountView {
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {
             Some(Box::new(ConnectView::new(app,),),)
-        } else if self.game_state.has_joined_server {
+        } else if self.game_state.has_joined_table {
             let empty_state = GameState::default();
             Some(Box::new(GameView::new(
                 ctx,
