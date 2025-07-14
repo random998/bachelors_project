@@ -7,7 +7,7 @@ use libp2p::{
     gossipsub, identify, noise, tcp, yamux, Multiaddr, SwarmBuilder, Transport,
 };
 use log::{info, warn};
-use poker_core::message::{Message, SignedMessage};
+use poker_core::message::{NetworkMessage, SignedMessage};
 use poker_core::net::traits::{P2pRx, P2pTransport, P2pTx};
 use poker_core::poker::TableId;
 use tokio::sync::mpsc;
@@ -100,7 +100,7 @@ pub fn new(
     let (to_swarm_tx, mut to_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
     let (from_swarm_tx, from_swarm_rx,) = mpsc::channel::<SignedMessage,>(64,);
     let (from_swarm_event_tx, from_swarm_event_rx,) =
-        mpsc::channel::<Message,>(64,);
+        mpsc::channel::<NetworkMessage,>(64,);
 
     if swarm.listeners().count() > 0 {
         info!(
@@ -143,7 +143,7 @@ pub fn new(
                     }
                     SwarmEvent::NewListenAddr { listener_id,address }
                     => {
-                        let msg = Message::NewListenAddr {listener_id: listener_id.to_string(), multiaddr: address};
+                        let msg = NetworkMessage::NewListenAddr {listener_id: listener_id.to_string(), multiaddr: address};
                         let _ = from_swarm_event_tx.send(msg).await;
                     }
                     _ => {
