@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
-
 use crate::connection_stats::ConnectionStats;
 use crate::crypto::{KeyPair, PeerId, SecretKey};
 use crate::message::{
@@ -26,8 +25,8 @@ use crate::net::traits::P2pTransport;
 use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId}; /* per-player helper */
 use crate::protocol::msg::{Hash, LogEntry, WireMsg};
-use crate::protocol::state as contract;
-use crate::protocol::state::{ContractState, GENESIS_HASH};
+use crate::protocol::state::{ContractState, PeerContext, GENESIS_HASH};
+use crate::protocol::state::{self as contract};
 
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize,)]
@@ -219,7 +218,10 @@ pub struct Projection {
     // networking ----------------------------------------------------------
     pub connection: P2pTransport,
     /// UI callback – echoes every locally-generated message without locks.
-    pub cb:         Box<dyn FnMut(SignedMessage,) + Send,>,
+    pub callback:         Box<dyn FnMut(SignedMessage,) + Send,>,
+    // Outbound messages that came back from the pure state machine and still
+    /// need to be broadcast.
+    pending_effects: Vec<WireMsg>,
 
     // game state ----------------------------------------------------------
     deck:           Deck,
@@ -238,6 +240,9 @@ pub struct Projection {
     // crypto --------------------------------------------------------------
     contract:  ContractState,
     hash_head: Hash,
+
+    // peer context
+    peer_context: PeerContext,
 }
 
 impl Projection {
@@ -369,6 +374,7 @@ impl Projection {
     // — constructors —
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        nick: String,
         table_id: TableId,
         num_seats: usize,
         key_pair: KeyPair,
@@ -376,6 +382,8 @@ impl Projection {
         cb: impl FnMut(SignedMessage,) + Send + 'static,
     ) -> Self {
         Self {
+            peer_context: PeerContext::new(key_pair.peer_id(), nick, Chips::default()),
+            pending_effects: Vec::new(),
             connection_info: ConnectionStats::default(),
             has_joined_table: false,
             contract: Default::default(),
@@ -391,7 +399,7 @@ impl Projection {
             num_seats,
             key_pair,
             connection,
-            cb: Box::new(cb,),
+            callback: Box::new(cb,),
 
             phase: HandPhase::WaitingForPlayers,
             players: PlayerStateObjects::default(),
@@ -428,8 +436,9 @@ impl Projection {
         info!("{} sending {}", self.peer_id(), msg.message().label());
         // engine → network
         self.connection.tx.network_msg_sender.try_send(msg,)?;
-        Ok((),)
         // also send the same msg to ourselves
+        //TODO send callbacks to ourselves.
+        Ok((),)
     }
 
     /// Called every ~20 ms by the runtime.
@@ -515,10 +524,7 @@ impl Projection {
                     warn!("prev hash of receiver (us) : {}", self.hash_head);
                     return;
                 }
-                self.contract = contract::step(&self.contract, &entry.payload,)
-                    .expect("contract step",);
-                self.hash_head = entry.clone().next_hash;
-                let _ = self.check_and_apply(entry,);
+                let _ = self.commit_step(&entry.payload,);
             },
             NetworkMessage::NewListenAddr {
                 listener_id: _listener_id,
@@ -529,30 +535,52 @@ impl Projection {
         }
     }
 
+    /// Run the pure state-machine transition **and immediately apply
+    /// any side effects** (currently only `Effect::Send`).
+    ///
+    /// * `payload` – the incoming `WireMsg` that should be appended to the log.
+    ///
+    /// On success the canonical `self.contract` and `self.hash_head` are updated
+    /// and every `Effect::Send` is signed & broadcast with the existing helpers.
+    fn commit_step(&mut self, payload: &WireMsg) -> anyhow::Result<()> {
+        use crate::protocol::state::{Effect, StepResult, PeerContext};
 
-    async fn check_and_apply(&mut self, entry: &LogEntry,) {
-        info!("updating local state...");
-        self.apply(&entry.payload,);
+        let ctx = PeerContext {
+            id:    self.peer_id(),
+            nick:  self.me().nickname.clone(),
+            chips: self.me().chips,
+        };
 
-        info!("{} applying side effect...", self.peer_id());
-        // side effect: if *they* joined, we must join *them*
-        if let WireMsg::JoinTableReq {
-            player_id, table, ..
-        } = &entry.payload
-        {
-            if *player_id != self.peer_id() && *table == self.table_id {
-                // we’re not yet in their seat map → send our JoinTableReq
-                let me = self.me().clone();
-                let my_req = WireMsg::JoinTableReq {
-                    table:     self.table_id,
-                    player_id: self.peer_id(),
-                    nickname:  me.nickname.clone(),
-                    chips:     me.chips,
-                };
-                info!("sending join table request...");
-                let _ = self.sign_and_send(my_req,);
+        // deterministic transition
+        let StepResult { next, effects } =
+            contract::step(&self.contract, payload, &ctx);
+
+        // append the entry to *our* hash-chain (exactly like before)
+        let next_hash = contract::hash_state(&next);
+        let entry = LogEntry {
+            prev_hash: self.hash_head.clone(),
+            payload:   payload.clone(),
+            next_hash: next_hash.clone(),
+            proof:     Default::default(),      // ZK proof later
+        };
+        let signed_msg = SignedMessage::new(&self.key_pair,
+                                            NetworkMessage::ProtocolEntry(entry));
+        self.send(signed_msg)?;                         // network + loop-back
+
+        // commit new canonical state
+        self.contract  = next;
+        self.hash_head = next_hash;
+
+        //  handle side-effects right away
+        for eff in effects {
+            if let Effect::Send(msg) = eff {
+                // re-use existing helper; re-enqueueing is fine because
+                // `sign_and_send` will wrap the message in its own contract
+                // entry so ordering stays consistent.
+                self.sign_and_send(msg)?;
             }
         }
+        Ok(())
     }
 
     pub async fn handle_ui_msg(&mut self, msg: UiCmd,) {
@@ -779,31 +807,7 @@ impl GameState {
 impl Projection {
     // send a protocol entry (hash-chained)
     fn send_contract(&mut self, payload: WireMsg,) -> anyhow::Result<(),> {
-        // 1. compute next contract state.
-        let next =
-            contract::step(&self.contract, &payload,).expect("contract step",);
-        let next_hash = contract::hash_state(&next,);
-
-        // 2. wrap in LogEntry (place-holder with empty proof, to be augmented
-        //    by actual zk proof).
-        let log_entry = LogEntry {
-            prev_hash: self.hash_head.clone(),
-            payload,
-            next_hash: next_hash.clone(),
-            proof: Default::default(),
-        };
-
-        // 3. sign and broadcast entry.
-        let sm = SignedMessage::new(
-            &self.key_pair,
-            NetworkMessage::ProtocolEntry(log_entry,),
-        );
-        self.send(sm,)?;
-
-        // advance local head of hash chain.
-        self.contract = next;
-        self.hash_head = next_hash;
-        Ok((),)
+        self.commit_step(&payload,)
     }
 
     // old api still needed for GUI / UX messages ---------------------
