@@ -197,7 +197,7 @@ impl KeyPair {
     }
 
     #[must_use]
-    pub fn peer_id(self,) -> PeerId {
+    pub fn peer_id(&self,) -> PeerId {
         self.public().to_peer_id()
     }
 
