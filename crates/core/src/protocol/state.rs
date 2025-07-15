@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
+use crate::poker::Chips;
 use crate::protocol::msg::{Hash, WireMsg};
 
 pub static GENESIS_HASH: std::sync::LazyLock<Hash,> =
@@ -8,6 +9,33 @@ pub static GENESIS_HASH: std::sync::LazyLock<Hash,> =
         let empty = ContractState::default();
         hash_state(&empty,)
     },);
+
+/// Information about *this* peer that a pure transition may need
+/// (never replicated, never hashed).
+#[derive(Clone)]
+pub struct PeerContext {
+    pub id:      PeerId,     // our permanent identity
+    pub nick:    String,     // UI-chosen nickname
+    pub chips:   Chips,      // current stack (local copy)
+}
+
+impl PeerContext {
+    pub const fn new(id: PeerId, nick: String, chips: Chips) -> PeerContext {
+        PeerContext {
+            id,
+            nick,
+            chips,
+        }
+    }
+    
+    pub fn default() -> PeerContext {
+        PeerContext {
+            id: PeerId::default(),
+            nick: String::default(),
+            chips: Chips::default(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize,)]
 pub enum Phase {
@@ -59,12 +87,16 @@ impl std::fmt::Debug for ContractState {
     }
 }
 
+
 // ---------- single deterministic transition ------------------------------
 pub fn step(
     prev: &ContractState,
     msg: &WireMsg,
-) -> anyhow::Result<ContractState,> {
+    me: &PeerContext,
+) -> StepResult {
     let mut st = prev.clone();
+    let mut out = Vec::new();
+
     match msg {
         WireMsg::PlayerJoinedConf { player_id, .. } => {
             st.players
@@ -81,22 +113,36 @@ pub fn step(
                 st.phase = Phase::Starting;
             }
         },
-        WireMsg::JoinTableReq { player_id, .. } => {
+        WireMsg::JoinTableReq { player_id, table, .. } => {
             st.players.insert(*player_id, PlayerFlags{ notified:false });
 
             // ↯ If _I_ am not yet in the table, queue my own Join request
-            if !st.players.contains_key(&self.p) {
-                st.effects.push(Effect::Send(WireMsg::JoinTableReq {
+            if !st.players.contains_key(&me.id) {
+                out.push(Effect::Send(WireMsg::JoinTableReq {
                     table: *table,
-                    player_id: my_peer_id,
-                    nickname: my_nick.clone(),
-                    chips: my_chips,
+                    player_id: me.id,
+                    nickname: me.nick.clone(),
+                    chips: me.chips,
                 }));
             }
         },
-        _ => {}, // ignore others for now
+        WireMsg::StartGameNotify {seat_order: _seat_order, ..} => {
+            todo!()
+        },
+        WireMsg::DealCards {..} => {
+            todo!()
+        },
+        WireMsg::ActionRequest {..} => {
+            todo!()
+        },
+        WireMsg::Ping {..} => {
+            todo!()
+        },
+        _ => {
+            todo!()
+        }
     }
-    Ok(st,)
+    StepResult { next: st, effects: out }
 }
 
 // helper for hashing

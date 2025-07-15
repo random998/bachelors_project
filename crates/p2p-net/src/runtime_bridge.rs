@@ -31,7 +31,7 @@ pub fn start(
     table: TableId,
     seats: usize,
     kp: KeyPair,
-    _nick: String,
+    nick: String,
     seed: Option<libp2p::Multiaddr,>,
 ) -> UiHandle {
     // ────────────────────────── Tokio runtime ───────────────────────────
@@ -63,7 +63,7 @@ pub fn start(
             let _ = tx_net.send(m,); // to peers
         };
 
-        let mut eng = Projection::new(table, seats, kp, transport, loopback,);
+        let mut eng = Projection::new(nick, table, seats, kp, transport, loopback,);
 
         // 4) main loop
         loop {
