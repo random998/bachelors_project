@@ -211,6 +211,7 @@ pub struct Projection {
     key_pair:         KeyPair,
     /// whether player associated with `key_pair` has joined a table.
     has_joined_table: bool,
+    ui_has_joined_table: bool,
 
     // 2. Peer-local “soft” state – NOT part of consensus
     pub rng:             StdRng, // used only when *we* deal
@@ -314,6 +315,7 @@ impl Projection {
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
         GameState {
+            ui_has_joined_table: false,
             key_pair:         self.key_pair.clone(),
             prev_hash:        self.hash_head.clone(),
             has_joined_table: self.has_joined_table,
@@ -381,6 +383,7 @@ impl Projection {
         cb: impl FnMut(SignedMessage,) + Send + 'static,
     ) -> Self {
         Self {
+            ui_has_joined_table: false,
             peer_context: PeerContext::new(
                 key_pair.peer_id(),
                 nick,
@@ -490,43 +493,44 @@ impl Projection {
     /// On success the canonical `self.contract` and `self.hash_head` are
     /// updated and every `Effect::Send` is signed & broadcast with the
     /// existing helpers.
-    fn commit_step(&mut self, payload: &WireMsg,) -> anyhow::Result<(),> {
-        use crate::protocol::state::{Effect, StepResult};
+    fn commit_step(&mut self, payload: &WireMsg) -> anyhow::Result<()> {
+        use contract::{Effect, StepResult};
 
-        let ctx = self.peer_context.clone();
+        // ---------- 1. pure state transition ----------
+        let StepResult { next, effects } =
+            contract::step(&self.contract, payload, &self.peer_context);
 
-        // deterministic transition
-        let StepResult { next, effects, } =
-            contract::step(&self.contract, payload, &ctx,);
+        // keep projection in sync
+        self.apply(payload);
 
-        // append the entry to *our* hash-chain (exactly like before)
-        let next_hash = contract::hash_state(&next,);
-        let entry = LogEntry {
-            prev_hash: self.hash_head.clone(),
-            payload:   payload.clone(),
-            next_hash: next_hash.clone(),
-            proof:     Default::default(), // ZK proof later
-        };
-        let signed_msg = SignedMessage::new(
-            &self.key_pair,
-            NetworkMessage::ProtocolEntry(entry,),
+        // ---------- 2. append to our log ----------
+        let next_hash = contract::hash_state(&next);
+        let entry = LogEntry::with_key(
+            self.hash_head.clone(),
+            payload.clone(),
+            next_hash.clone(),
+            self.peer_id(),
         );
-        self.send(signed_msg,)?; // network + loop-back
 
-        // commit new canonical state
+        // broadcast *and* loop back
+        let signed = SignedMessage::new(&self.key_pair,
+                                        NetworkMessage::ProtocolEntry(entry));
+        self.send(signed)?;
+
+        // commit canonical state
         self.contract = next;
         self.hash_head = next_hash;
 
-        //  handle side-effects right away
-        for eff in effects {
-            let Effect::Send(msg,) = eff;
-            // re-use existing helper; re-enqueueing is fine because
-            // `sign_and_send` will wrap the message in its own contract
-            // entry so ordering stays consistent.
-            self.sign_and_send(msg,)?;
-        }
-        Ok((),)
+        // ---------- 3. side‑effects ----------
+        self.pending_effects.extend(
+            effects.into_iter().filter_map(|e| match e {
+                Effect::Send(m) => Some(m),
+            })
+        );
+
+        Ok(())
     }
+
 
     pub async fn handle_ui_msg(&mut self, msg: UiCmd,) {
         match msg {
@@ -667,6 +671,7 @@ pub struct GameState {
     pub nickname:         String,
     /// player with `player_id` has joined table
     pub has_joined_table: bool,
+    pub ui_has_joined_table: bool,
 
     pub players:     PlayerStateObjects,
     pub board:       Vec<Card,>,
@@ -689,6 +694,7 @@ impl GameState {
         seats: usize,
     ) -> Self {
         Self {
+            ui_has_joined_table: false,
             key_pair: KeyPair::default(),
             prev_hash: GENESIS_HASH.clone(),
             table_id,
@@ -709,6 +715,7 @@ impl GameState {
     #[must_use]
     pub fn default() -> Self {
         Self {
+            ui_has_joined_table: false,
             key_pair:         KeyPair::default(),
             prev_hash:        GENESIS_HASH.clone(),
             has_joined_table: false,
