@@ -42,10 +42,10 @@ impl ConnectView {
     pub fn new(app: &App,) -> Self {
         let gs = app.game_state.clone();
         Self {
-            game_state:      gs,
-            error:           String::default(),
-            nickname:        String::default(),
-            chips:           Chips::default(),
+            game_state: gs,
+            error:      String::default(),
+            nickname:   String::default(),
+            chips:      Chips::default(),
         }
     }
 
