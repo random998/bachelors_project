@@ -697,7 +697,7 @@ impl GameState {
     ) -> Self {
         Self {
             ui_has_joined_table: false,
-            key_pair: KeyPair::default(),
+            key_pair: KeyPair::generate(),
             prev_hash: GENESIS_HASH.clone(),
             table_id,
             seats,
@@ -718,7 +718,7 @@ impl GameState {
     pub fn default() -> Self {
         Self {
             ui_has_joined_table: false,
-            key_pair:            KeyPair::default(),
+            key_pair:            KeyPair::generate(),
             prev_hash:           GENESIS_HASH.clone(),
             has_joined_table:    false,
             table_id:            TableId::new_id(),

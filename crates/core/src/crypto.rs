@@ -6,7 +6,7 @@ use std::convert::TryInto;
 use std::fmt;
 
 use anyhow::{Result, bail};
-use bip39::Mnemonic;
+use bip39::{Language, Mnemonic};
 use blake2::digest::consts;
 use blake2::{Blake2s, Digest};
 use libp2p_identity::ed25519;
@@ -87,7 +87,7 @@ impl SecretKey {
     }
 
     pub fn from_phrase(phrase: &str,) -> Result<Self,> {
-        let m = Mnemonic::from_phrase(phrase, Default::default(),)?;
+        let m = Mnemonic::from_phrase(phrase, Language::English)?;
         let bytes = m.entropy();
         if bytes.len() != ENTROPY_LEN {
             bail!("mnemonic entropy must be {ENTROPY_LEN} bytes");
@@ -101,7 +101,7 @@ impl SecretKey {
 
     #[must_use]
     pub fn phrase(&self,) -> String {
-        Mnemonic::from_entropy(&*self.entropy, Default::default(),)
+        Mnemonic::from_entropy(&*self.entropy, Language::English)
             .unwrap()
             .phrase()
             .to_owned()
@@ -176,8 +176,8 @@ pub struct Signature(Vec<u8,>,);
 #[derive(Clone, Debug,)]
 pub struct KeyPair(pub ed25519::Keypair,);
 
-impl Default for KeyPair {
-    fn default() -> Self {
+impl KeyPair {
+    pub fn generate() -> Self {
         let kp: ed25519::Keypair = ed25519::Keypair::generate();
         Self(kp,)
     }
@@ -297,7 +297,7 @@ impl PartialOrd<Self,> for PeerId {
 }
 
 impl Ord for PeerId {
-    fn cmp(&self, other: &Self,) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self,) -> Ordering {
         self.0.cmp(&other.0,)
     }
 }
@@ -384,7 +384,7 @@ mod tests {
         struct Msg {
             a: u32,
         }
-        let kp = KeyPair::default();
+        let kp = KeyPair::generate();
         let sk = kp.secret();
         let pk = kp.public();
         let sig = sk.sign(&Msg { a: 123, },);
