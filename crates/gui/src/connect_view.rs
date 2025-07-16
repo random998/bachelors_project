@@ -1,10 +1,9 @@
 use eframe::egui::{
-    Align2, Button, Color32, Context, FontFamily, FontId, RichText, TextEdit,
-    Window, vec2,
+    vec2, Align2, Button, Color32, Context, FontFamily, FontId, RichText,
+    TextEdit, Window,
 };
 use poker_core::crypto::PeerId;
 use poker_core::game_state::GameState;
-use poker_core::message::UiCmd;
 use poker_core::poker::Chips;
 
 use crate::{AccountView, App, View};
@@ -110,14 +109,6 @@ impl View for ConnectView {
                         }
 
                         self.game_state.nickname = self.nickname.clone();
-                        let msg = UiCmd::PlayerJoinTableRequest {
-                            table_id: self.game_state.table_id,
-                            peer_id:  self.player_id(),
-                            nickname: self.nickname.clone(),
-                            chips:    self.chips,
-                        };
-
-                        let _ = app.send_cmd_to_engine(msg,);
                     }
                 },);
             },);
