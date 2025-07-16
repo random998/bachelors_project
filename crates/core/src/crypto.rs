@@ -87,7 +87,7 @@ impl SecretKey {
     }
 
     pub fn from_phrase(phrase: &str,) -> Result<Self,> {
-        let m = Mnemonic::from_phrase(phrase, Language::English)?;
+        let m = Mnemonic::from_phrase(phrase, Language::English,)?;
         let bytes = m.entropy();
         if bytes.len() != ENTROPY_LEN {
             bail!("mnemonic entropy must be {ENTROPY_LEN} bytes");
@@ -101,7 +101,7 @@ impl SecretKey {
 
     #[must_use]
     pub fn phrase(&self,) -> String {
-        Mnemonic::from_entropy(&*self.entropy, Language::English)
+        Mnemonic::from_entropy(&*self.entropy, Language::English,)
             .unwrap()
             .phrase()
             .to_owned()
@@ -177,7 +177,7 @@ pub struct Signature(Vec<u8,>,);
 pub struct KeyPair(pub ed25519::Keypair,);
 
 impl KeyPair {
-    pub fn generate() -> Self {
+    #[must_use] pub fn generate() -> Self {
         let kp: ed25519::Keypair = ed25519::Keypair::generate();
         Self(kp,)
     }
