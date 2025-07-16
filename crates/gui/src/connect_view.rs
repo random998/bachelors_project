@@ -17,12 +17,11 @@ pub struct ConnectView {
     error:      String,
     nickname:   String,
     chips:      Chips,
-    ui_pressed_join: bool,
 }
 
 impl ConnectView {
     const fn ui_joined_server(&self,) -> bool {
-        self.ui_pressed_join
+        self.game_state.ui_has_joined_table
     }
 
     fn update_chips(&mut self,) {
