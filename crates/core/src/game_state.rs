@@ -9,8 +9,8 @@ use ahash::AHashSet;
 use libp2p::Multiaddr;
 use log::{error, info, warn};
 use poker_eval::HandValue;
-use rand::SeedableRng;
 use rand::rngs::StdRng;
+use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -24,11 +24,12 @@ use crate::message::{
 };
 use crate::net::traits::P2pTransport;
 use crate::players_state::PlayerStateObjects;
-use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId}; /* per-player helper */
+use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId};
 use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 use crate::protocol::state::{
-    ContractState, GENESIS_HASH, PeerContext, {self as contract},
+    ContractState, PeerContext, GENESIS_HASH, self as contract,
 };
+/* per-player helper */
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize,)]
 pub struct Pot {
@@ -247,9 +248,6 @@ pub struct Projection {
 }
 
 impl Projection {
-    pub fn me(&mut self,) -> &mut PlayerPrivate {
-        self.players.get_mut(&self.peer_id(),).unwrap()
-    }
     pub fn apply(&mut self, msg: &WireMsg,) {
         match msg {
             WireMsg::JoinTableReq {
@@ -549,13 +547,9 @@ impl Projection {
     /// updated and every `Effect::Send` is signed & broadcast with the
     /// existing helpers.
     fn commit_step(&mut self, payload: &WireMsg,) -> anyhow::Result<(),> {
-        use crate::protocol::state::{Effect, PeerContext, StepResult};
+        use crate::protocol::state::{Effect, StepResult};
 
-        let ctx = PeerContext {
-            id:    self.peer_id(),
-            nick:  self.me().nickname.clone(),
-            chips: self.me().chips,
-        };
+        let ctx = self.peer_context.clone();
 
         // deterministic transition
         let StepResult { next, effects, } =
