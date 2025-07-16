@@ -89,13 +89,9 @@ impl NetworkMessage {
     // Returns a label of the message variant as a string.
     #[must_use]
     pub fn label(&self,) -> String {
-        
         match self {
             Self::ProtocolEntry(logentry,) => {
-                format!(
-                    "ProtocolEntry: {}",
-                    logentry.payload.label()
-                )
+                format!("ProtocolEntry: {}", logentry.payload.label())
             },
             Self::NewListenAddr { .. } => "NewListenAddr".to_string(),
         }

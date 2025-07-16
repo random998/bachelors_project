@@ -12,26 +12,22 @@ pub static GENESIS_HASH: std::sync::LazyLock<Hash,> =
 
 /// Information about *this* peer that a pure transition may need
 /// (never replicated, never hashed).
-#[derive(Clone)]
+#[derive(Clone,)]
 pub struct PeerContext {
-    pub id:      PeerId,     // our permanent identity
-    pub nick:    String,     // UI-chosen nickname
-    pub chips:   Chips,      // current stack (local copy)
+    pub id:    PeerId, // our permanent identity
+    pub nick:  String, // UI-chosen nickname
+    pub chips: Chips,  // current stack (local copy)
 }
 
 impl PeerContext {
-    pub const fn new(id: PeerId, nick: String, chips: Chips) -> PeerContext {
-        PeerContext {
-            id,
-            nick,
-            chips,
-        }
+    #[must_use] pub const fn new(id: PeerId, nick: String, chips: Chips,) -> Self {
+        Self { id, nick, chips, }
     }
-    
-    pub fn default() -> PeerContext {
-        PeerContext {
-            id: PeerId::default(),
-            nick: String::default(),
+
+    #[must_use] pub fn default() -> Self {
+        Self {
+            id:    PeerId::default(),
+            nick:  String::default(),
             chips: Chips::default(),
         }
     }
@@ -46,14 +42,14 @@ pub enum Phase {
 
 /// Pure transition result
 pub struct StepResult {
-    pub next:   ContractState,
-    pub effects: Vec<Effect>,   // <-- new
+    pub next:    ContractState,
+    pub effects: Vec<Effect,>, // <-- new
 }
 
 /// Things that _should_ be sent after the state is committed
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize,)]
 pub enum Effect {
-    Send(WireMsg),
+    Send(WireMsg,),
 }
 
 #[derive(Clone, Serialize, Deserialize, Default,)]
@@ -87,9 +83,8 @@ impl std::fmt::Debug for ContractState {
     }
 }
 
-
 // ---------- single deterministic transition ------------------------------
-pub fn step(
+#[must_use] pub fn step(
     prev: &ContractState,
     msg: &WireMsg,
     me: &PeerContext,
@@ -113,36 +108,45 @@ pub fn step(
                 st.phase = Phase::Starting;
             }
         },
-        WireMsg::JoinTableReq { player_id, table, .. } => {
-            st.players.insert(*player_id, PlayerFlags{ notified:false });
+        WireMsg::JoinTableReq {
+            player_id, table, ..
+        } => {
+            st.players
+                .insert(*player_id, PlayerFlags { notified: false, },);
 
             // ↯ If _I_ am not yet in the table, queue my own Join request
-            if !st.players.contains_key(&me.id) {
+            if !st.players.contains_key(&me.id,) {
                 out.push(Effect::Send(WireMsg::JoinTableReq {
-                    table: *table,
+                    table:     *table,
                     player_id: me.id,
-                    nickname: me.nick.clone(),
-                    chips: me.chips,
-                }));
+                    nickname:  me.nick.clone(),
+                    chips:     me.chips,
+                },),);
             }
         },
-        WireMsg::StartGameNotify {seat_order: _seat_order, ..} => {
+        WireMsg::StartGameNotify {
+            seat_order: _seat_order,
+            ..
+        } => {
             todo!()
         },
-        WireMsg::DealCards {..} => {
+        WireMsg::DealCards { .. } => {
             todo!()
         },
-        WireMsg::ActionRequest {..} => {
+        WireMsg::ActionRequest { .. } => {
             todo!()
         },
-        WireMsg::Ping {..} => {
+        WireMsg::Ping => {
             todo!()
         },
         _ => {
             todo!()
-        }
+        },
     }
-    StepResult { next: st, effects: out }
+    StepResult {
+        next:    st,
+        effects: out,
+    }
 }
 
 // helper for hashing
