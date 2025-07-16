@@ -28,7 +28,8 @@ pub struct EntryMetaData {
 }
 
 impl LogEntry {
-    #[must_use] pub fn with_key(
+    #[must_use]
+    pub fn with_key(
         prev_hash: Hash,
         payload: WireMsg,
         next_hash: Hash,
