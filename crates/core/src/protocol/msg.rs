@@ -18,7 +18,35 @@ pub struct LogEntry {
     pub next_hash: Hash,
     /// zkVM proof that `step(prev, payload) -> next`
     pub proof:     Proof,
+    pub metadata: EntryMetaData
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EntryMetaData {
+    pub ts_micros: u128,
+    pub author:    PeerId,
+}
+
+impl LogEntry {
+    pub fn with_key(
+        prev_hash: Hash,
+        payload:   WireMsg,
+        next_hash: Hash,
+        author:    PeerId,
+    ) -> Self {
+        Self {
+            prev_hash,
+            payload,
+            next_hash,
+            metadata: EntryMetaData {
+                ts_micros: chrono::Utc::now().timestamp_micros() as u128,
+                author,
+            },
+            proof: Proof::default(),
+        }
+    }
+}
+
 
 #[derive(Clone, Debug,)]
 pub struct Hash(pub blake3::Hash,);
