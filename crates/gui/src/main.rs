@@ -55,7 +55,7 @@ pub fn main() -> eframe::Result<(),> {
     // load / generate permanent key-pair
     //    let kp = load_or_generate_keypair(&opt.key_pair,)
     // .expect("cannot load/generate keypair",);
-    let kp = KeyPair::default();
+    let kp = KeyPair::generate();
     let peer_id = kp.public().to_peer_id();
 
     // spawn background runtime (net + engine)
