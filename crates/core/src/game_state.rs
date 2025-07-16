@@ -9,8 +9,8 @@ use ahash::AHashSet;
 use libp2p::Multiaddr;
 use log::{error, info, warn};
 use poker_eval::HandValue;
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -27,9 +27,9 @@ use crate::players_state::PlayerStateObjects;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId};
 use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 use crate::protocol::state::{
-    ContractState, PeerContext, GENESIS_HASH, self as contract,
+    self as contract, ContractState, GENESIS_HASH, PeerContext,
 };
-/* per-player helper */
+// per-player helper
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize,)]
 pub struct Pot {
@@ -455,62 +455,6 @@ impl Projection {
         }
     }
 
-    pub fn try_join(&mut self, id: PeerId, nickname: &String, chips: &Chips,) {
-        info!("entered try join function");
-        if self.players().iter().any(|p| p.peer_id == id,) {
-            self.has_joined_table = true;
-            info!("player already joined");
-            return;
-        }
-
-        self.players
-            .add(PlayerPrivate::new(id, nickname.clone(), *chips,),);
-        info!("added new player to players list...");
-
-        // if we are not the player sending a join request, then send a join
-        // request for ourselves to that player
-        if self.peer_id() == id {
-            self.has_joined_table = true;
-            info!("joined player id equals our own player id...");
-        } else {
-            info!("id of joined player is different from our own");
-            if let Some(us,) =
-                self.players().iter().find(|p| p.peer_id == self.peer_id(),)
-            {
-                info!("sending join request from us to newly joined player...");
-                let rq = WireMsg::JoinTableReq {
-                    table:     self.table_id,
-                    player_id: us.peer_id,
-                    nickname:  nickname.clone(),
-                    chips:     us.chips,
-                };
-                let res = self.send_contract(rq,);
-                if let Err(e,) = res {
-                    warn!("error sending message: {e}");
-                }
-            } else {
-                info!(
-                    "NOT sending join request from existing player to newly joined player..."
-                );
-            }
-        }
-
-        // send confirmation that this player has joined our table.
-        info!("preparing confirmation message...");
-        let confirmation = WireMsg::PlayerJoinedConf {
-            table:     self.table_id,
-            player_id: id,
-            chips:     *chips,
-            seat_idx:  (self.players().len() - 1) as u8,
-        };
-
-        info!("sending confirmation message...");
-        let res = self.send_contract(confirmation,);
-        if let Err(e,) = res {
-            warn!("error: {e}");
-        }
-    }
-
     // — dispatcher called by runtime for every inbound network msg —
     pub async fn handle_network_msg(&mut self, sm: SignedMessage,) {
         info!(
@@ -592,6 +536,7 @@ impl Projection {
                 nickname,
                 chips,
             } => {
+                info!("handling ui jointablereq command!");
                 if table_id == self.table_id && peer_id == self.peer_id() {
                     let wiremsg = WireMsg::JoinTableReq {
                         table: table_id,

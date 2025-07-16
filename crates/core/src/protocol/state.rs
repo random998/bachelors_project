@@ -20,11 +20,13 @@ pub struct PeerContext {
 }
 
 impl PeerContext {
-    #[must_use] pub const fn new(id: PeerId, nick: String, chips: Chips,) -> Self {
+    #[must_use]
+    pub const fn new(id: PeerId, nick: String, chips: Chips,) -> Self {
         Self { id, nick, chips, }
     }
 
-    #[must_use] pub fn default() -> Self {
+    #[must_use]
+    pub fn default() -> Self {
         Self {
             id:    PeerId::default(),
             nick:  String::default(),
@@ -84,7 +86,8 @@ impl std::fmt::Debug for ContractState {
 }
 
 // ---------- single deterministic transition ------------------------------
-#[must_use] pub fn step(
+#[must_use]
+pub fn step(
     prev: &ContractState,
     msg: &WireMsg,
     me: &PeerContext,
