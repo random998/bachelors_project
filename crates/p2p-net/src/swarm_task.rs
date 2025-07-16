@@ -30,7 +30,7 @@ pub fn new(
     seed_peer_addr: Option<Multiaddr,>,
 ) -> P2pTransport {
     // identity ------------------------------------------------------
-    let peer_id = keypair.clone().peer_id();
+    let peer_id = keypair.peer_id();
 
     // transport -----------------------------------------------------
     let transport =
