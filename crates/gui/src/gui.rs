@@ -252,7 +252,7 @@ fn load_or_generate_keypair(
     use std::fs;
     use std::io::Write;
     trace!("loading default key …");
-    let key = KeyPair::default();
+    let key = KeyPair::generate();
     fs::File::create(path,)?
         .write_all(bincode::serialize(&key,)?.as_slice(),)?;
     Ok(key,)
