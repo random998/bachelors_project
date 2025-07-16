@@ -1,6 +1,6 @@
 use eframe::egui::{
-    vec2, Align2, Button, Color32, Context, FontFamily, FontId, RichText,
-    TextEdit, Window,
+    Align2, Button, Color32, Context, FontFamily, FontId, RichText, TextEdit,
+    Window, vec2,
 };
 use poker_core::crypto::PeerId;
 use poker_core::game_state::GameState;
@@ -17,11 +17,12 @@ pub struct ConnectView {
     error:      String,
     nickname:   String,
     chips:      Chips,
+    ui_pressed_join: bool,
 }
 
 impl ConnectView {
-    const fn joined_server(&self,) -> bool {
-        self.game_state.has_joined_table
+    const fn ui_joined_server(&self,) -> bool {
+        self.ui_pressed_join
     }
 
     fn update_chips(&mut self,) {
@@ -42,6 +43,7 @@ impl ConnectView {
     pub fn new(app: &App,) -> Self {
         let gs = app.game_state.clone();
         Self {
+            ui_pressed_join: false,
             game_state: gs,
             error:      String::default(),
             nickname:   String::default(),
@@ -109,6 +111,7 @@ impl View for ConnectView {
                         }
 
                         self.game_state.nickname = self.nickname.clone();
+                        self.ui_pressed_join = true;
                     }
                 },);
             },);
@@ -119,7 +122,7 @@ impl View for ConnectView {
         _frame: &mut eframe::Frame,
         app: &mut App,
     ) -> Option<Box<dyn View,>,> {
-        if self.joined_server() {
+        if self.ui_joined_server() {
             Some(Box::new(AccountView::new(self.chips, app,),),)
         } else {
             None
