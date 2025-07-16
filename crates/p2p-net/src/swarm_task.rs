@@ -7,10 +7,12 @@ use libp2p::{
     gossipsub, identify, noise, tcp, yamux, Multiaddr, SwarmBuilder, Transport,
 };
 use log::{info, warn};
-use poker_core::message::{NetworkMessage, SignedMessage};
+use poker_core::message::{HandPayoff, NetworkMessage, SignedMessage};
 use poker_core::net::traits::{P2pRx, P2pTransport, P2pTx};
-use poker_core::poker::TableId;
+use poker_core::poker::{Chips, TableId};
 use tokio::sync::mpsc;
+use poker_core::game_state::PlayerPrivate;
+use poker_core::protocol::msg::WireMsg::PlayerAction;
 // 1  Types & Behaviour ---------------------------------------------
 
 pub type SignedMsgBlob = Vec<u8,>;
@@ -29,7 +31,7 @@ pub fn new(
     keypair: poker_core::crypto::KeyPair,
     seed_peer_addr: Option<Multiaddr,>,
 ) -> P2pTransport {
-    // identity ------------------------------------------------------
+    // local player struct ------------------------------------------------------
     let peer_id = keypair.peer_id();
 
     // transport -----------------------------------------------------
