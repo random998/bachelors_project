@@ -199,18 +199,18 @@ impl fmt::Display for HandPhase {
 /// Most of it is what you already have in `InternalTableState`.
 pub struct Projection {
     // 1. Canonical data – always equals contract after replay
-    pub table_id:     TableId,
-    pub game_id:      GameId,
-    pub phase:        HandPhase,
-    pub players:      PlayerStateObjects,
-    pub board:        Vec<Card,>,
-    pub pots:         Vec<Pot,>,
-    pub small_blind:  Chips,
-    pub big_blind:    Chips,
-    num_seats:        usize,
-    key_pair:         KeyPair,
+    pub table_id:        TableId,
+    pub game_id:         GameId,
+    pub phase:           HandPhase,
+    pub players:         PlayerStateObjects,
+    pub board:           Vec<Card,>,
+    pub pots:            Vec<Pot,>,
+    pub small_blind:     Chips,
+    pub big_blind:       Chips,
+    num_seats:           usize,
+    key_pair:            KeyPair,
     /// whether player associated with `key_pair` has joined a table.
-    has_joined_table: bool,
+    has_joined_table:    bool,
     ui_has_joined_table: bool,
 
     // 2. Peer-local “soft” state – NOT part of consensus
@@ -316,12 +316,12 @@ impl Projection {
     pub fn snapshot(&self,) -> GameState {
         GameState {
             ui_has_joined_table: false,
-            key_pair:         self.key_pair.clone(),
-            prev_hash:        self.hash_head.clone(),
-            has_joined_table: self.has_joined_table,
-            table_id:         self.table_id,
-            seats:            self.num_seats,
-            game_started:     !matches!(
+            key_pair:            self.key_pair.clone(),
+            prev_hash:           self.hash_head.clone(),
+            has_joined_table:    self.has_joined_table,
+            table_id:            self.table_id,
+            seats:               self.num_seats,
+            game_started:        !matches!(
                 self.phase,
                 HandPhase::WaitingForPlayers
             ),
@@ -493,18 +493,18 @@ impl Projection {
     /// On success the canonical `self.contract` and `self.hash_head` are
     /// updated and every `Effect::Send` is signed & broadcast with the
     /// existing helpers.
-    fn commit_step(&mut self, payload: &WireMsg) -> anyhow::Result<()> {
+    fn commit_step(&mut self, payload: &WireMsg,) -> anyhow::Result<(),> {
         use contract::{Effect, StepResult};
 
         // ---------- 1. pure state transition ----------
-        let StepResult { next, effects } =
-            contract::step(&self.contract, payload, &self.peer_context);
+        let StepResult { next, effects, } =
+            contract::step(&self.contract, payload, &self.peer_context,);
 
         // keep projection in sync
-        self.apply(payload);
+        self.apply(payload,);
 
         // ---------- 2. append to our log ----------
-        let next_hash = contract::hash_state(&next);
+        let next_hash = contract::hash_state(&next,);
         let entry = LogEntry::with_key(
             self.hash_head.clone(),
             payload.clone(),
@@ -513,24 +513,26 @@ impl Projection {
         );
 
         // broadcast *and* loop back
-        let signed = SignedMessage::new(&self.key_pair,
-                                        NetworkMessage::ProtocolEntry(entry));
-        self.send(signed)?;
+        let signed = SignedMessage::new(
+            &self.key_pair,
+            NetworkMessage::ProtocolEntry(entry,),
+        );
+        self.send(signed,)?;
 
         // commit canonical state
         self.contract = next;
         self.hash_head = next_hash;
 
         // ---------- 3. side‑effects ----------
-        self.pending_effects.extend(
-            effects.into_iter().filter_map(|e| match e {
-                Effect::Send(m) => Some(m),
-            })
-        );
+        self.pending_effects
+            .extend(effects.into_iter().filter_map(|e| {
+                match e {
+                    Effect::Send(m,) => Some(m,),
+                }
+            },),);
 
-        Ok(())
+        Ok((),)
     }
-
 
     pub async fn handle_ui_msg(&mut self, msg: UiCmd,) {
         match msg {
@@ -667,10 +669,10 @@ pub struct GameState {
     pub seats:        usize,
     pub game_started: bool,
 
-    pub player_id:        PeerId, // local player
-    pub nickname:         String,
+    pub player_id:           PeerId, // local player
+    pub nickname:            String,
     /// player with `player_id` has joined table
-    pub has_joined_table: bool,
+    pub has_joined_table:    bool,
     pub ui_has_joined_table: bool,
 
     pub players:     PlayerStateObjects,
@@ -716,20 +718,20 @@ impl GameState {
     pub fn default() -> Self {
         Self {
             ui_has_joined_table: false,
-            key_pair:         KeyPair::default(),
-            prev_hash:        GENESIS_HASH.clone(),
-            has_joined_table: false,
-            table_id:         TableId::new_id(),
-            seats:            0,
-            game_started:     false,
-            player_id:        PeerId::default(),
-            players:          PlayerStateObjects::default(),
-            nickname:         String::default(),
-            board:            Vec::default(),
-            pot:              Pot::default(),
-            action_req:       None,
-            hand_phase:       HandPhase::StartingGame,
-            listen_addr:      None,
+            key_pair:            KeyPair::default(),
+            prev_hash:           GENESIS_HASH.clone(),
+            has_joined_table:    false,
+            table_id:            TableId::new_id(),
+            seats:               0,
+            game_started:        false,
+            player_id:           PeerId::default(),
+            players:             PlayerStateObjects::default(),
+            nickname:            String::default(),
+            board:               Vec::default(),
+            pot:                 Pot::default(),
+            action_req:          None,
+            hand_phase:          HandPhase::StartingGame,
+            listen_addr:         None,
         }
     }
 
