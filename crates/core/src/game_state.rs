@@ -575,12 +575,11 @@ impl Projection {
 
         //  handle side-effects right away
         for eff in effects {
-            if let Effect::Send(msg,) = eff {
-                // re-use existing helper; re-enqueueing is fine because
-                // `sign_and_send` will wrap the message in its own contract
-                // entry so ordering stays consistent.
-                self.sign_and_send(msg,)?;
-            }
+            let Effect::Send(msg,) = eff;
+            // re-use existing helper; re-enqueueing is fine because
+            // `sign_and_send` will wrap the message in its own contract
+            // entry so ordering stays consistent.
+            self.sign_and_send(msg,)?;
         }
         Ok((),)
     }
