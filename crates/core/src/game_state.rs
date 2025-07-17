@@ -262,7 +262,6 @@ impl Projection {
                     nickname.clone(),
                     *chips,
                 ),);
-                self.has_joined_table = true;
             },
             WireMsg::PlayerJoinedConf {
                 player_id,
@@ -270,8 +269,16 @@ impl Projection {
                 seat_idx,
                 ..
             } => {
-                self.players.update_chips(*player_id, *chips,);
-                self.players.set_seat(*player_id, *seat_idx,);
+                // Add the peer if we have not seen the preceding JoinTableReq yet 
+                if self.players.get(player_id).is_none() {
+                   // nick isn’t part of PlayerJoinedConf → use a placeholder
+                   let nick = format!("peer‑{}", &player_id.to_string()[..6]);
+                   self.players
+                       .add(PlayerPrivate::new(*player_id, nick, *chips));
+               }
+        
+                   self.players.update_chips(*player_id, *chips);
+                   self.players.set_seat(*player_id, *seat_idx);
             },
             WireMsg::StartGameNotify {
                 seat_order, sb, bb,
@@ -473,52 +480,25 @@ impl Projection {
     // inside `impl Projection { … }` ‑ add to `handle_network_msg`
     // ────────────────────────────────────────────────────────────────────────────
 
-    pub async fn handle_network_msg(&mut self, sm: SignedMessage,) {
-        info!(
-            "internal table state of peer {} handling message with label {:?} sent from peer {}",
-            self.peer_id(),
-            sm.message().label(),
-            sm.sender()
-        );
+    // game_state.rs  ─ replace the body of `handle_network_msg`
+    pub async fn handle_network_msg(&mut self, sm: SignedMessage) {
         match sm.message() {
-            NetworkMessage::ProtocolEntry(entry,) => {
+            NetworkMessage::ProtocolEntry(entry) => {
+                // 1. reject genuinely invalid branches
                 if entry.prev_hash != self.hash_head {
-                    warn!("hash chain mismatch – discarding");
-                    warn!("prev hash of sender: {}", entry.prev_hash);
-                    warn!("prev hash of receiver (us) : {}", self.hash_head);
+                    warn!("hash mismatch – discarding");
                     return;
                 }
 
-                // If *another* peer just announced itself and we have not
-                // joined this table yet, immediately join as well so every
-                // replica ends up with the same two‑player view.  Going
-                // through the normal log keeps the per‑peer hash‑chain equal.
-                if let WireMsg::JoinTableReq { table, .. } = &entry.payload {
-                    if *table == self.table_id && !self.has_joined_table {
-                        let my_join = WireMsg::JoinTableReq {
-                            table:     self.table_id,
-                            player_id: self.peer_id(),
-                            nickname:  self.peer_context.nick.clone(),
-                            chips:     Chips::new(1_000),
-                        };
-                        // mark before commit to avoid recursion
-                        self.has_joined_table = true;
-                        // same helper used by UI → goes through the log
-                        let _ = self.commit_step(&my_join);
-                    }
-                }
+                // 2. **first** commit the message we just received
+                let _ = self.commit_step(&entry.payload);
+            }
 
-                let _ = self.commit_step(&entry.payload,);
-            },
-            NetworkMessage::NewListenAddr {
-                listener_id: _listener_id,
-                multiaddr,
-            } => {
-                self.listen_addr = Some(multiaddr.clone(),);
-            },
+            NetworkMessage::NewListenAddr { multiaddr, .. } => {
+                self.listen_addr = Some(multiaddr.clone());
+            }
         }
     }
-
     // ---------------------------------------------------------------------------
     // 2. Commit step: move “canonical state commit” above the side‑effect queue
     //    (so that a subsequent self.sign_and_send() sees the new head)
@@ -576,7 +556,7 @@ impl Projection {
                 chips,
             } => {
                 info!("handling ui jointablereq command!");
-                if table_id == self.table_id && peer_id == self.peer_id() {
+                if table_id == self.table_id && peer_id == self.peer_id() && !self.has_joined_table {
                     let wiremsg = WireMsg::JoinTableReq {
                         table: table_id,
                         player_id: peer_id,
