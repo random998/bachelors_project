@@ -519,9 +519,6 @@ impl Projection {
         );
         self.send(signed,)?;
 
-        // commit canonical state
-        self.contract = next;
-        self.hash_head = next_hash;
 
         // ---------- 3. side‑effects ----------
         self.pending_effects
@@ -530,6 +527,10 @@ impl Projection {
                     Effect::Send(m,) => Some(m,),
                 }
             },),);
+
+        // commit canonical state
+        self.contract = next;
+        self.hash_head = next_hash;
 
         Ok((),)
     }
@@ -551,7 +552,7 @@ impl Projection {
                         chips,
                     };
                     self.has_joined_table = true;
-                    let _ = self.sign_and_send(wiremsg,);
+                    let _ = self.commit_step(&wiremsg,);
                 }
             },
             _ => {

@@ -1,6 +1,7 @@
 //! `tests/two_peer_demo.rs`
 //! A fully in‑memory integration test: two peers, one table.
 
+use log::info;
 use poker_core::crypto::KeyPair;
 use poker_core::game_state::Projection;
 use poker_core::message::{SignedMessage, UiCmd};
@@ -69,16 +70,23 @@ async fn two_peers_join_and_start_game() -> anyhow::Result<(),> {
     alice.tick().await;
     bob.tick().await;
 
-    // 6. Bob processes Alice’s message (if any) and answers automatically
-    if let Ok(msg,) = bob.try_recv() {
-        bob.handle_network_msg(msg,).await;
+    // 6. Bob processes Alice’s message and emits his own JoinTableReq
+    if let Ok(msg) = bob.try_recv() {
+        bob.handle_network_msg(msg).await;
     }
     bob.tick().await;
 
+    // --- NEW: pump once more so Alice sees Bob’s message ------------------
+    alice.tick().await;
+    if let Ok(msg) = alice.try_recv() {
+        alice.handle_network_msg(msg).await;
+    }
+    alice.tick().await;
+    
     // 7. final assertions
-    assert_eq!(alice.players().len(), 2, "Alice sees both players");
-    assert_eq!(bob.players().len(), 2, "Bob   sees both players");
     assert_eq!(alice.phase, bob.phase, "Both peers are in the same phase");
+    assert_eq!(bob.players().len(), 2, "Bob   sees both players");
+    assert_eq!(alice.players().len(), 2, "Alice sees both players");
 
     Ok((),)
 }
