@@ -69,11 +69,17 @@ async fn two_peers_join_and_start_game() -> anyhow::Result<(),> {
     alice.tick().await;
     bob.tick().await;
 
+    // bob should have 0 players in his state.
+    assert_eq!(bob.players().len(), 0);
+
     // 6. Bob processes Alice’s message and emits his own JoinTableReq
     if let Ok(msg,) = bob.try_recv() {
         bob.handle_network_msg(msg,).await;
     }
     bob.tick().await;
+
+    // bob should have 2 players in his state, since he received alice's join request, and joins himself as well.
+    assert_eq!(bob.players().len(), 2);
 
     // --- NEW: pump once more so Alice sees Bob’s message ------------------
     alice.tick().await;
@@ -84,8 +90,8 @@ async fn two_peers_join_and_start_game() -> anyhow::Result<(),> {
 
     // 7. final assertions
     assert_eq!(alice.phase, bob.phase, "Both peers are in the same phase");
-    assert_eq!(bob.players().len(), 2, "Bob   sees both players");
-    assert_eq!(alice.players().len(), 2, "Alice sees both players");
+    assert_eq!(bob.players().len(), 2, "{}", format!("Bob should see both players, but sees the following players: {:?}", bob.players()));
+    assert_eq!(alice.players().len(), 2, "{}", format!("Alice should see both players, but sees the following players: {:?}", alice.players()));
 
     Ok((),)
 }
