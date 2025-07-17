@@ -469,7 +469,10 @@ impl Projection {
         }
     }
 
-    // — dispatcher called by runtime for every inbound network msg —
+    // ────────────────────────────────────────────────────────────────────────────
+    // inside `impl Projection { … }` ‑ add to `handle_network_msg`
+    // ────────────────────────────────────────────────────────────────────────────
+
     pub async fn handle_network_msg(&mut self, sm: SignedMessage,) {
         info!(
             "internal table state of peer {} handling message with label {:?} sent from peer {}",
@@ -485,6 +488,26 @@ impl Projection {
                     warn!("prev hash of receiver (us) : {}", self.hash_head);
                     return;
                 }
+
+                // If *another* peer just announced itself and we have not
+                // joined this table yet, immediately join as well so every
+                // replica ends up with the same two‑player view.  Going
+                // through the normal log keeps the per‑peer hash‑chain equal.
+                if let WireMsg::JoinTableReq { table, .. } = &entry.payload {
+                    if *table == self.table_id && !self.has_joined_table {
+                        let my_join = WireMsg::JoinTableReq {
+                            table:     self.table_id,
+                            player_id: self.peer_id(),
+                            nickname:  self.peer_context.nick.clone(),
+                            chips:     Chips::new(1_000),
+                        };
+                        // mark before commit to avoid recursion
+                        self.has_joined_table = true;
+                        // same helper used by UI → goes through the log
+                        let _ = self.commit_step(&my_join);
+                    }
+                }
+
                 let _ = self.commit_step(&entry.payload,);
             },
             NetworkMessage::NewListenAddr {
