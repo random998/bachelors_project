@@ -177,7 +177,8 @@ pub struct Signature(Vec<u8,>,);
 pub struct KeyPair(pub ed25519::Keypair,);
 
 impl KeyPair {
-    #[must_use] pub fn generate() -> Self {
+    #[must_use]
+    pub fn generate() -> Self {
         let kp: ed25519::Keypair = ed25519::Keypair::generate();
         Self(kp,)
     }

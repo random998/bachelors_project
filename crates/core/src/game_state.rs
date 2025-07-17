@@ -315,7 +315,7 @@ impl Projection {
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
         GameState {
-            ui_has_joined_table: false,
+            ui_has_joined_table: self.ui_has_joined_table,
             key_pair:            self.key_pair.clone(),
             prev_hash:           self.hash_head.clone(),
             has_joined_table:    self.has_joined_table,
@@ -447,11 +447,20 @@ impl Projection {
         Ok((),)
     }
 
-    /// Called every ~20 ms by the runtime.
-    pub async fn tick(&mut self,) {
-        if let Some(p,) =
-            self.players.iter_mut().find(|p| p.action_timer.is_some(),)
-        {
+    /// Called every ~20 ms by the runtime.
+    pub async fn tick(&mut self) {
+        /* NEW ─────────────────────────────────────────────────────────── */
+        // broadcast all WireMsg side‑effects that the *pure* contract
+        // returned in previous steps.  Each message is appended to the log
+        // via `sign_and_send`, so ordering & hashing stay consistent.
+        while let Some(eff) = self.pending_effects.pop() {
+            // ignore errors – the network layer already logs them
+            let _ = self.sign_and_send(eff);
+        }
+        /* ─────────────────────────────────────────────────────────────── */
+
+        // existing fold‑timeout logic
+        if let Some(p) = self.players.iter_mut().find(|p| p.action_timer.is_some()) {
             if p.action_timer.unwrap() >= 1_500 {
                 p.fold();
             }
@@ -485,26 +494,23 @@ impl Projection {
         }
     }
 
-    /// Run the pure state-machine transition **and immediately apply
-    /// any side effects** (currently only `Effect::Send`).
-    ///
-    /// * `payload` – the incoming `WireMsg` that should be appended to the log.
-    ///
-    /// On success the canonical `self.contract` and `self.hash_head` are
-    /// updated and every `Effect::Send` is signed & broadcast with the
-    /// existing helpers.
-    fn commit_step(&mut self, payload: &WireMsg,) -> anyhow::Result<(),> {
+    // ---------------------------------------------------------------------------
+    // 2.  Commit step: move “canonical state commit” above the side‑effect queue
+    //    (so that a subsequent self.sign_and_send() sees the new head)
+    // ---------------------------------------------------------------------------
+
+    fn commit_step(&mut self, payload: &WireMsg) -> anyhow::Result<()> {
         use contract::{Effect, StepResult};
 
-        // ---------- 1. pure state transition ----------
-        let StepResult { next, effects, } =
-            contract::step(&self.contract, payload, &self.peer_context,);
+        // 1. pure state transition
+        let StepResult { next, effects } =
+            contract::step(&self.contract, payload, &self.peer_context);
 
-        // keep projection in sync
-        self.apply(payload,);
+        // 2. bring local *projection* in sync
+        self.apply(payload);
 
-        // ---------- 2. append to our log ----------
-        let next_hash = contract::hash_state(&next,);
+        // 3. compute next hash & build entry with deterministic ordering key
+        let next_hash = contract::hash_state(&next);
         let entry = LogEntry::with_key(
             self.hash_head.clone(),
             payload.clone(),
@@ -512,29 +518,26 @@ impl Projection {
             self.peer_id(),
         );
 
-        // broadcast *and* loop back
-        let signed = SignedMessage::new(
-            &self.key_pair,
-            NetworkMessage::ProtocolEntry(entry,),
-        );
-        self.send(signed,)?;
+        // 4. broadcast (+ loop‑back)
+        let signed = SignedMessage::new(&self.key_pair, NetworkMessage::ProtocolEntry(entry));
+        self.send(signed)?;
 
-
-        // ---------- 3. side‑effects ----------
-        self.pending_effects
-            .extend(effects.into_iter().filter_map(|e| {
-                match e {
-                    Effect::Send(m,) => Some(m,),
-                }
-            },),);
-
-        // commit canonical state
-        self.contract = next;
+        /* NEW ─────────────────────────────────────────────────────────── */
+        // 5. commit canonical state *before* enqueueing side‑effects so that any
+        //    subsequent messages we emit reference the correct `prev_hash`.
+        self.contract  = next;
         self.hash_head = next_hash;
+        /* ─────────────────────────────────────────────────────────────── */
 
-        Ok((),)
+        // 6. queue side‑effects for the next tick
+        self.pending_effects.extend(
+            effects.into_iter().filter_map(|e| match e {
+                Effect::Send(m) => Some(m),
+                _               => None,
+            })
+        );
+        Ok(())
     }
-
     pub async fn handle_ui_msg(&mut self, msg: UiCmd,) {
         match msg {
             UiCmd::PlayerJoinTableRequest {
