@@ -211,7 +211,7 @@ pub struct Projection {
     key_pair:            KeyPair,
     /// whether player associated with `key_pair` has joined a table.
     has_joined_table:    bool,
-    ui_has_joined_table: bool,
+    is_seed_peer: bool,
 
     // 2. Peer-local “soft” state – NOT part of consensus
     pub rng:             StdRng, // used only when *we* deal
@@ -269,16 +269,17 @@ impl Projection {
                 seat_idx,
                 ..
             } => {
-                // Add the peer if we have not seen the preceding JoinTableReq yet 
-                if self.players.get(player_id).is_none() {
-                   // nick isn’t part of PlayerJoinedConf → use a placeholder
-                   let nick = format!("peer‑{}", &player_id.to_string()[..6]);
-                   self.players
-                       .add(PlayerPrivate::new(*player_id, nick, *chips));
-               }
-        
-                   self.players.update_chips(*player_id, *chips);
-                   self.players.set_seat(*player_id, *seat_idx);
+                // Add the peer if we have not seen the preceding JoinTableReq
+                // yet
+                if self.players.get(player_id,).is_none() {
+                    // nick isn’t part of PlayerJoinedConf → use a placeholder
+                    let nick = format!("peer‑{}", &player_id.to_string()[..6]);
+                    self.players
+                        .add(PlayerPrivate::new(*player_id, nick, *chips,),);
+                }
+
+                self.players.update_chips(*player_id, *chips,);
+                self.players.set_seat(*player_id, *seat_idx,);
             },
             WireMsg::StartGameNotify {
                 seat_order, sb, bb,
@@ -322,7 +323,7 @@ impl Projection {
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
         GameState {
-            ui_has_joined_table: self.ui_has_joined_table,
+            is_seed_peer: self.has_joined_table,
             key_pair:            self.key_pair.clone(),
             prev_hash:           self.hash_head.clone(),
             has_joined_table:    self.has_joined_table,
@@ -388,9 +389,10 @@ impl Projection {
         key_pair: KeyPair,
         connection: P2pTransport,
         cb: impl FnMut(SignedMessage,) + Send + 'static,
+        is_seed_peer: bool
     ) -> Self {
         Self {
-            ui_has_joined_table: false,
+            is_seed_peer: is_seed_peer,
             peer_context: PeerContext::new(
                 key_pair.peer_id(),
                 nick,
@@ -481,9 +483,9 @@ impl Projection {
     // ────────────────────────────────────────────────────────────────────────────
 
     // game_state.rs  ─ replace the body of `handle_network_msg`
-    pub async fn handle_network_msg(&mut self, sm: SignedMessage) {
+    pub async fn handle_network_msg(&mut self, sm: SignedMessage,) {
         match sm.message() {
-            NetworkMessage::ProtocolEntry(entry) => {
+            NetworkMessage::ProtocolEntry(entry,) => {
                 // 1. reject genuinely invalid branches
                 if entry.prev_hash != self.hash_head {
                     warn!("hash mismatch – discarding");
@@ -491,12 +493,12 @@ impl Projection {
                 }
 
                 // 2. **first** commit the message we just received
-                let _ = self.commit_step(&entry.payload);
-            }
+                let _ = self.commit_step(&entry.payload,);
+            },
 
             NetworkMessage::NewListenAddr { multiaddr, .. } => {
-                self.listen_addr = Some(multiaddr.clone());
-            }
+                self.listen_addr = Some(multiaddr.clone(),);
+            },
         }
     }
     // ---------------------------------------------------------------------------
@@ -542,7 +544,6 @@ impl Projection {
             .extend(effects.into_iter().filter_map(|e| {
                 match e {
                     Effect::Send(m,) => Some(m,),
-                    _ => None,
                 }
             },),);
         Ok((),)
@@ -556,14 +557,18 @@ impl Projection {
                 chips,
             } => {
                 info!("handling ui jointablereq command!");
-                if table_id == self.table_id && peer_id == self.peer_id() && !self.has_joined_table {
+                if table_id == self.table_id
+                    && peer_id == self.peer_id()
+                    && !self.has_joined_table
+                    && self.players.get(&peer_id).is_some()
+                {
+                    self.has_joined_table = true;
                     let wiremsg = WireMsg::JoinTableReq {
                         table: table_id,
                         player_id: peer_id,
                         nickname,
                         chips,
                     };
-                    self.has_joined_table = true;
                     let _ = self.commit_step(&wiremsg,);
                 }
             },
@@ -686,7 +691,7 @@ pub struct GameState {
     pub nickname:            String,
     /// player with `player_id` has joined table
     pub has_joined_table:    bool,
-    pub ui_has_joined_table: bool,
+    pub is_seed_peer: bool,
 
     pub players:     PlayerStateObjects,
     pub board:       Vec<Card,>,
@@ -709,7 +714,7 @@ impl GameState {
         seats: usize,
     ) -> Self {
         Self {
-            ui_has_joined_table: false,
+            is_seed_peer: false,
             key_pair: KeyPair::generate(),
             prev_hash: GENESIS_HASH.clone(),
             table_id,
@@ -730,7 +735,7 @@ impl GameState {
     #[must_use]
     pub fn default() -> Self {
         Self {
-            ui_has_joined_table: false,
+            is_seed_peer: false,
             key_pair:            KeyPair::generate(),
             prev_hash:           GENESIS_HASH.clone(),
             has_joined_table:    false,
