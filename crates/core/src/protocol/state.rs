@@ -116,16 +116,6 @@ pub fn step(
         } => {
             st.players
                 .insert(*player_id, PlayerFlags { notified: false, },);
-
-            // ↯ If _I_ am not yet in the table, queue my own Join request
-            if !st.players.contains_key(&me.id,) {
-                out.push(Effect::Send(WireMsg::JoinTableReq {
-                    table:     *table,
-                    player_id: me.id,
-                    nickname:  me.nick.clone(),
-                    chips:     me.chips,
-                },),);
-            }
         },
         WireMsg::StartGameNotify {
             seat_order: _seat_order,

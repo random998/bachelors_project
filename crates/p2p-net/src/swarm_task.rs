@@ -95,6 +95,7 @@ pub fn new(
     if let Some(addr,) = seed_peer_addr {
         swarm.dial(addr.clone(),).expect("dial failure",);
         info!("sucessfully dialed seed peer at {addr}");
+        
     }
 
     // mpsc pipes ---------------------------------------------------

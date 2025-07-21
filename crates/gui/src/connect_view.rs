@@ -21,7 +21,7 @@ pub struct ConnectView {
 
 impl ConnectView {
     const fn ui_joined_server(&self,) -> bool {
-        self.game_state.ui_has_joined_table
+        self.game_state.has_joined_table
     }
 
     fn update_chips(&mut self,) {
@@ -109,7 +109,7 @@ impl View for ConnectView {
                         }
 
                         self.game_state.nickname = self.nickname.clone();
-                        self.game_state.ui_has_joined_table = true;
+                        self.game_state.has_joined_table= true;
                     }
                 },);
             },);
