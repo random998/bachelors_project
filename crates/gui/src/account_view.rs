@@ -146,7 +146,7 @@ impl View for AccountView {
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {
             Some(Box::new(ConnectView::new(app,),),)
-        } else if self.game_state.ui_has_joined_table {
+        } else if self.game_state.has_joined_table{
             let empty_state = GameState::default();
             Some(Box::new(GameView::new(
                 ctx,
