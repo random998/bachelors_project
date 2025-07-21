@@ -52,7 +52,7 @@ pub fn start(
     rt_handle.spawn(async move {
         // 1) transport (libp2p)
         let transport: P2pTransport =
-            crate::swarm_task::new(&table, kp.clone(), seed,);
+            crate::swarm_task::new(&table, kp.clone(), seed.clone(),);
 
         // 2) engine
 
@@ -63,8 +63,9 @@ pub fn start(
             let _ = tx_net.send(m,); // to peers
         };
 
+        let is_seed_peer = seed == None;
         let mut eng =
-            Projection::new(nick, table, seats, kp, transport, loopback,);
+            Projection::new(nick, table, seats, kp, transport, loopback, is_seed_peer);
 
         // 4) main loop
         loop {

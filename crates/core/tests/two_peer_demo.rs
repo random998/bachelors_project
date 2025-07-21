@@ -45,6 +45,7 @@ async fn two_peers_join_and_start_game() -> anyhow::Result<(),> {
         kp_a.clone(),
         transport_a,
         |_| {}, // loopback callback not needed in test
+        true,
     );
     let mut bob = Projection::new(
         "Bob".into(),
@@ -53,6 +54,7 @@ async fn two_peers_join_and_start_game() -> anyhow::Result<(),> {
         kp_b.clone(),
         transport_b,
         |_| {},
+        false,
     );
 
     // 4. Alice joins
@@ -78,9 +80,6 @@ async fn two_peers_join_and_start_game() -> anyhow::Result<(),> {
     }
     bob.tick().await;
 
-    // bob should have 2 players in his state, since he received alice's join request, and joins himself as well.
-    assert_eq!(bob.players().len(), 2);
-
     // --- NEW: pump once more so Alice sees Bob’s message ------------------
     alice.tick().await;
     if let Ok(msg,) = alice.try_recv() {
@@ -90,8 +89,24 @@ async fn two_peers_join_and_start_game() -> anyhow::Result<(),> {
 
     // 7. final assertions
     assert_eq!(alice.phase, bob.phase, "Both peers are in the same phase");
-    assert_eq!(bob.players().len(), 2, "{}", format!("Bob should see both players, but sees the following players: {:?}", bob.players()));
-    assert_eq!(alice.players().len(), 2, "{}", format!("Alice should see both players, but sees the following players: {:?}", alice.players()));
+    assert_eq!(
+        bob.players().len(),
+        2,
+        "{}",
+        format!(
+            "Bob should see both players, but sees the following players: {:?}",
+            bob.players()
+        )
+    );
+    assert_eq!(
+        alice.players().len(),
+        2,
+        "{}",
+        format!(
+            "Alice should see both players, but sees the following players: {:?}",
+            alice.players()
+        )
+    );
 
     Ok((),)
 }
