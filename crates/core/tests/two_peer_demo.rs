@@ -751,17 +751,16 @@ async fn concurrent_joins() -> Result<(),> {
     let kp_c = KeyPair::generate();
 
     // Set up pairwise channels
-    let (a_to_b, b_from_a,) = tokio::sync::mpsc::channel(64,);
-    let (b_to_a, a_from_b,) = tokio::sync::mpsc::channel(64,);
-    let (_b_to_c, c_from_b,) = tokio::sync::mpsc::channel(64,);
-    let (c_to_a, _a_from_c,) = tokio::sync::mpsc::channel(64,);
+    let (a_send_pipe, a_send_recv_pipe,) = tokio::sync::mpsc::channel(64,);
+    let (b_send_pipe, b_send_recv_pipe,) = tokio::sync::mpsc::channel(64,);
+    let (c_send_pipe, c_send_recv_pipe,) = tokio::sync::mpsc::channel(64,);
 
     let mut alice = Projection::new(
         "Alice".into(),
         TableId::new_id(),
         6,
         kp_a.clone(),
-        mock_transport(a_to_b.clone(), a_from_b,),
+        mock_transport(a_send_pipe, a_send_recv_pipe),
         |_| {},
         true,
     );
@@ -770,7 +769,7 @@ async fn concurrent_joins() -> Result<(),> {
         alice.table_id,
         6,
         kp_b.clone(),
-        mock_transport(b_to_a.clone(), b_from_a,),
+        mock_transport(b_send_pipe, b_send_recv_pipe,),
         |_| {},
         false,
     );
@@ -779,7 +778,7 @@ async fn concurrent_joins() -> Result<(),> {
         alice.table_id,
         6,
         kp_c.clone(),
-        mock_transport(c_to_a.clone(), c_from_b,),
+        mock_transport(c_send_pipe, c_send_recv_pipe,),
         |_| {},
         false,
     );
@@ -824,7 +823,6 @@ async fn concurrent_joins() -> Result<(),> {
     }
     while let Ok(msg,) = charlie.try_recv() {
         let _ = charlie.send(msg.clone(),);
-        let _ = charlie.send(msg,);
     }
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
