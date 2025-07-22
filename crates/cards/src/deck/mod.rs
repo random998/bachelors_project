@@ -201,7 +201,7 @@ impl Suit {
     }
 }
 
-#[derive(Debug,)]
+#[derive(Debug, Clone)]
 pub struct Deck {
     cards: Vec<Card,>,
 }

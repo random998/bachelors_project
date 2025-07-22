@@ -102,6 +102,7 @@ pub enum WireMsg {
     PlayerJoinedConf {
         table:     TableId,
         player_id: PeerId,
+        nickname:  String,
         seat_idx:  u8,
         chips:     Chips,
     },

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
+use crate::game_state::PlayerPrivate;
 use crate::poker::Chips;
 use crate::protocol::msg::{Hash, WireMsg};
 
@@ -54,16 +55,11 @@ pub enum Effect {
     Send(WireMsg,),
 }
 
-#[derive(Clone, Serialize, Deserialize, Default,)]
-pub struct PlayerFlags {
-    pub notified: bool,
-}
-
-pub struct BTreeMap(pub std::collections::BTreeMap<PeerId, PlayerFlags,>,);
+pub struct BTreeMap(pub std::collections::BTreeMap<PeerId, PlayerPrivate,>,);
 #[derive(Clone, Serialize, Deserialize,)]
 pub struct ContractState {
     pub phase:   Phase,
-    pub players: std::collections::BTreeMap<PeerId, PlayerFlags,>,
+    pub players: std::collections::BTreeMap<PeerId, PlayerPrivate,>,
 }
 
 impl Default for ContractState {
@@ -90,32 +86,39 @@ impl std::fmt::Debug for ContractState {
 pub fn step(
     prev: &ContractState,
     msg: &WireMsg,
-    me: &PeerContext,
 ) -> StepResult {
     let mut st = prev.clone();
     let mut out = Vec::new();
 
     match msg {
-        WireMsg::PlayerJoinedConf { player_id, .. } => {
-            st.players
-                .entry(*player_id,)
-                .or_insert(PlayerFlags { notified: false, },);
-        },
-        WireMsg::StartGameNotify { seat_order, .. } => {
-            for pid in seat_order {
-                st.players.entry(*pid,).or_default().notified = true;
+        WireMsg::PlayerJoinedConf { player_id, chips, table: _table, seat_idx: _seat_idx, nickname} => {
+            if let None = st.players.get_mut(player_id) {
+                let player = PlayerPrivate::new(*player_id, nickname.clone(), *chips);
+                st.players.insert(*player_id, player);
             }
-            if st.players.values().all(|f| f.notified,) {
+        },
+        WireMsg::StartGameNotify { seat_order: _seat_order, .. } => {
+            if st.players.values().all(|p| p.has_sent_start_game_notification()) {
                 st.phase = Phase::Ready;
             } else {
                 st.phase = Phase::Starting;
             }
         },
         WireMsg::JoinTableReq {
-            player_id, table, ..
+            player_id, table, chips, nickname
         } => {
             st.players
-                .insert(*player_id, PlayerFlags { notified: false, },);
+                .insert(*player_id, PlayerPrivate::new(*player_id, nickname.clone(), *chips));
+
+            // assign seat deterministically (e.g. based on player count).
+            let seat_idx = st.players.len() as u8 - 1;
+            out.push(Effect::Send(WireMsg::PlayerJoinedConf {
+                player_id: *player_id,
+                nickname: nickname.clone(),
+                chips: *chips,
+                seat_idx,
+                table: *table,
+            }))
         },
         WireMsg::StartGameNotify {
             seat_order: _seat_order,
