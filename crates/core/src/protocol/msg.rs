@@ -1,8 +1,9 @@
 //! Hash-chained packet format (ready for ZK integration)
 
+use std::fmt::Write;
+
 use rand_core::RngCore;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt::Write;
 
 use crate::crypto::PeerId;
 use crate::message::{HandPayoff, PlayerAction};
@@ -53,12 +54,12 @@ impl LogEntry {
 pub struct Hash(pub blake3::Hash,);
 
 impl Hash {
-    pub fn generate_random() -> Hash {
+    #[must_use] pub fn generate_random() -> Self {
         let size = 16; // Example: 16 bytes
         let mut byte_array = vec![0u8; size]; // Initialize a vector of zeros
-        rand::rng().fill_bytes(&mut byte_array[..]); // Fill with random bytes
-        let hash = blake3::hash(&byte_array);
-        Hash(hash)
+        rand::rng().fill_bytes(&mut byte_array[..],); // Fill with random bytes
+        let hash = blake3::hash(&byte_array,);
+        Self(hash,)
     }
 }
 

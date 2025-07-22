@@ -227,15 +227,15 @@ pub struct Projection {
     pending_effects: Vec<WireMsg,>,
 
     // game state ----------------------------------------------------------
-    deck:           Deck,
-    current_pot:    Pot,
-    action_request: Option<ActionRequest,>,
-    active_player:  Option<PlayerPrivate,>,
-    last_bet:       Chips,
-    hand_count:     usize,
-    min_raise:      Chips,
-    pub game_started:   bool,
-    chain:          Vec<LogEntry,>,
+    deck:             Deck,
+    current_pot:      Pot,
+    action_request:   Option<ActionRequest,>,
+    active_player:    Option<PlayerPrivate,>,
+    last_bet:         Chips,
+    hand_count:       usize,
+    min_raise:        Chips,
+    pub game_started: bool,
+    chain:            Vec<LogEntry,>,
 
     // misc ----------------------------------------------------------------
     new_hand_start_timer: Option<Instant,>,
@@ -250,8 +250,8 @@ pub struct Projection {
 }
 
 impl Projection {
-    pub fn game_started(&self) -> bool {
-        self.game_started.clone()
+    #[must_use] pub const fn game_started(&self,) -> bool {
+        self.game_started
     }
     #[must_use]
     pub fn hash_head(&self,) -> Hash {
@@ -640,7 +640,8 @@ impl Projection {
                 let mut current_hash = GENESIS_HASH.clone();
                 let received_chain = chain.iter().cloned();
 
-                // first check the validity of the chain before applying any entries contained in it.
+                // first check the validity of the chain before applying any
+                // entries contained in it.
                 for entry in received_chain.clone() {
                     if entry.prev_hash != current_hash {
                         warn!("invalid chain - prev_hash mismatch");
@@ -648,24 +649,25 @@ impl Projection {
                     }
                 }
 
-                // apply logentries of chain to our state only if all hashes in hash state chain were valid.
+                // apply logentries of chain to our state only if all hashes in
+                // hash state chain were valid.
                 for entry in received_chain.clone() {
                     let res = contract::step(&current_state, &entry.payload,);
-                        let next = res.next;
-                        let next_hash = contract::hash_state(&next,);
+                    let next = res.next;
+                    let next_hash = contract::hash_state(&next,);
 
-                        if next_hash != entry.next_hash {
-                            warn!("invalid chain - next_hash mismatch");
-                            return;
-                        }
+                    if next_hash != entry.next_hash {
+                        warn!("invalid chain - next_hash mismatch");
+                        return;
+                    }
 
-                        // Update projection
-                        self.apply(&entry.payload,);
+                    // Update projection
+                    self.apply(&entry.payload,);
 
-                        // Ignore effects during replay
+                    // Ignore effects during replay
 
-                        current_state = next;
-                        current_hash = next_hash;
+                    current_state = next;
+                    current_hash = next_hash;
                 }
 
                 self.contract = current_state;
@@ -729,7 +731,10 @@ impl Projection {
                 nickname,
                 chips,
             } => {
-                info!("{} handling ui jointablereq command!", self.peer_id().to_string());
+                info!(
+                    "{} handling ui jointablereq command!",
+                    self.peer_id()
+                );
                 if table_id == self.table_id
                     && peer_id == self.peer_id()
                     && !self.has_joined_table
@@ -741,7 +746,9 @@ impl Projection {
                         nickname: nickname.clone(),
                         chips,
                     };
-                    if !self.is_seed_peer && self.hash_head == GENESIS_HASH.clone() {
+                    if !self.is_seed_peer
+                        && self.hash_head == GENESIS_HASH.clone()
+                    {
                         // New non-seed player: request sync first
                         let sync_msg = NetworkMessage::SyncReq {
                             table: table_id,
@@ -749,7 +756,10 @@ impl Projection {
                             nickname,
                             chips,
                         };
-                        info!("{} sending sync request", self.peer_id().to_string());
+                        info!(
+                            "{} sending sync request",
+                            self.peer_id()
+                        );
                         let _ = self.send_plain(sync_msg,);
                     } else {
                         info!("Seed peer or already-synced: direct commit");
