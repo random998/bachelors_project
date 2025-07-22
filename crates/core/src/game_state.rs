@@ -562,10 +562,13 @@ impl Projection {
         // returned in previous steps.  Each message is appended to the log
         // via `sign_and_send`, so ordering & hashing stay consistent.
 
-        while let Some(eff,) = self.pending_effects.pop() {
+        let mut pending = self.pending_effects.clone();
+        while let Some(eff,) = pending.pop() {
             // ignore errors – the network layer already logs them
             let _ = self.sign_and_send(eff,);
         }
+        self.pending_effects = pending;
+
         // ───────────────────────────────────────────────────────────────
 
         // existing fold‑timeout logic
@@ -1291,7 +1294,7 @@ impl Projection {
             }
 
             let mut cards = bh.to_vec();
-            cards.sort_by_key(poker_eval::Card::rank,);
+            cards.sort_by_key(Card::rank,);
 
             if let Some(payoff,) =
                 payoffs.iter_mut().find(|po| po.player_id == id,)
