@@ -19,10 +19,9 @@ pub enum NetworkMessage {
     /// protocol entry for zk log.
     ProtocolEntry(LogEntry,),
     /// the network has given this peer a new listen address.
-    NewListenAddr {
-        listener_id: String,
-        multiaddr:   Multiaddr,
-    },
+    NewListenAddr { listener_id: String, multiaddr:   Multiaddr, },
+    SyncReq {table: TableId, player_id: PeerId, nickname: String, chips: Chips},
+    SyncResp {target: PeerId, chain: Vec<LogEntry>},
 }
 
 /// Represents a message send from the p2p poker instance to the ui.
@@ -94,6 +93,8 @@ impl NetworkMessage {
                 format!("ProtocolEntry: {}", logentry.payload.label())
             },
             Self::NewListenAddr { .. } => "NewListenAddr".to_string(),
+            Self::SyncReq { .. } => "SyncReq".to_string(),
+            Self::SyncResp { .. } => "SyncResp".to_string(),
         }
     }
 }

@@ -25,14 +25,13 @@ impl ConnectView {
     }
 
     fn update_chips(&mut self,) {
-        let us = self.game_state.players.get_mut(&self.player_id(),);
+        let us = self.game_state.players().into_iter().find(|p| p.peer_id == self.peer_id(),);
         if let Some(p,) = us {
             self.chips = p.chips;
         }
     }
-
-    const fn peer_id(&self,) -> PeerId {
-        self.game_state.player_id
+   pub fn peer_id(&self,) -> PeerId {
+        self.game_state.player_id()
     }
 }
 
