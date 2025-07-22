@@ -1,4 +1,3 @@
-use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
@@ -84,24 +83,11 @@ impl std::fmt::Debug for ContractState {
 
 // ---------- single deterministic transition ------------------------------
 #[must_use]
-pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
+pub fn step(prev: &ContractState, msg: &WireMsg) -> StepResult {
     let mut st = prev.clone();
     let mut out = Vec::new();
 
     match msg {
-        WireMsg::PlayerJoinedConf {
-            player_id,
-            chips,
-            table: _table,
-            seat_idx: _seat_idx,
-            nickname,
-        } => {
-            if st.players.get_mut(player_id,).is_none() {
-                let player =
-                    PlayerPrivate::new(*player_id, nickname.clone(), *chips,);
-                st.players.insert(*player_id, player,);
-            }
-        },
         WireMsg::StartGameNotify {
             seat_order: _seat_order,
             ..
@@ -109,7 +95,7 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
             if st
                 .players
                 .values()
-                .all(super::super::game_state::PlayerPrivate::has_sent_start_game_notification,)
+                .all(PlayerPrivate::has_sent_start_game_notification,)
             {
                 st.phase = Phase::Ready;
             } else {
@@ -118,7 +104,7 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
         },
         WireMsg::JoinTableReq {
             player_id,
-            table,
+            table: _table,
             chips,
             nickname,
         } => {
@@ -126,19 +112,6 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                 *player_id,
                 PlayerPrivate::new(*player_id, nickname.clone(), *chips,),
             );
-
-            // assign seat deterministically (e.g. based on player count).
-            let seat_idx = st.players.len() as u8 - 1;
-            info!(
-                "sending playemjoined conf, beause we received a jointablereq"
-            );
-            out.push(Effect::Send(WireMsg::PlayerJoinedConf {
-                player_id: *player_id,
-                nickname: nickname.clone(),
-                chips: *chips,
-                seat_idx,
-                table: *table,
-            },),);
         },
         WireMsg::StartGameNotify {
             seat_order: _seat_order,

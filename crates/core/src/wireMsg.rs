@@ -22,12 +22,6 @@ pub enum WireMsg {
         nickname:  String,
         chips:     Chips,
     },
-    PlayerJoinedConf {
-        table:     TableId,
-        player_id: PeerId,
-        seat_idx:  u8,
-        chips:     Chips,
-    },
     LeaveTable { player_id: PeerId },
 
     // ───── Game start & shuffle ───────────────────────────────────────
@@ -78,4 +72,3 @@ pub enum WireMsg {
     Throttle { millis: u32 },            // UI pacing
     Ping,
 }
-
