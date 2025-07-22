@@ -34,7 +34,8 @@ impl ConnectView {
             self.chips = p.chips;
         }
     }
-    #[must_use] pub const fn peer_id(&self,) -> PeerId {
+    #[must_use]
+    pub const fn peer_id(&self,) -> PeerId {
         self.game_state.player_id()
     }
 }
