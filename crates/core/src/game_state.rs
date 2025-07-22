@@ -111,7 +111,8 @@ impl PlayerPrivate {
 }
 
 impl PlayerPrivate {
-    #[must_use] pub const fn new(id: PeerId, nickname: String, chips: Chips,) -> Self {
+    #[must_use]
+    pub const fn new(id: PeerId, nickname: String, chips: Chips,) -> Self {
         Self {
             has_sent_start_game_notification: false,
             peer_id: id,
@@ -249,19 +250,23 @@ pub struct Projection {
 }
 
 impl Projection {
-    #[must_use] pub fn hash_head(&self,) -> Hash {
+    #[must_use]
+    pub fn hash_head(&self,) -> Hash {
         self.hash_head.clone()
     }
 
-    #[must_use] pub const fn has_joined_table(&self,) -> bool {
+    #[must_use]
+    pub const fn has_joined_table(&self,) -> bool {
         self.has_joined_table
     }
-    #[must_use] pub fn chain(&self,) -> Vec<LogEntry,> {
+    #[must_use]
+    pub fn chain(&self,) -> Vec<LogEntry,> {
         self.chain.clone()
     }
 
     // Derived players access
-    #[must_use] pub fn players(&self,) -> Vec<PlayerPrivate,> {
+    #[must_use]
+    pub fn players(&self,) -> Vec<PlayerPrivate,> {
         self.contract.players.values().cloned().collect()
     }
 
@@ -271,7 +276,8 @@ impl Projection {
         self.contract.players.values_mut()
     }
 
-    #[must_use] pub fn get_player(&self, id: &PeerId,) -> Option<PlayerPrivate,> {
+    #[must_use]
+    pub fn get_player(&self, id: &PeerId,) -> Option<PlayerPrivate,> {
         self.contract.players.get(id,).cloned()
     }
 
@@ -283,7 +289,8 @@ impl Projection {
     }
 
     // Example derived methods for counts and operations
-    #[must_use] pub fn count_active(&self,) -> usize {
+    #[must_use]
+    pub fn count_active(&self,) -> usize {
         self.contract
             .players
             .values()
@@ -291,7 +298,8 @@ impl Projection {
             .count()
     }
 
-    #[must_use] pub fn count_with_chips(&self,) -> usize {
+    #[must_use]
+    pub fn count_with_chips(&self,) -> usize {
         self.contract
             .players
             .values()
@@ -299,7 +307,8 @@ impl Projection {
             .count()
     }
 
-    #[must_use] pub fn count_active_with_chips(&self,) -> usize {
+    #[must_use]
+    pub fn count_active_with_chips(&self,) -> usize {
         self.contract
             .players
             .values()
@@ -632,7 +641,7 @@ impl Projection {
                         return;
                     }
 
-                    let res = contract::step(&current_state, &entry.payload);
+                    let res = contract::step(&current_state, &entry.payload,);
                     let next = res.next;
                     let next_hash = contract::hash_state(&next,);
 
@@ -668,7 +677,7 @@ impl Projection {
 
         // 1. pure state transition
         let StepResult { next, effects, } =
-            contract::step(&self.contract, payload);
+            contract::step(&self.contract, payload,);
 
         // 2. bring local *projection* in sync
         self.apply(payload,);
@@ -1451,7 +1460,6 @@ impl Projection {
                         if !pot.participants.contains(&id,) {
                             pot.participants.insert(id,);
                         }
-
                     }
                 }
                 self.current_pot = pot;
