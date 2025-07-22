@@ -1,13 +1,14 @@
 //! Hash-chained packet format (ready for ZK integration)
 
-use std::fmt::Write;
-
+use rand_core::RngCore;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt::Write;
 
 use crate::crypto::PeerId;
 use crate::message::{HandPayoff, PlayerAction};
 use crate::poker::{Card, Chips, GameId, TableId};
-use crate::zk::{Commitment, Proof, RangeProof, ShuffleProof}; // empty stub today
+use crate::zk::{Commitment, Proof, RangeProof, ShuffleProof};
+// empty stub today
 
 // ---------- Public envelope ------------------------------------------------
 
@@ -50,6 +51,16 @@ impl LogEntry {
 
 #[derive(Clone, Debug,)]
 pub struct Hash(pub blake3::Hash,);
+
+impl Hash {
+    pub fn generate_random() -> Hash {
+        let size = 16; // Example: 16 bytes
+        let mut byte_array = vec![0u8; size]; // Initialize a vector of zeros
+        rand::rng().fill_bytes(&mut byte_array[..]); // Fill with random bytes
+        let hash = blake3::hash(&byte_array);
+        Hash(hash)
+    }
+}
 
 impl std::fmt::Display for Hash {
     fn fmt(&self, f: &mut std::fmt::Formatter,) -> std::fmt::Result {

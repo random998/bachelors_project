@@ -111,9 +111,7 @@ impl View for ConnectView {
                         if self.nickname.trim().is_empty() {
                             self.error = "Invalid nickname".to_string();
                         }
-
                         self.game_state.nickname = self.nickname.clone();
-                        self.game_state.has_joined_table = true;
                     }
                 },);
             },);
