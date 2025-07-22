@@ -83,9 +83,9 @@ impl std::fmt::Debug for ContractState {
 
 // ---------- single deterministic transition ------------------------------
 #[must_use]
-pub fn step(prev: &ContractState, msg: &WireMsg) -> StepResult {
+pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
     let mut st = prev.clone();
-    let mut out = Vec::new();
+    let out = Vec::new();
 
     match msg {
         WireMsg::StartGameNotify {
