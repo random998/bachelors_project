@@ -4685,6 +4685,7 @@ dependencies = [
  "bs58",
  "bytes",
  "chrono",
+ "env_logger",
  "futures",
  "futures-util",
  "getrandom 0.3.3",
