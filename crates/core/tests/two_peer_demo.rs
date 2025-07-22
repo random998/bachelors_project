@@ -4,6 +4,7 @@
 use std::time::Duration;
 
 use anyhow::Result;
+use env_logger::Env;
 use log::info;
 use poker_core::crypto::KeyPair;
 use poker_core::game_state::{HandPhase, Projection};
@@ -54,12 +55,17 @@ async fn pump_messages(alice: &mut Projection, bob: &mut Projection,) {
     }
 }
 
+unsafe fn init_logger() {
+    std::env::set_var("RUST_LOG", "info");
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+}
+
 /// Test successful join of two peers: seed (Alice) joins directly, non-seed
 /// (Bob) sends SyncReq -> Alice processes, appends JoinTableReq, sends SyncResp
 /// and ProtocolEntry
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn two_peers_join_success() -> Result<(),> {
-    env_logger::init();
+    unsafe { init_logger(); }
     // 1. Deterministic key pairs.
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();

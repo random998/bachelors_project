@@ -365,24 +365,6 @@ impl Projection {
                     PlayerPrivate::new(*player_id, nickname.clone(), *chips,);
                 self.contract.players.insert(*player_id, player,);
             },
-            WireMsg::PlayerJoinedConf {
-                player_id,
-                chips,
-                seat_idx,
-                ..
-            } => {
-                if let Some(player,) = self.contract.players.get_mut(player_id,)
-                {
-                    player.chips = *chips;
-                    player.seat_idx = Some(*seat_idx,);
-                } else {
-                    let nick = format!("peer‑{}", &player_id.to_string()[..6]);
-                    let mut player =
-                        PlayerPrivate::new(*player_id, nick, *chips,);
-                    player.seat_idx = Some(*seat_idx,);
-                    self.contract.players.insert(*player_id, player,);
-                }
-            },
             WireMsg::StartGameNotify {
                 seat_order, sb, bb,
             ..
@@ -650,7 +632,7 @@ impl Projection {
                         return;
                     }
 
-                    let res = contract::step(&current_state, &entry.payload,);
+                    let res = contract::step(&current_state, &entry.payload);
                     let next = res.next;
                     let next_hash = contract::hash_state(&next,);
 
@@ -686,7 +668,7 @@ impl Projection {
 
         // 1. pure state transition
         let StepResult { next, effects, } =
-            contract::step(&self.contract, payload,);
+            contract::step(&self.contract, payload);
 
         // 2. bring local *projection* in sync
         self.apply(payload,);
@@ -1453,7 +1435,6 @@ impl Projection {
                     break;
                 }
 
-                let mut went_all_in = false;
                 let active_player_ids = self
                     .players()
                     .iter()
@@ -1471,7 +1452,6 @@ impl Projection {
                             pot.participants.insert(id,);
                         }
 
-                        went_all_in |= player.chips == Chips::ZERO;
                     }
                 }
                 self.current_pot = pot;
