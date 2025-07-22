@@ -25,12 +25,16 @@ impl ConnectView {
     }
 
     fn update_chips(&mut self,) {
-        let us = self.game_state.players().into_iter().find(|p| p.peer_id == self.peer_id(),);
+        let us = self
+            .game_state
+            .players()
+            .into_iter()
+            .find(|p| p.peer_id == self.peer_id(),);
         if let Some(p,) = us {
             self.chips = p.chips;
         }
     }
-   pub fn peer_id(&self,) -> PeerId {
+    #[must_use] pub const fn peer_id(&self,) -> PeerId {
         self.game_state.player_id()
     }
 }
@@ -108,7 +112,7 @@ impl View for ConnectView {
                         }
 
                         self.game_state.nickname = self.nickname.clone();
-                        self.game_state.has_joined_table= true;
+                        self.game_state.has_joined_table = true;
                     }
                 },);
             },);

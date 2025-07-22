@@ -63,9 +63,16 @@ pub fn start(
             let _ = tx_net.send(m,); // to peers
         };
 
-        let is_seed_peer = seed == None;
-        let mut eng =
-            Projection::new(nick, table, seats, kp, transport, loopback, is_seed_peer);
+        let is_seed_peer = seed.is_none();
+        let mut eng = Projection::new(
+            nick,
+            table,
+            seats,
+            kp,
+            transport,
+            loopback,
+            is_seed_peer,
+        );
 
         // 4) main loop
         loop {
