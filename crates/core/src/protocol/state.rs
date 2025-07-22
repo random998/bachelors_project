@@ -1,3 +1,4 @@
+use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
@@ -112,6 +113,7 @@ pub fn step(
 
             // assign seat deterministically (e.g. based on player count).
             let seat_idx = st.players.len() as u8 - 1;
+            info!("sending playemjoined conf, beause we received a jointablereq");
             out.push(Effect::Send(WireMsg::PlayerJoinedConf {
                 player_id: *player_id,
                 nickname: nickname.clone(),
