@@ -99,13 +99,6 @@ pub enum WireMsg {
         nickname:  String,
         chips:     Chips,
     },
-    PlayerJoinedConf {
-        table:     TableId,
-        player_id: PeerId,
-        nickname:  String,
-        seat_idx:  u8,
-        chips:     Chips,
-    },
     LeaveTable {
         player_id: PeerId,
     },
@@ -169,7 +162,6 @@ impl WireMsg {
     pub fn label(&self,) -> String {
         match self {
             Self::JoinTableReq { .. } => "JoinTableReq".to_string(),
-            Self::PlayerJoinedConf { .. } => "PlayerJoinedConf".to_string(),
             Self::LeaveTable { .. } => "LeaveTable".to_string(),
             Self::StartGameNotify { .. } => "StartGameNotify".to_string(),
             Self::ShuffleCommit { .. } => "ShuffleCommit".to_string(),
