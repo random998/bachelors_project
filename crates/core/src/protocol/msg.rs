@@ -13,7 +13,7 @@ use crate::zk::{Commitment, Proof, RangeProof, ShuffleProof};
 
 // ---------- Public envelope ------------------------------------------------
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize,)]
 pub struct LogEntry {
     pub prev_hash: Hash,
     pub payload:   WireMsg,
@@ -24,8 +24,11 @@ pub struct LogEntry {
 }
 
 impl PartialEq for LogEntry {
-    fn eq(&self, other: &Self) -> bool {
-        self.prev_hash == other.prev_hash && self.next_hash == other.next_hash && self.payload == other.payload && self.proof == other.proof
+    fn eq(&self, other: &Self,) -> bool {
+        self.prev_hash == other.prev_hash
+            && self.next_hash == other.next_hash
+            && self.payload == other.payload
+            && self.proof == other.proof
     }
 }
 
@@ -36,7 +39,7 @@ pub struct EntryMetaData {
 }
 
 impl PartialEq for EntryMetaData {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, other: &Self,) -> bool {
         self.ts_micros == other.ts_micros && self.author == other.author
     }
 }
@@ -66,7 +69,8 @@ impl LogEntry {
 pub struct Hash(pub blake3::Hash,);
 
 impl Hash {
-    #[must_use] pub fn generate_random() -> Self {
+    #[must_use]
+    pub fn generate_random() -> Self {
         let size = 16; // Example: 16 bytes
         let mut byte_array = vec![0u8; size]; // Initialize a vector of zeros
         rand::rng().fill_bytes(&mut byte_array[..],); // Fill with random bytes
@@ -104,7 +108,7 @@ impl<'de,> Deserialize<'de,> for Hash {
 }
 
 // ---------- All message kinds ----------------------------------------------
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq,)]
 pub enum WireMsg {
     // ── lobby ─────────────────────────────────────────────
     /// Dealer sends each player their two private cards (**plaintext – will be

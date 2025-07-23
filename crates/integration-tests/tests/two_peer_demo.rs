@@ -1,7 +1,7 @@
 //! `crates/integration-tests/tests/two_peer_demo.rs`
-//! Integration tests for peers joining a table using the same libp2p swarm architecture
-//! as defined in `p2p-net::swarm_task`. Tests use Gossipsub with MemoryTransport for
-//! in-memory testing to simulate network communication.
+//! Integration tests for peers joining a table using the same libp2p swarm
+//! architecture as defined in `p2p-net::swarm_task`. Tests use Gossipsub with
+//! `MemoryTransport` for in-memory testing to simulate network communication.
 
 use std::time::Duration;
 
@@ -15,96 +15,98 @@ use poker_core::message::{NetworkMessage, SignedMessage, UiCmd};
 use poker_core::poker::{Chips, TableId};
 use poker_core::protocol::msg::Hash;
 use poker_core::protocol::state::GENESIS_HASH;
-use rand::thread_rng;
-use rand::RngCore;
+use rand::{RngCore, thread_rng};
 use tokio::time::sleep;
-use blake3;
 
 const BLAKE3_HASH_BYTE_ARR_LEN: usize = 32;
 const MESSAGE_RECEIVE_TIMEOUT: u64 = 2;
-const NETWORK_PUMP_MS_DELAY : u64 = 10;
+const NETWORK_PUMP_MS_DELAY: u64 = 10;
 const CHIPS_JOIN_AMOUNT: u32 = 1_000;
 
 // Initialize logger for tests to print info and warn messages.
 fn init_logger() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("error")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("error",),)
+        .init();
 }
 
-async fn wait_for_listen_addr(proj: &mut Projection) {
+async fn wait_for_listen_addr(proj: &mut Projection,) {
     let mut attempts = 0;
     loop {
         proj.tick().await;
-        while let Ok(msg) = proj.try_recv() {
-            proj.handle_network_msg(msg).await;
+        while let Ok(msg,) = proj.try_recv() {
+            proj.handle_network_msg(msg,).await;
         }
         if proj.listen_addr.is_some() {
             break;
         }
-        sleep(Duration::from_millis(50)).await;
+        sleep(Duration::from_millis(50,),).await;
         attempts += 1;
-        if attempts > 20 {
-            panic!("Timeout waiting for listen addr");
-        }
+        assert!(!(attempts > 20), "Timeout waiting for listen addr")
     }
 }
 
-// Helper to pump messages by polling until idle, ensuring listen addresses are set.
-async fn pump_three(alice: &mut Projection, bob: &mut Projection, charlie: &mut Projection) {
-    let timeout = Duration::from_secs(5); // Prevent infinite loop
+// Helper to pump messages by polling until idle, ensuring listen addresses are
+// set.
+async fn pump_three(
+    alice: &mut Projection,
+    bob: &mut Projection,
+    charlie: &mut Projection,
+) {
+    let timeout = Duration::from_secs(5,); // Prevent infinite loop
     let start = tokio::time::Instant::now();
 
     loop {
         if start.elapsed() > timeout {
-            warn!("pump_three timed out after {:?}", timeout);
+            warn!("pump_three timed out after {timeout:?}");
             break;
         }
 
         alice.tick().await;
-        while let Ok(msg) = alice.try_recv() {
+        while let Ok(msg,) = alice.try_recv() {
             info!("alice received message: {}", msg.message());
-            alice.handle_network_msg(msg).await;
+            alice.handle_network_msg(msg,).await;
         }
 
         bob.tick().await;
-        while let Ok(msg) = bob.try_recv() {
+        while let Ok(msg,) = bob.try_recv() {
             info!("bob received message: {}", msg.message());
-            bob.handle_network_msg(msg).await;
+            bob.handle_network_msg(msg,).await;
         }
 
         charlie.tick().await;
-        while let Ok(msg) = charlie.try_recv() {
+        while let Ok(msg,) = charlie.try_recv() {
             info!("charlie received message: {}", msg.message());
-            charlie.handle_network_msg(msg).await;
+            charlie.handle_network_msg(msg,).await;
         }
 
-        sleep(Duration::from_millis(NETWORK_PUMP_MS_DELAY)).await;
+        sleep(Duration::from_millis(NETWORK_PUMP_MS_DELAY,),).await;
     }
 }
 
 // Helper for two peers, used in tests with only Alice and Bob
-async fn pump_messages(alice: &mut Projection, bob: &mut Projection) {
-    let timeout = Duration::from_secs(5);
+async fn pump_messages(alice: &mut Projection, bob: &mut Projection,) {
+    let timeout = Duration::from_secs(5,);
     let start = tokio::time::Instant::now();
 
     loop {
         if start.elapsed() > timeout {
-            warn!("pump_messages timed out after {:?}", timeout);
+            warn!("pump_messages timed out after {timeout:?}");
             break;
         }
 
         alice.tick().await;
-        while let Ok(msg) = alice.try_recv() {
+        while let Ok(msg,) = alice.try_recv() {
             info!("alice received message: {}", msg.message());
-            alice.handle_network_msg(msg).await;
+            alice.handle_network_msg(msg,).await;
         }
 
         bob.tick().await;
-        while let Ok(msg) = bob.try_recv() {
+        while let Ok(msg,) = bob.try_recv() {
             info!("bob received message: {}", msg.message());
-            bob.handle_network_msg(msg).await;
+            bob.handle_network_msg(msg,).await;
         }
 
-        sleep(Duration::from_millis(NETWORK_PUMP_MS_DELAY)).await;
+        sleep(Duration::from_millis(NETWORK_PUMP_MS_DELAY,),).await;
     }
 }
 /// Test successful join of two peers: seed (Alice) joins directly, non-seed
@@ -113,19 +115,20 @@ async fn pump_messages(alice: &mut Projection, bob: &mut Projection) {
 ///
 /// This test verifies:
 /// - Seed peer (Alice) can join directly and see herself in the players list.
-/// - Non-seed peer (Bob) requests sync, receives the chain, replays it, and joins.
-/// - Both peers end with consistent state: same players, hash_head, chain length.
+/// - Non-seed peer (Bob) requests sync, receives the chain, replays it, and
+///   joins.
+/// - Both peers end with consistent state: same players, hash_head, chain
+///   length.
 /// - Phases remain WaitingForPlayers until game starts.
 /// - has_joined_table flags are set correctly.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn two_peers_join_success() -> Result<()> {
-
+async fn two_peers_join_success() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
     let table_id = TableId::new_id();
 
     // Alice as seed
-    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None);
+    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None,);
     let mut alice = Projection::new(
         "Alice".into(),
         table_id,
@@ -136,11 +139,12 @@ async fn two_peers_join_success() -> Result<()> {
         true,
     );
 
-    wait_for_listen_addr(&mut alice).await;
-    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr");
+    wait_for_listen_addr(&mut alice,).await;
+    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr",);
 
     // Bob dials Alice
-    let transport_b = swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr));
+    let transport_b =
+        swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr,),);
     let mut bob = Projection::new(
         "Bob".into(),
         table_id,
@@ -151,17 +155,19 @@ async fn two_peers_join_success() -> Result<()> {
         false,
     );
 
-    wait_for_listen_addr(&mut bob).await;
+    wait_for_listen_addr(&mut bob,).await;
 
     // Alice joins
-    alice.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: alice.peer_id(),
-        nickname: "Alice".into(),
-        chips: Chips::new(1_000),
-    }).await;
+    alice
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(1_000,),
+        },)
+        .await;
 
-    pump_messages(&mut alice, &mut bob).await;
+    pump_messages(&mut alice, &mut bob,).await;
 
     // Assertions after Alice joins
     assert_eq!(alice.players().len(), 1, "Alice should see herself");
@@ -180,10 +186,11 @@ async fn two_peers_join_success() -> Result<()> {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
-        chips: Chips::new(1_000),
-    }).await;
+        chips: Chips::new(1_000,),
+    },)
+        .await;
 
-    pump_messages(&mut alice, &mut bob).await;
+    pump_messages(&mut alice, &mut bob,).await;
 
     // Final assertions
     assert_eq!(alice.players().len(), 2, "Alice sees both players");
@@ -194,7 +201,7 @@ async fn two_peers_join_success() -> Result<()> {
     assert_eq!(bob.hash_chain().len(), 2, "Bob replayed chain");
     assert_eq!(alice.phase, bob.phase, "Phases match");
 
-    Ok(())
+    Ok((),)
 }
 
 /// Test successful join of three peers: seed (Alice) joins directly, non-seed
@@ -202,20 +209,22 @@ async fn two_peers_join_success() -> Result<()> {
 ///
 /// This test verifies:
 /// - Multiple non-seed peers can join one after another.
-/// - Each join appends to the chain, and new peers receive the full updated chain.
-/// - All peers end with consistent state: same players list (sorted or in join order),
-///   hash_head, chain length.
+/// - Each join appends to the chain, and new peers receive the full updated
+///   chain.
+/// - All peers end with consistent state: same players list (sorted or in join
+///   order), hash_head, chain length.
 /// - Seat assignments are correct and deterministic.
-/// - No mismatches during propagation, assuming PlayerJoinedConf is sent as plain message.
+/// - No mismatches during propagation, assuming PlayerJoinedConf is sent as
+///   plain message.
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-async fn three_peers_join_success() -> Result<()> {
+async fn three_peers_join_success() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
     let kp_c = KeyPair::generate();
     let table_id = TableId::new_id();
 
     // Alice as seed
-    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None);
+    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None,);
     let mut alice = Projection::new(
         "Alice".into(),
         table_id,
@@ -227,11 +236,12 @@ async fn three_peers_join_success() -> Result<()> {
     );
 
     // Wait for Alice's listen address
-    wait_for_listen_addr(&mut alice).await;
-    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr");
+    wait_for_listen_addr(&mut alice,).await;
+    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr",);
 
     // Bob dials Alice
-    let transport_b = swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr.clone()));
+    let transport_b =
+        swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr.clone(),),);
     let mut bob = Projection::new(
         "Bob".into(),
         table_id,
@@ -242,10 +252,11 @@ async fn three_peers_join_success() -> Result<()> {
         false,
     );
     bob.tick().await;
-    wait_for_listen_addr(&mut bob).await;
+    wait_for_listen_addr(&mut bob,).await;
 
     // Charlie dials Alice
-    let transport_c = swarm_task::new(&table_id, kp_c.clone(), Some(alice_addr));
+    let transport_c =
+        swarm_task::new(&table_id, kp_c.clone(), Some(alice_addr,),);
     let mut charlie = Projection::new(
         "Charlie".into(),
         table_id,
@@ -256,24 +267,26 @@ async fn three_peers_join_success() -> Result<()> {
         false,
     );
     charlie.tick().await;
-    wait_for_listen_addr(&mut charlie).await;
+    wait_for_listen_addr(&mut charlie,).await;
 
     // Alice joins
-    alice.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: alice.peer_id(),
-        nickname: "Alice".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
+    alice
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await;
 
-    pump_three(&mut alice, &mut bob, &mut charlie).await;
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
     alice.tick().await;
     bob.tick().await;
     charlie.tick().await;
 
     assert_eq!(alice.players().len(), 1);
     assert_eq!(charlie.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
-    assert_eq!(bob.players().len(), 0);  // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(bob.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
     // Bob joins
@@ -281,10 +294,11 @@ async fn three_peers_join_success() -> Result<()> {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await;
 
-    pump_three(&mut alice, &mut bob, &mut charlie).await;
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
     alice.tick().await;
     bob.tick().await;
     charlie.tick().await;
@@ -298,14 +312,16 @@ async fn three_peers_join_success() -> Result<()> {
     assert_eq!(alice.hash_head(), bob.hash_head());
 
     // Charlie joins
-    charlie.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: charlie.peer_id(),
-        nickname: "Charlie".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
+    charlie
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: charlie.peer_id(),
+            nickname: "Charlie".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await;
 
-    pump_three(&mut alice, &mut bob, &mut charlie).await;
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
     assert_eq!(alice.players().len(), 3);
     assert_eq!(bob.players().len(), 3);
@@ -320,7 +336,7 @@ async fn three_peers_join_success() -> Result<()> {
     assert_eq!(alice.hash_head(), charlie.hash_head());
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
-    Ok(())
+    Ok((),)
 }
 
 /// Test rejection when table is full: Alice and Bob join, Charlie tries to join
@@ -332,9 +348,7 @@ async fn three_peers_join_success() -> Result<()> {
 /// - Rejected peer remains with previous state, not joined.
 /// - Existing peers unchanged.
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-async fn reject_join_table_full() -> Result<()> {
-
-
+async fn reject_join_table_full() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
     let kp_c = KeyPair::generate();
@@ -342,7 +356,7 @@ async fn reject_join_table_full() -> Result<()> {
     let table_id = TableId::new_id();
 
     // Alice as seed
-    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None);
+    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None,);
     let mut alice = Projection::new(
         "Alice".into(),
         table_id,
@@ -353,11 +367,12 @@ async fn reject_join_table_full() -> Result<()> {
         true,
     );
 
-    wait_for_listen_addr(&mut alice).await;
-    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr");
+    wait_for_listen_addr(&mut alice,).await;
+    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr",);
 
     // Bob dials Alice
-    let transport_b = swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr.clone()));
+    let transport_b =
+        swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr.clone(),),);
     let mut bob = Projection::new(
         "Bob".into(),
         table_id,
@@ -369,7 +384,8 @@ async fn reject_join_table_full() -> Result<()> {
     );
 
     // Charlie dials Alice
-    let transport_c = swarm_task::new(&table_id, kp_c.clone(), Some(alice_addr));
+    let transport_c =
+        swarm_task::new(&table_id, kp_c.clone(), Some(alice_addr,),);
     let mut charlie = Projection::new(
         "Charlie".into(),
         table_id,
@@ -381,18 +397,20 @@ async fn reject_join_table_full() -> Result<()> {
     );
 
     // Wait for Bob and Charlie's listen addresses
-    wait_for_listen_addr(&mut bob).await;
-    wait_for_listen_addr(&mut charlie).await;
+    wait_for_listen_addr(&mut bob,).await;
+    wait_for_listen_addr(&mut charlie,).await;
 
     // Alice joins
-    alice.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: alice.peer_id(),
-        nickname: "Alice".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
+    alice
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await;
 
-    pump_three(&mut alice, &mut bob, &mut charlie).await;
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
     assert_eq!(alice.players().len(), 1);
     assert_eq!(bob.players().len(), 0); // bob has not added alice to his player's list, because he has not synced yet.
@@ -403,17 +421,18 @@ async fn reject_join_table_full() -> Result<()> {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await;
 
     // send request from bob to alice.
-    pump_three(&mut alice, &mut bob, &mut charlie).await;
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
     // tick all three players such that they can process the messages.
     alice.tick().await;
     bob.tick().await;
     charlie.tick().await;
     // send respnse from alice to bob.
-    pump_three(&mut alice, &mut bob, &mut charlie).await;
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
     // tick all three players such that they can process the messages.
     alice.tick().await;
     bob.tick().await;
@@ -428,41 +447,58 @@ async fn reject_join_table_full() -> Result<()> {
     assert_eq!(alice.hash_chain(), bob.hash_chain());
 
     // Charlie tries to join
-    charlie.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: charlie.peer_id(),
-        nickname: "Charlie".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
+    charlie
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: charlie.peer_id(),
+            nickname: "Charlie".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await;
 
-    pump_three(&mut alice, &mut bob, &mut charlie).await;
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
-    assert_eq!(alice.players().len(), 2, "table is full, charlie has not joined");
+    assert_eq!(
+        alice.players().len(),
+        2,
+        "table is full, charlie has not joined"
+    );
     assert_eq!(bob.players().len(), 2, "table is full, charlie has not joined");
-    assert_eq!(alice.hash_chain().len(), 2, "table is full, charlie has not joined");
-    assert_eq!(bob.hash_chain().len(), 2, "table is full, charlie has not joined");
-    assert!(!charlie.has_joined_table(), "table is full, charlie has not joined");
+    assert_eq!(
+        alice.hash_chain().len(),
+        2,
+        "table is full, charlie has not joined"
+    );
+    assert_eq!(
+        bob.hash_chain().len(),
+        2,
+        "table is full, charlie has not joined"
+    );
+    assert!(
+        !charlie.has_joined_table(),
+        "table is full, charlie has not joined"
+    );
     assert_eq!(alice.hash_chain(), bob.hash_chain());
     assert_eq!(bob.hash_chain(), alice.hash_chain());
-    Ok(())
+    Ok((),)
 }
 
-/// Test rejection when game has started: Alice joins, starts game, Bob tries to join.
+/// Test rejection when game has started: Alice joins, starts game, Bob tries to
+/// join.
 ///
 /// This test verifies:
 /// - Join requests after game_started = true are ignored.
 /// - Rejected peer does not join, no SyncResp sent.
 /// - Existing peer state unchanged.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn reject_join_game_started() -> Result<()> {
-
+async fn reject_join_game_started() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
 
     let table_id = TableId::new_id();
 
     // Alice as seed
-    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None);
+    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None,);
     let mut alice = Projection::new(
         "Alice".into(),
         table_id,
@@ -473,11 +509,12 @@ async fn reject_join_game_started() -> Result<()> {
         true,
     );
 
-    wait_for_listen_addr(&mut alice).await;
-    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr");
+    wait_for_listen_addr(&mut alice,).await;
+    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr",);
 
     // Bob dials Alice
-    let transport_b = swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr));
+    let transport_b =
+        swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr,),);
     let mut bob = Projection::new(
         "Bob".into(),
         table_id,
@@ -488,16 +525,18 @@ async fn reject_join_game_started() -> Result<()> {
         false,
     );
 
-    wait_for_listen_addr(&mut bob).await;
+    wait_for_listen_addr(&mut bob,).await;
 
     // Alice joins
-    alice.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: alice.peer_id(),
-        nickname: "Alice".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
-    pump_messages(&mut alice, &mut bob).await;
+    alice
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await;
+    pump_messages(&mut alice, &mut bob,).await;
 
     // Simulate game start
     alice.game_started = true;
@@ -508,15 +547,16 @@ async fn reject_join_game_started() -> Result<()> {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
-    pump_messages(&mut alice, &mut bob).await;
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await;
+    pump_messages(&mut alice, &mut bob,).await;
 
     assert_eq!(alice.players().len(), 1);
     assert_eq!(bob.players().len(), 0); // bob has not added alice, since he has not synced yet and therefore rejects any log entries that he receives.
     assert!(!bob.has_joined_table());
 
-    Ok(())
+    Ok((),)
 }
 
 /// Test rejection if already joined: Bob joins, then tries to join again.
@@ -526,16 +566,14 @@ async fn reject_join_game_started() -> Result<()> {
 /// - No additional chain entries or state changes.
 /// - has_joined_table remains true, but no errors or mismatches.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn reject_join_already_joined() -> Result<()> {
-
-
+async fn reject_join_already_joined() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
 
     let table_id = TableId::new_id();
 
     // Alice as seed
-    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None);
+    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None,);
     let mut alice = Projection::new(
         "Alice".into(),
         table_id,
@@ -546,12 +584,13 @@ async fn reject_join_already_joined() -> Result<()> {
         true,
     );
 
-    wait_for_listen_addr(&mut alice).await;
+    wait_for_listen_addr(&mut alice,).await;
     alice.tick().await;
-    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr");
+    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr",);
 
     // Bob dials Alice
-    let transport_b = swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr));
+    let transport_b =
+        swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr,),);
     let mut bob = Projection::new(
         "Bob".into(),
         table_id,
@@ -561,18 +600,20 @@ async fn reject_join_already_joined() -> Result<()> {
         |_| {},
         false,
     );
-    wait_for_listen_addr(&mut bob).await;
+    wait_for_listen_addr(&mut bob,).await;
     alice.tick().await;
     bob.tick().await;
 
     // Alice joins
-    alice.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: alice.peer_id(),
-        nickname: "Alice".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
-    pump_messages(&mut alice, &mut bob).await;
+    alice
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await;
+    pump_messages(&mut alice, &mut bob,).await;
     alice.tick().await;
     bob.tick().await;
 
@@ -586,9 +627,10 @@ async fn reject_join_already_joined() -> Result<()> {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
-    pump_messages(&mut bob, &mut alice).await;
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await;
+    pump_messages(&mut bob, &mut alice,).await;
     bob.tick().await;
     alice.tick().await;
 
@@ -599,19 +641,25 @@ async fn reject_join_already_joined() -> Result<()> {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
-    pump_messages(&mut alice, &mut bob).await;
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await;
+    pump_messages(&mut alice, &mut bob,).await;
 
     assert_eq!(alice.players().len(), 2);
     assert_eq!(bob.players().len(), 2);
-    assert_eq!(alice.hash_chain().len(), chain_len_before, "No new chain entry");
+    assert_eq!(
+        alice.hash_chain().len(),
+        chain_len_before,
+        "No new chain entry"
+    );
     assert_eq!(bob.hash_chain(), alice.hash_chain());
 
-    Ok(())
+    Ok((),)
 }
 
-/// Test rejection of invalid SyncResp: Alice sends tampered chain to Bob, Bob rejects.
+/// Test rejection of invalid SyncResp: Alice sends tampered chain to Bob, Bob
+/// rejects.
 ///
 /// This test verifies:
 /// - Bob discards invalid chain (tampered hash) and does not join.
@@ -619,16 +667,14 @@ async fn reject_join_already_joined() -> Result<()> {
 /// - Alice's state unchanged.
 /// - Warn log for mismatch.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn reject_invalid_sync_resp() -> Result<()> {
-
-
+async fn reject_invalid_sync_resp() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
 
     let table_id = TableId::new_id();
 
     // Alice as seed
-    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None);
+    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None,);
     let mut alice = Projection::new(
         "Alice".into(),
         table_id,
@@ -639,11 +685,12 @@ async fn reject_invalid_sync_resp() -> Result<()> {
         true,
     );
 
-    wait_for_listen_addr(&mut alice).await;
-    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr");
+    wait_for_listen_addr(&mut alice,).await;
+    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr",);
 
     // Bob dials Alice
-    let transport_b = swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr));
+    let transport_b =
+        swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr,),);
     let mut bob = Projection::new(
         "Bob".into(),
         table_id,
@@ -654,19 +701,22 @@ async fn reject_invalid_sync_resp() -> Result<()> {
         false,
     );
 
-    wait_for_listen_addr(&mut bob).await;
+    wait_for_listen_addr(&mut bob,).await;
 
     // Alice joins
-    alice.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: alice.peer_id(),
-        nickname: "Alice".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
+    alice
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await;
     alice.tick().await;
 
-    // Discard messages at Bob to simulate not receiving Alice's join ProtocolEntry
-    while let Ok(_) = bob.try_recv() {
+    // Discard messages at Bob to simulate not receiving Alice's join
+    // ProtocolEntry
+    while bob.try_recv().is_ok() {
         // Discard without handling
     }
 
@@ -675,43 +725,42 @@ async fn reject_invalid_sync_resp() -> Result<()> {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT),
-    }).await;
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await;
 
     alice.tick().await;
     bob.tick().await;
-    sleep(Duration::from_millis(100)).await; // Allow message propagation
+    sleep(Duration::from_millis(100,),).await; // Allow message propagation
 
     // Consume the SyncReq at Alice without handling it
-    if let Ok(_) = alice.try_recv() {
+    if alice.try_recv().is_ok() {
         // Consumed SyncReq, now tamper the current chain (only Alice's join)
-        let mut tampered_chain = alice.hash_chain().clone();
-        if let Some(entry) = tampered_chain.last_mut() {
+        let mut tampered_chain = alice.hash_chain();
+        if let Some(entry,) = tampered_chain.last_mut() {
             let mut byte_array = [0u8; BLAKE3_HASH_BYTE_ARR_LEN];
-            thread_rng().fill_bytes(&mut byte_array);
-            entry.prev_hash = Hash(blake3::Hash::from_bytes(byte_array));
+            thread_rng().fill_bytes(&mut byte_array,);
+            entry.prev_hash = Hash(blake3::Hash::from_bytes(byte_array,),);
         }
         let resp = NetworkMessage::SyncResp {
             player_asking_for_sync: bob.peer_id(),
-            chain: tampered_chain,
+            chain:                  tampered_chain,
         };
-        let signed_resp = SignedMessage::new(&kp_a, resp);
-        let _ = alice.send(signed_resp); // Send tampered response
+        let signed_resp = SignedMessage::new(&kp_a, resp,);
+        let _ = alice.send(signed_resp,); // Send tampered response
     }
 
-    pump_messages(&mut alice, &mut bob).await;
+    pump_messages(&mut alice, &mut bob,).await;
 
     assert!(
-        bob.players()
-            .iter()
-            .find(|p| p.peer_id == bob.peer_id())
-            .is_none()
+        !bob.players()
+            .iter().any(|p| p.peer_id == bob.peer_id())
     ); // bob should not have joined his own state.
     assert_eq!(bob.hash_chain().len(), 0);
     assert_eq!(bob.players().len(), 0); // No one, since Alice's join not propagated
     assert_eq!(bob.hash_head(), *GENESIS_HASH); // bobs state hash chain should still be at the genesis hash state.
 
-    Ok(())
+    Ok((),)
 }
 
 /// Test chain replay with multiple joins: Bob joins after Alice and Charlie,
@@ -722,7 +771,7 @@ async fn reject_invalid_sync_resp() -> Result<()> {
 /// - All state (players, seats) consistent across peers.
 /// - Chain length reflects all joins.
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-async fn late_join_replay_chain() -> Result<()> {
+async fn late_join_replay_chain() -> Result<(),> {
     init_logger();
 
     let kp_a = KeyPair::generate();
@@ -732,7 +781,7 @@ async fn late_join_replay_chain() -> Result<()> {
     let table_id = TableId::new_id();
 
     // Alice as seed
-    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None);
+    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None,);
     let mut alice = Projection::new(
         "Alice".into(),
         table_id,
@@ -744,11 +793,12 @@ async fn late_join_replay_chain() -> Result<()> {
     );
 
     // Wait for Alice's listen address
-    wait_for_listen_addr(&mut alice).await;
-    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr");
+    wait_for_listen_addr(&mut alice,).await;
+    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr",);
 
     // Charlie dials Alice
-    let transport_c = swarm_task::new(&table_id, kp_c.clone(), Some(alice_addr.clone()));
+    let transport_c =
+        swarm_task::new(&table_id, kp_c.clone(), Some(alice_addr.clone(),),);
     let mut charlie = Projection::new(
         "Charlie".into(),
         table_id,
@@ -759,34 +809,37 @@ async fn late_join_replay_chain() -> Result<()> {
         false,
     );
 
-    wait_for_listen_addr(&mut charlie).await;
+    wait_for_listen_addr(&mut charlie,).await;
 
     // Establish connection between Alice and Charlie
-    pump_messages(&mut alice, &mut charlie).await;
+    pump_messages(&mut alice, &mut charlie,).await;
 
     // Alice joins
-    alice.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: alice.peer_id(),
-        nickname: "Alice".into(),
-        chips: Chips::new(1000),
-    }).await;
-    pump_messages(&mut alice, &mut charlie).await; // Pump for Alice and Charlie only
-
+    alice
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(1000,),
+        },)
+        .await;
+    pump_messages(&mut alice, &mut charlie,).await; // Pump for Alice and Charlie only
 
     // Charlie joins
-    charlie.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: charlie.peer_id(),
-        nickname: "Charlie".into(),
-        chips: Chips::new(1000),
-    }).await;
+    charlie
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: charlie.peer_id(),
+            nickname: "Charlie".into(),
+            chips: Chips::new(1000,),
+        },)
+        .await;
 
-    pump_messages(&mut alice, &mut charlie).await; // charlie sends SyncRequest to alice.
+    pump_messages(&mut alice, &mut charlie,).await; // charlie sends SyncRequest to alice.
     // alice creates SyncResponse
     alice.tick().await;
     charlie.tick().await;
-    pump_messages(&mut alice, &mut charlie).await; // alice sends SyncResponse to charlie.
+    pump_messages(&mut alice, &mut charlie,).await; // alice sends SyncResponse to charlie.
     // charlie processes SyncResponse
     alice.tick().await;
     charlie.tick().await;
@@ -795,7 +848,8 @@ async fn late_join_replay_chain() -> Result<()> {
     assert_eq!(charlie.players().len(), 2);
 
     // Now create Bob late
-    let transport_b = swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr));
+    let transport_b =
+        swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr,),);
     let mut bob = Projection::new(
         "Bob".into(),
         table_id,
@@ -805,21 +859,22 @@ async fn late_join_replay_chain() -> Result<()> {
         |_| {},
         false,
     );
-    wait_for_listen_addr(&mut bob).await;
+    wait_for_listen_addr(&mut bob,).await;
 
     // Establish connection for Bob with existing peers
-    pump_three(&mut alice, &mut bob, &mut charlie).await;
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
     // Bob joins late, should send SyncReq and replay full chain
     bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
-        chips: Chips::new(1000),
-    }).await;
+        chips: Chips::new(1000,),
+    },)
+        .await;
 
     // request sent from bob to peers
-    pump_three(&mut alice, &mut bob, &mut charlie).await;
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
     // give time to players to apply changes introduced by messages.
     alice.tick().await;
@@ -827,7 +882,7 @@ async fn late_join_replay_chain() -> Result<()> {
     charlie.tick().await;
 
     // replies sent from peers to bob
-    pump_three(&mut alice, &mut bob, &mut charlie).await;
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
     // give time to players to apply changes introduced by messages.
     alice.tick().await;
@@ -845,5 +900,5 @@ async fn late_join_replay_chain() -> Result<()> {
     assert_eq!(alice.hash_chain(), charlie.hash_chain());
     assert_eq!(bob.hash_chain(), charlie.hash_chain());
 
-    Ok(())
+    Ok((),)
 }
