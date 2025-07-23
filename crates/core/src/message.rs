@@ -25,12 +25,12 @@ pub enum NetworkMessage {
     },
     SyncReq {
         table:     TableId,
-        player_id: PeerId,
+        player_asking_for_sync: PeerId,
         nickname:  String,
         chips:     Chips,
     },
     SyncResp {
-        target: PeerId,
+        player_asking_for_sync: PeerId,
         chain:  Vec<LogEntry,>,
     },
 }
@@ -75,7 +75,7 @@ pub enum UiCmd {
     },
     PlayerJoinTableRequest {
         table_id: TableId,
-        peer_id:  PeerId,
+        player_requesting_join:  PeerId,
         nickname: String,
         chips:    Chips,
     },
@@ -168,7 +168,7 @@ impl PlayerAction {
 }
 
 /// Hand payoff description.
-#[derive(Clone, Debug, Serialize, Deserialize,)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct HandPayoff {
     /// The player receiving the payment.
     pub player_id: PeerId,

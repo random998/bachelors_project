@@ -4,7 +4,7 @@ use crate::poker::*;        // Chips, Card, etc.
 use crate::zk::*;           // Proof, Commitment, ShuffleProof, …
 
 /// Every logged packet is hash-chained & ZK-verified.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub struct LogEntry {
     pub prev_hash: Hash,       // h_{i-1}
     pub payload:   WireMsg,
@@ -12,6 +12,11 @@ pub struct LogEntry {
     pub proof:     Proof,      // zkVM proof: step(prev,msg) = next
 }
 
+impl PartialEq for LogEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.prev_hash == other.prev_hash && self.payload == other.payload && self.next_hash == other.next_hash && self.proof == other.proof
+    }
+}
 /// User-visible envelope (signed by the sender).
 #[derive(Serialize, Deserialize)]
 pub enum WireMsg {

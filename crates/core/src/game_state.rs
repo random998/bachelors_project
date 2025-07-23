@@ -235,7 +235,8 @@ pub struct Projection {
     hand_count:       usize,
     min_raise:        Chips,
     pub game_started: bool,
-    chain:            Vec<LogEntry,>,
+    hash_chain:            Vec<LogEntry,>,
+    is_synced: bool,
 
     // misc ----------------------------------------------------------------
     new_hand_start_timer: Option<Instant,>,
@@ -263,8 +264,8 @@ impl Projection {
         self.has_joined_table
     }
     #[must_use]
-    pub fn chain(&self,) -> Vec<LogEntry,> {
-        self.chain.clone()
+    pub fn hash_chain(&self,) -> Vec<LogEntry,> {
+        self.hash_chain.clone()
     }
 
     // Derived players access
@@ -379,7 +380,7 @@ impl Projection {
             },
             WireMsg::StartGameNotify {
                 seat_order, sb, bb,
-            ..
+                ..
             } => {
                 self.reseat(seat_order,);
                 self.small_blind = *sb;
@@ -485,7 +486,8 @@ impl Projection {
         cb: impl FnMut(SignedMessage,) + Send + 'static,
         is_seed_peer: bool,
     ) -> Self {
-        Self {
+        let obj = Self {
+            is_synced: is_seed_peer,
             is_seed_peer,
             peer_context: PeerContext::new(
                 key_pair.peer_id(),
@@ -521,8 +523,10 @@ impl Projection {
             new_hand_timeout: Duration::from_millis(1_000,),
             action_request: None,
             listen_addr: None,
-            chain: Vec::new(),
-        }
+            hash_chain: Vec::new(),
+        };
+        info!("peer {} has nickname {}", obj.peer_id().to_string(), obj.peer_context.nick.clone());
+        obj
     }
 
     // — public helpers (runtime ↔ UI) —
@@ -578,13 +582,17 @@ impl Projection {
     // inside `impl Projection { … }` ‑ add to `handle_network_msg`
     // ────────────────────────────────────────────────────────────────────────────
 
-    // game_state.rs  ─ replace the body of `handle_network_msg`
     pub async fn handle_network_msg(&mut self, sm: SignedMessage,) {
         match sm.message() {
             NetworkMessage::ProtocolEntry(entry,) => {
                 // 1. reject genuinely invalid branches
                 if entry.prev_hash != self.hash_head {
-                    warn!("hash mismatch – discarding");
+                    warn!("{} (nick {}) received message ProtocolEntry: {} from {} with hash mismatch – discarding", self.peer_context.id.to_string(), self.peer_context.nick.clone(), entry.payload.label().to_string(), sm.sender().to_string());
+                    return;
+                }
+
+                // 2. reject any messages before we have synced our state with the seed peer.
+                if !self.is_synced {
                     return;
                 }
 
@@ -597,15 +605,15 @@ impl Projection {
             },
             NetworkMessage::SyncReq {
                 table,
-                player_id,
+                player_asking_for_sync: player_id,
                 nickname,
                 chips,
             } => {
                 if self.table_id != *table {
-                    return;
+                    return; // wrong table.
                 }
                 if self.get_player(player_id,).is_some() {
-                    return; // Already joined
+                    return; // Already joined.
                 }
                 if self.contract.players.len() >= self.num_seats {
                     return; // Table full
@@ -613,8 +621,15 @@ impl Projection {
                 if self.game_started {
                     return; // Game started
                 }
-
+                if self.peer_id() == *player_id {
+                    return; // do not handle own sync request.
+                }
+                if !self.is_seed_peer {
+                    return; // only seed peer should answer sync requests.
+                }
+                info!("{} did not throw away sync request", self.peer_context.nick.clone());
                 // Append JoinTableReq to chain
+
                 let join_msg = WireMsg::JoinTableReq {
                     table:     *table,
                     player_id: *player_id,
@@ -625,17 +640,20 @@ impl Projection {
 
                 // Send full chain (now includes join) to new player
                 let resp = NetworkMessage::SyncResp {
-                    target: *player_id,
-                    chain:  self.chain.clone(),
+                    player_asking_for_sync: *player_id,
+                    chain:  self.hash_chain.clone(),
                 };
                 let _ = self.send_plain(resp,);
             },
-            NetworkMessage::SyncResp { target, chain, } => {
+            NetworkMessage::SyncResp { player_asking_for_sync: target, chain, } => {
                 if *target != self.peer_id() {
-                    return;
+                    return; // do not apply syncResponses not addressed to us.
+                }
+                if self.is_seed_peer {
+                    return; // do not apply any syncResponses if we are the seed peer.
                 }
 
-                // Validate and replay chain
+                // Validate and replay chain from the very beginning.
                 let mut current_state = ContractState::default();
                 let mut current_hash = GENESIS_HASH.clone();
                 let received_chain = chain.iter().cloned();
@@ -644,20 +662,22 @@ impl Projection {
                 // entries contained in it.
                 for entry in received_chain.clone() {
                     if entry.prev_hash != current_hash {
-                        warn!("invalid chain - prev_hash mismatch");
+                        warn!("{} (nick {}) received sync response from {} with invalid chain - prev_hash mismatch", self.peer_context.id.to_string(), self.peer_context.nick.clone(), entry.metadata.author.to_string());
                         return;
                     }
+                    // set our current hash one hash forward.
+                    current_hash = entry.next_hash;
                 }
 
                 // apply logentries of chain to our state only if all hashes in
                 // hash state chain were valid.
                 for entry in received_chain.clone() {
-                    let res = contract::step(&current_state, &entry.payload,);
+                    let res = contract::step(&mut current_state, &entry.payload,);
                     let next = res.next;
                     let next_hash = contract::hash_state(&next,);
 
                     if next_hash != entry.next_hash {
-                        warn!("invalid chain - next_hash mismatch");
+                        warn!("{} (nick {}) received sync response with invalid chain - next_hash mismatch", self.peer_context.id.to_string(), self.peer_context.nick.clone());
                         return;
                     }
 
@@ -672,7 +692,8 @@ impl Projection {
 
                 self.contract = current_state;
                 self.hash_head = current_hash;
-                self.chain = chain.clone();
+                self.hash_chain = chain.clone();
+                self.is_synced = true;
                 self.has_joined_table = true;
                 info!("Chain synced successfully; joined table");
             },
@@ -712,7 +733,7 @@ impl Projection {
         // 5. commit canonical state *before* enqueueing side-effects
         self.contract = next;
         self.hash_head = next_hash;
-        self.chain.push(entry,);
+        self.hash_chain.push(entry,);
 
         // 6. queue side-effects for the next tick
         self.pending_effects
@@ -727,7 +748,7 @@ impl Projection {
         match msg {
             UiCmd::PlayerJoinTableRequest {
                 table_id,
-                peer_id,
+                player_requesting_join: peer_id,
                 nickname,
                 chips,
             } => {
@@ -738,7 +759,9 @@ impl Projection {
                 if table_id == self.table_id
                     && peer_id == self.peer_id()
                     && !self.has_joined_table
+                    && !self.game_started
                     && self.get_player(&peer_id,).is_none()
+                    && self.num_seats > self.players().len()
                 {
                     let wiremsg = WireMsg::JoinTableReq {
                         table: table_id,
@@ -752,7 +775,7 @@ impl Projection {
                         // New non-seed player: request sync first
                         let sync_msg = NetworkMessage::SyncReq {
                             table: table_id,
-                            player_id: peer_id,
+                            player_asking_for_sync: peer_id,
                             nickname,
                             chips,
                         };
@@ -1390,10 +1413,10 @@ impl Projection {
                     PlayerAction::None
                     | PlayerAction::SmallBlind
                     | PlayerAction::BigBlind
-                        if player.chips > Chips::ZERO =>
-                    {
-                        return false;
-                    },
+                    if player.chips > Chips::ZERO =>
+                        {
+                            return false;
+                        },
                     _ => {},
                 }
             }
