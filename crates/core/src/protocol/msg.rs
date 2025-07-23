@@ -13,7 +13,7 @@ use crate::zk::{Commitment, Proof, RangeProof, ShuffleProof};
 
 // ---------- Public envelope ------------------------------------------------
 
-#[derive(Clone, Debug, Serialize, Deserialize,)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LogEntry {
     pub prev_hash: Hash,
     pub payload:   WireMsg,
@@ -23,10 +23,22 @@ pub struct LogEntry {
     pub metadata:  EntryMetaData,
 }
 
+impl PartialEq for LogEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.prev_hash == other.prev_hash && self.next_hash == other.next_hash && self.payload == other.payload && self.proof == other.proof
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize,)]
 pub struct EntryMetaData {
     pub ts_micros: u128,
     pub author:    PeerId,
+}
+
+impl PartialEq for EntryMetaData {
+    fn eq(&self, other: &Self) -> bool {
+        self.ts_micros == other.ts_micros && self.author == other.author
+    }
 }
 
 impl LogEntry {
@@ -92,7 +104,7 @@ impl<'de,> Deserialize<'de,> for Hash {
 }
 
 // ---------- All message kinds ----------------------------------------------
-#[derive(Clone, Debug, Serialize, Deserialize,)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum WireMsg {
     // ── lobby ─────────────────────────────────────────────
     /// Dealer sends each player their two private cards (**plaintext – will be

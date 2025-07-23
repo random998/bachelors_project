@@ -2739,6 +2739,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "integration-tests"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "env_logger",
+ "log",
+ "p2p-net",
+ "poker-core",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "tokio",
+]
+
+[[package]]
 name = "ipconfig"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

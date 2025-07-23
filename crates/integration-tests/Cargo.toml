@@ -1,0 +1,15 @@
+[package]
+name = "integration-tests"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+poker-core = {workspace = true }
+p2p-net = {workspace = true }
+tokio = "1.45.1"
+anyhow = "1.0.98"
+env_logger = "0.11.8"
+log = "0.4.27"
+rand_core = "0.6.4"
+blake3 = "1.8.2"
+rand = "0.8.5"
