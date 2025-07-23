@@ -24,14 +24,14 @@ pub enum NetworkMessage {
         multiaddr:   Multiaddr,
     },
     SyncReq {
-        table:     TableId,
+        table:                  TableId,
         player_asking_for_sync: PeerId,
-        nickname:  String,
-        chips:     Chips,
+        nickname:               String,
+        chips:                  Chips,
     },
     SyncResp {
         player_asking_for_sync: PeerId,
-        chain:  Vec<LogEntry,>,
+        chain:                  Vec<LogEntry,>,
     },
 }
 
@@ -74,10 +74,10 @@ pub enum UiCmd {
         text: String,
     },
     PlayerJoinTableRequest {
-        table_id: TableId,
-        player_requesting_join:  PeerId,
-        nickname: String,
-        chips:    Chips,
+        table_id:               TableId,
+        player_requesting_join: PeerId,
+        nickname:               String,
+        chips:                  Chips,
     },
 }
 impl Display for UiCmd {
@@ -168,7 +168,7 @@ impl PlayerAction {
 }
 
 /// Hand payoff description.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq,)]
 pub struct HandPayoff {
     /// The player receiving the payment.
     pub player_id: PeerId,
