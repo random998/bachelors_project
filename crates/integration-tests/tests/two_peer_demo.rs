@@ -41,7 +41,7 @@ async fn wait_for_listen_addr(proj: &mut Projection,) {
         }
         sleep(Duration::from_millis(50,),).await;
         attempts += 1;
-        assert!(!(attempts > 20), "Timeout waiting for listen addr")
+        assert!((attempts <= 20), "Timeout waiting for listen addr");
     }
 }
 
@@ -752,10 +752,7 @@ async fn reject_invalid_sync_resp() -> Result<(),> {
 
     pump_messages(&mut alice, &mut bob,).await;
 
-    assert!(
-        !bob.players()
-            .iter().any(|p| p.peer_id == bob.peer_id())
-    ); // bob should not have joined his own state.
+    assert!(!bob.players().iter().any(|p| p.peer_id == bob.peer_id())); // bob should not have joined his own state.
     assert_eq!(bob.hash_chain().len(), 0);
     assert_eq!(bob.players().len(), 0); // No one, since Alice's join not propagated
     assert_eq!(bob.hash_head(), *GENESIS_HASH); // bobs state hash chain should still be at the genesis hash state.
