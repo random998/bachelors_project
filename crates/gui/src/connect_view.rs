@@ -17,11 +17,12 @@ pub struct ConnectView {
     error:      String,
     nickname:   String,
     chips:      Chips,
+    has_ui_joined_table: bool,
 }
 
 impl ConnectView {
     const fn ui_joined_server(&self,) -> bool {
-        self.game_state.has_joined_table
+        self.has_ui_joined_table
     }
 
     fn update_chips(&mut self,) {
@@ -46,6 +47,7 @@ impl ConnectView {
     pub fn new(app: &App,) -> Self {
         let gs = app.game_state.clone();
         Self {
+            has_ui_joined_table: false,
             game_state: gs,
             error:      String::default(),
             nickname:   String::default(),
@@ -112,6 +114,7 @@ impl View for ConnectView {
                             self.error = "Invalid nickname".to_string();
                         }
                         self.game_state.nickname = self.nickname.clone();
+                        self.has_ui_joined_table = true;
                     }
                 },);
             },);
