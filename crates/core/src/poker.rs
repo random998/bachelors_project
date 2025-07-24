@@ -1,5 +1,3 @@
-// code copied from github.com/vincev/freezeout
-
 use std::{fmt, ops};
 
 pub use poker_cards::{Card, Deck, Rank, Suit};
