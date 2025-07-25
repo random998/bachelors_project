@@ -212,7 +212,7 @@ pub struct Projection {
     /// whether player associated with `key_pair` has joined a table.
     has_joined_table: bool,
     is_seed_peer:     bool,
-    is_synced: bool,
+    is_synced:        bool,
 
     // 2. Peer-local “soft” state – NOT part of consensus
     pub rng:             StdRng, // used only when *we* deal
@@ -236,7 +236,7 @@ pub struct Projection {
     hand_count:       usize,
     min_raise:        Chips,
     pub game_started: bool,
-    hash_chain:            Vec<LogEntry,>,
+    hash_chain:       Vec<LogEntry,>,
 
     // misc ----------------------------------------------------------------
     new_hand_start_timer: Option<Instant,>,
@@ -251,7 +251,8 @@ pub struct Projection {
 }
 
 impl Projection {
-    #[must_use] pub const fn game_started(&self,) -> bool {
+    #[must_use]
+    pub const fn game_started(&self,) -> bool {
         self.game_started
     }
     #[must_use]
@@ -380,7 +381,7 @@ impl Projection {
             },
             WireMsg::StartGameNotify {
                 seat_order, sb, bb,
-                ..
+            ..
             } => {
                 self.reseat(seat_order,);
                 self.small_blind = *sb;
@@ -775,10 +776,7 @@ impl Projection {
                 nickname,
                 chips,
             } => {
-                info!(
-                    "{} handling ui jointablereq command!",
-                    self.peer_id()
-                );
+                info!("{} handling ui jointablereq command!", self.peer_id());
                 if table_id == self.table_id
                     && peer_id == self.peer_id()
                     && !self.has_joined_table
@@ -802,10 +800,7 @@ impl Projection {
                             nickname,
                             chips,
                         };
-                        info!(
-                            "{} sending sync request",
-                            self.peer_id()
-                        );
+                        info!("{} sending sync request", self.peer_id());
                         let _ = self.send_plain(sync_msg,);
                     } else {
                         info!("Seed peer or already-synced: direct commit");
@@ -1436,10 +1431,10 @@ impl Projection {
                     PlayerAction::None
                     | PlayerAction::SmallBlind
                     | PlayerAction::BigBlind
-                    if player.chips > Chips::ZERO =>
-                        {
-                            return false;
-                        },
+                        if player.chips > Chips::ZERO =>
+                    {
+                        return false;
+                    },
                     _ => {},
                 }
             }
