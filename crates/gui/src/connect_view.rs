@@ -13,10 +13,10 @@ const LABEL_FONT: FontId = FontId::new(16.0, FontFamily::Monospace,);
 
 /// Connect view.
 pub struct ConnectView {
-    game_state: GameState,
-    error:      String,
-    nickname:   String,
-    chips:      Chips,
+    game_state:          GameState,
+    error:               String,
+    nickname:            String,
+    chips:               Chips,
     has_ui_joined_table: bool,
 }
 
@@ -48,10 +48,10 @@ impl ConnectView {
         let gs = app.game_state.clone();
         Self {
             has_ui_joined_table: false,
-            game_state: gs,
-            error:      String::default(),
-            nickname:   String::default(),
-            chips:      Chips::default(),
+            game_state:          gs,
+            error:               String::default(),
+            nickname:            String::default(),
+            chips:               Chips::default(),
         }
     }
 
