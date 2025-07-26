@@ -25,9 +25,7 @@ use crate::message::{
 use crate::net::traits::P2pTransport;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId};
 use crate::protocol::msg::{Hash, LogEntry, WireMsg};
-use crate::protocol::state::{
-    self as contract, ContractState, GENESIS_HASH, PeerContext,
-};
+pub use crate::protocol::state::{self as contract, ContractState, GENESIS_HASH, PeerContext, HandPhase};
 // per-player helper
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize,)]
@@ -150,50 +148,7 @@ impl PlayerPrivate {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize,)]
-pub enum HandPhase {
-    WaitingForPlayers,
-    StartingGame,
-    StartingHand,
-    PreflopBetting,
-    Preflop,
-    FlopBetting,
-    Flop,
-    TurnBetting,
-    Turn,
-    RiverBetting,
-    River,
-    Showdown,
-    EndingHand,
-    EndingGame,
-}
 
-impl fmt::Display for HandPhase {
-    fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
-        use HandPhase::{
-            EndingGame, EndingHand, Flop, FlopBetting, Preflop, PreflopBetting,
-            River, RiverBetting, Showdown, StartingGame, StartingHand, Turn,
-            TurnBetting, WaitingForPlayers,
-        };
-        let s = match self {
-            WaitingForPlayers => "WaitingForPlayers",
-            StartingGame => "StartingGame",
-            StartingHand => "StartingHand",
-            PreflopBetting => "PreflopBetting",
-            Preflop => "Preflop",
-            FlopBetting => "FlopBetting",
-            Flop => "Flop",
-            TurnBetting => "TurnBetting",
-            Turn => "Turn",
-            RiverBetting => "RiverBetting",
-            River => "River",
-            Showdown => "Showdown",
-            EndingHand => "EndingHand",
-            EndingGame => "EndingGame",
-        };
-        write!(f, "{s}")
-    }
-}
 
 /// A *derived*, mutable view of the canonical contract state,
 /// enriched with peer–local convenience data.
@@ -203,7 +158,6 @@ pub struct Projection {
     // 1. Canonical data – always equals contract after replay
     pub table_id:     TableId,
     pub game_id:      GameId,
-    pub phase:        HandPhase,
     pub board:        Vec<Card,>,
     pub small_blind:  Chips,
     pub big_blind:    Chips,
@@ -378,6 +332,7 @@ impl Projection {
                 let player =
                     PlayerPrivate::new(*player_id, nickname.clone(), *chips,);
                 self.contract.players.insert(*player_id, player,);
+                
             },
             WireMsg::StartGameNotify {
                 seat_order, sb, bb,
@@ -386,7 +341,6 @@ impl Projection {
                 self.reseat(seat_order,);
                 self.small_blind = *sb;
                 self.big_blind = *bb;
-                self.phase = HandPhase::StartingGame;
             },
             WireMsg::DealCards {
                 player_id,
@@ -430,7 +384,7 @@ impl Projection {
             table_id:         self.table_id,
             seats:            self.num_seats,
             game_started:     !matches!(
-                self.phase,
+                self.contract.phase,
                 HandPhase::WaitingForPlayers
             ),
 
@@ -441,7 +395,7 @@ impl Projection {
             board:       self.board.clone(),
             pot:         self.current_pot.clone(),
             action_req:  self.action_request.clone(),
-            hand_phase:  self.phase.clone(),
+            hand_phase:  self.contract.phase.clone(),
             listen_addr: self.listen_addr.clone(),
         }
     }
@@ -512,7 +466,6 @@ impl Projection {
             connection,
             callback: Box::new(cb,),
 
-            phase: HandPhase::WaitingForPlayers,
             deck: Deck::default(),
             board: Vec::new(),
             current_pot: Pot::default(),
@@ -533,7 +486,7 @@ impl Projection {
     // — public helpers (runtime ↔ UI) —
 
     pub async fn update(&mut self,) {
-        if self.game_started && self.phase == HandPhase::StartingGame {
+        if self.game_started && self.contract.phase == HandPhase::StartingGame {
             self.enter_start_game(1, 5,).await;
         }
     }
@@ -1030,9 +983,12 @@ impl Projection {
     pub fn send_gui(&mut self, msg: NetworkMessage,) -> anyhow::Result<(),> {
         self.send_plain(msg,)
     }
+    
+    pub fn phase(&self) -> HandPhase {
+       self.contract.phase.clone()
+    }
 
     async fn enter_start_game(&mut self, timeout_s: u64, max_retries: u32,) {
-        self.phase = HandPhase::StartingGame;
         self.game_started = true;
 
         // -----------------------------------------------------------
@@ -1080,8 +1036,6 @@ impl Projection {
     }
     /// Start a new hand.
     fn enter_start_hand(&mut self,) {
-        self.phase = HandPhase::StartingHand;
-
         self.start_hand();
 
         // If there are fewer than 2 active players end the game.
@@ -1155,7 +1109,7 @@ impl Projection {
     }
 
     fn enter_preflop_betting(&mut self,) {
-        self.phase = HandPhase::PreflopBetting;
+        // self.phase = HandPhase::PreflopBetting;
         self.action_update();
     }
 
@@ -1174,25 +1128,25 @@ impl Projection {
             self.board.push(self.deck.deal(),);
         }
 
-        self.phase = HandPhase::FlopBetting;
+        // self.phase = HandPhase::FlopBetting;
         self.start_round();
     }
 
     fn enter_deal_turn(&mut self,) {
         self.board.push(self.deck.deal(),);
-        self.phase = HandPhase::TurnBetting;
+        // self.phase = HandPhase::TurnBetting;
         self.start_round();
     }
 
     fn enter_deal_river(&mut self,) {
         self.board.push(self.deck.deal(),);
 
-        self.phase = HandPhase::RiverBetting;
+        // self.phase = HandPhase::RiverBetting;
         self.start_round();
     }
 
     fn enter_showdown(&mut self,) {
-        self.phase = HandPhase::Showdown;
+        // self.phase = HandPhase::Showdown;
 
         for player in self.players_mut() {
             player.action = PlayerAction::None;
@@ -1205,7 +1159,7 @@ impl Projection {
     }
 
     fn enter_end_hand(&mut self,) {
-        self.new_hand_timeout = if matches!(self.phase, HandPhase::Showdown) {
+        self.new_hand_timeout = if matches!(self.phase(), HandPhase::Showdown) {
             // If coming from a showdown give players more time to see the
             // winning hand and chips.
             Duration::from_millis(7_000,)
@@ -1213,7 +1167,7 @@ impl Projection {
             Duration::from_millis(3_000,)
         };
 
-        self.phase = HandPhase::EndingHand;
+        // self.phase = HandPhase::EndingHand;
 
         self.update_pots();
 
@@ -1255,7 +1209,7 @@ impl Projection {
         // game.
         self.broadcast_throttle(4_500,);
 
-        self.phase = HandPhase::EndingGame;
+        // self.phase = HandPhase::EndingGame;
 
         for player in self.players() {
             // Notify the client that this player has left the table.
@@ -1271,7 +1225,7 @@ impl Projection {
         self.hand_count = 0;
 
         // Wait for players to join.
-        self.phase = HandPhase::WaitingForPlayers;
+        // self.phase = HandPhase::WaitingForPlayers;
     }
 
     fn update_blinds(&mut self,) {
@@ -1450,7 +1404,7 @@ impl Projection {
         }
 
         while self.is_round_complete() {
-            match self.phase {
+            match self.phase() {
                 HandPhase::PreflopBetting => {
                     self.enter_deal_flop();
                 },
