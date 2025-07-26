@@ -138,6 +138,7 @@ pub enum WireMsg {
         seat_order: Vec<PeerId,>,
         sb:         Chips,
         bb:         Chips,
+        sender:     PeerId,
     },
     ShuffleCommit {
         deck_commit:   Commitment,
