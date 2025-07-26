@@ -139,7 +139,6 @@ async fn two_peers_join_success() -> Result<(),> {
         6,
         kp_a.clone(),
         transport_a,
-        |_| {},
         true,
     );
 
@@ -155,7 +154,6 @@ async fn two_peers_join_success() -> Result<(),> {
         6,
         kp_b.clone(),
         transport_b,
-        |_| {},
         false,
     );
 
@@ -235,7 +233,6 @@ async fn three_peers_join_success() -> Result<(),> {
         6,
         kp_a.clone(),
         transport_a,
-        |_| {},
         true,
     );
 
@@ -252,7 +249,6 @@ async fn three_peers_join_success() -> Result<(),> {
         6,
         kp_b.clone(),
         transport_b,
-        |_| {},
         false,
     );
     bob.tick().await;
@@ -267,7 +263,6 @@ async fn three_peers_join_success() -> Result<(),> {
         6,
         kp_c.clone(),
         transport_c,
-        |_| {},
         false,
     );
     charlie.tick().await;
@@ -367,7 +362,6 @@ async fn reject_join_table_full() -> Result<(),> {
         2, // Table size 2
         kp_a.clone(),
         transport_a,
-        |_| {},
         true,
     );
 
@@ -383,7 +377,6 @@ async fn reject_join_table_full() -> Result<(),> {
         2,
         kp_b.clone(),
         transport_b,
-        |_| {},
         false,
     );
 
@@ -396,7 +389,6 @@ async fn reject_join_table_full() -> Result<(),> {
         2,
         kp_c.clone(),
         transport_c,
-        |_| {},
         false,
     );
 
@@ -435,7 +427,7 @@ async fn reject_join_table_full() -> Result<(),> {
     alice.tick().await;
     bob.tick().await;
     charlie.tick().await;
-    // send respnse from alice to bob.
+    // send response from alice to bob.
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
     // tick all three players such that they can process the messages.
     alice.tick().await;
@@ -509,7 +501,6 @@ async fn reject_join_game_started() -> Result<(),> {
         6,
         kp_a.clone(),
         transport_a,
-        |_| {},
         true,
     );
 
@@ -525,7 +516,6 @@ async fn reject_join_game_started() -> Result<(),> {
         6,
         kp_b.clone(),
         transport_b,
-        |_| {},
         false,
     );
 
@@ -584,7 +574,6 @@ async fn reject_join_already_joined() -> Result<(),> {
         6,
         kp_a.clone(),
         transport_a,
-        |_| {},
         true,
     );
 
@@ -601,7 +590,6 @@ async fn reject_join_already_joined() -> Result<(),> {
         6,
         kp_b.clone(),
         transport_b,
-        |_| {},
         false,
     );
     wait_for_listen_addr(&mut bob,).await;
@@ -685,7 +673,6 @@ async fn reject_invalid_sync_resp() -> Result<(),> {
         6,
         kp_a.clone(),
         transport_a,
-        |_| {},
         true,
     );
 
@@ -701,7 +688,6 @@ async fn reject_invalid_sync_resp() -> Result<(),> {
         6,
         kp_b.clone(),
         transport_b,
-        |_| {},
         false,
     );
 
@@ -789,7 +775,6 @@ async fn late_join_replay_chain() -> Result<(),> {
         6,
         kp_a.clone(),
         transport_a,
-        |_| {},
         true,
     );
 
@@ -806,7 +791,6 @@ async fn late_join_replay_chain() -> Result<(),> {
         6,
         kp_c.clone(),
         transport_c,
-        |_| {},
         false,
     );
 
@@ -857,7 +841,6 @@ async fn late_join_replay_chain() -> Result<(),> {
         6,
         kp_b.clone(),
         transport_b,
-        |_| {},
         false,
     );
     wait_for_listen_addr(&mut bob,).await;
@@ -920,7 +903,6 @@ async fn game_starts_correctly() -> Result<(),> {
         3,
         kp_a.clone(),
         transport_a,
-        |_| {},
         true,
     );
 
@@ -936,7 +918,6 @@ async fn game_starts_correctly() -> Result<(),> {
         3,
         kp_b.clone(),
         transport_b,
-        |_| {},
         false,
     );
     wait_for_listen_addr(&mut bob,).await;
@@ -949,7 +930,6 @@ async fn game_starts_correctly() -> Result<(),> {
         3,
         kp_c.clone(),
         transport_c,
-        |_| {},
         false,
     );
     wait_for_listen_addr(&mut charlie,).await;
@@ -1053,7 +1033,6 @@ async fn enter_start_hand_test() -> Result<(),> {
         3,
         kp_a.clone(),
         transport_a,
-        |_| {},
         true,
     );
 
@@ -1069,7 +1048,6 @@ async fn enter_start_hand_test() -> Result<(),> {
         3,
         kp_b.clone(),
         transport_b,
-        |_| {},
         false,
     );
     wait_for_listen_addr(&mut bob,).await;
@@ -1082,7 +1060,6 @@ async fn enter_start_hand_test() -> Result<(),> {
         3,
         kp_c.clone(),
         transport_c,
-        |_| {},
         false,
     );
     wait_for_listen_addr(&mut charlie,).await;

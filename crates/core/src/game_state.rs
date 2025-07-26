@@ -28,6 +28,7 @@ use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 pub use crate::protocol::state::{
     self as contract, ContractState, GENESIS_HASH, HandPhase, PeerContext,
 };
+use crate::net::traits::Gui;
 // per-player helper
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize,)]
@@ -175,8 +176,6 @@ pub struct Projection {
 
     // networking ----------------------------------------------------------
     pub connection:  P2pTransport,
-    /// UI callback – echoes every locally-generated message without locks.
-    pub callback:    Box<dyn FnMut(SignedMessage,) + Send,>,
     // Outbound messages that came back from the pure state machine and still
     /// need to be broadcast.
     pending_effects: Vec<WireMsg,>,
@@ -437,7 +436,6 @@ impl Projection {
         num_seats: usize,
         key_pair: KeyPair,
         connection: P2pTransport,
-        cb: impl FnMut(SignedMessage,) + Send + 'static,
         is_seed_peer: bool,
     ) -> Self {
         let obj = Self {
@@ -463,7 +461,6 @@ impl Projection {
             num_seats,
             key_pair,
             connection,
-            callback: Box::new(cb,),
 
             deck: Deck::default(),
             board: Vec::new(),
