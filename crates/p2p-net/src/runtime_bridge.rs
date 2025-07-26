@@ -55,14 +55,8 @@ pub fn start(
 
         // 2) engine
         let is_seed_peer = seed.is_none();
-        let mut eng = Projection::new(
-            nick,
-            table,
-            seats,
-            kp,
-            transport,
-            is_seed_peer,
-        );
+        let mut eng =
+            Projection::new(nick, table, seats, kp, transport, is_seed_peer,);
 
         // 4) main loop
         loop {
