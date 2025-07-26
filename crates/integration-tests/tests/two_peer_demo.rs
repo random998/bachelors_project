@@ -25,8 +25,10 @@ const CHIPS_JOIN_AMOUNT: u32 = 1_000;
 
 // Initialize logger for tests to print info and warn messages.
 fn init_logger() {
-    let _ = env_logger::Builder::from_env(Env::default().default_filter_or("error",),)
-        .try_init();
+    let _ = env_logger::Builder::from_env(
+        Env::default().default_filter_or("error",),
+    )
+    .try_init();
 }
 
 async fn wait_for_listen_addr(proj: &mut Projection,) {
@@ -1035,7 +1037,7 @@ async fn game_starts_correctly() -> Result<(),> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-async fn enter_start_hand_test() -> Result<()> {
+async fn enter_start_hand_test() -> Result<(),> {
     init_logger();
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -1163,12 +1165,14 @@ async fn enter_start_hand_test() -> Result<()> {
     assert_eq!(alice.hash_head(), charlie.hash_head());
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
-    // call update() on each player, such that each instance enters start_game().
+    // call update() on each player, such that each instance enters
+    // start_game().
     alice.update().await;
     bob.update().await;
     charlie.update().await;
 
-    // pump messages such that each player sends & receives the startGameNotify message of the other peers.
+    // pump messages such that each player sends & receives the startGameNotify
+    // message of the other peers.
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
     alice.tick().await;
     bob.tick().await;
