@@ -178,8 +178,8 @@ async fn two_peers_join_success() -> Result<(),> {
     );
     assert!(alice.has_joined_table());
     assert!(!bob.has_joined_table());
-    assert_eq!(alice.phase, HandPhase::WaitingForPlayers);
-    assert_eq!(bob.phase, HandPhase::WaitingForPlayers);
+    assert_eq!(alice.phase(), HandPhase::WaitingForPlayers);
+    assert_eq!(bob.phase(), HandPhase::WaitingForPlayers);
 
     // Bob joins via SyncReq
     bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
@@ -199,7 +199,7 @@ async fn two_peers_join_success() -> Result<(),> {
     assert!(bob.has_joined_table());
     assert_eq!(alice.hash_chain().len(), 2, "Chain: Alice join + Bob join");
     assert_eq!(bob.hash_chain().len(), 2, "Bob replayed chain");
-    assert_eq!(alice.phase, bob.phase, "Phases match");
+    assert_eq!(alice.phase(), bob.phase(), "Phases match");
 
     Ok((),)
 }
@@ -951,9 +951,9 @@ async fn game_starts_correctly() -> Result<(),> {
     wait_for_listen_addr(&mut charlie,).await;
     
     // expect the Handphase of each peer to be WaitingForPlayers.
-    assert_eq!(alice.phase, HandPhase::WaitingForPlayers);
-    assert_eq!(bob.phase, HandPhase::WaitingForPlayers);
-    assert_eq!(charlie.phase, HandPhase::WaitingForPlayers);
+    assert_eq!(alice.phase(), HandPhase::WaitingForPlayers);
+    assert_eq!(bob.phase(), HandPhase::WaitingForPlayers);
+    assert_eq!(charlie.phase(), HandPhase::WaitingForPlayers);
 
    // three peers all join.
     // Alice joins
@@ -1024,9 +1024,9 @@ async fn game_starts_correctly() -> Result<(),> {
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
    // now after all three peers have joined, we expect the state of the handphase of each peer to have moved to GameStarting.
-    assert_eq!(alice.phase, HandPhase::StartingGame);
-    assert_eq!(bob.phase, HandPhase::StartingGame);
-    assert_eq!(charlie.phase, HandPhase::StartingGame);
+    assert_eq!(alice.phase(), HandPhase::StartingGame);
+    assert_eq!(bob.phase(), HandPhase::StartingGame);
+    assert_eq!(charlie.phase(), HandPhase::StartingGame);
     
     Ok(())
 }
