@@ -2,14 +2,13 @@ use anyhow::{Error, Result, anyhow};
 use async_trait::async_trait;
 use tokio::sync::mpsc::{Receiver, Sender};
 
+use crate::game_state::GameState;
 use crate::message::{SignedMessage, UiCmd};
 
-use crate::game_state::GameState;
-
 pub trait Gui {
-    fn send_ui_cmd(&mut self, cmd: UiCmd);
-    fn get_latest_snapshot(&self) -> Option<GameState>;
-    fn handle_signed_message(&mut self, msg: SignedMessage);
+    fn send_ui_cmd(&mut self, cmd: UiCmd,);
+    fn get_latest_snapshot(&self,) -> Option<GameState,>;
+    fn handle_signed_message(&mut self, msg: SignedMessage,);
 }
 
 #[async_trait]

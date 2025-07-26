@@ -28,7 +28,6 @@ use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 pub use crate::protocol::state::{
     self as contract, ContractState, GENESIS_HASH, HandPhase, PeerContext,
 };
-use crate::net::traits::Gui;
 // per-player helper
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize,)]
