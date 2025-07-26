@@ -1,3 +1,5 @@
+use std::fmt;
+use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
@@ -16,6 +18,51 @@ pub struct PeerContext {
     pub id:    PeerId,
     pub nick:  String,
     pub chips: Chips,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize,)]
+pub enum HandPhase {
+    WaitingForPlayers, // waiting till the required amount of players joined the table.
+    StartingGame, // waiting for all peers to send StartingGame Notification.
+    StartingHand,
+    PreflopBetting,
+    Preflop,
+    FlopBetting,
+    Flop,
+    TurnBetting,
+    Turn,
+    RiverBetting,
+    River,
+    Showdown,
+    EndingHand,
+    EndingGame,
+}
+
+impl fmt::Display for HandPhase {
+    fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
+        use HandPhase::{
+            EndingGame, EndingHand, Flop, FlopBetting, Preflop, PreflopBetting,
+            River, RiverBetting, Showdown, StartingGame, StartingHand, Turn,
+            TurnBetting, WaitingForPlayers,
+        };
+        let s = match self {
+            WaitingForPlayers => "WaitingForPlayers",
+            StartingGame => "StartingGame",
+            StartingHand => "StartingHand",
+            PreflopBetting => "PreflopBetting",
+            Preflop => "Preflop",
+            FlopBetting => "FlopBetting",
+            Flop => "Flop",
+            TurnBetting => "TurnBetting",
+            Turn => "Turn",
+            RiverBetting => "RiverBetting",
+            River => "River",
+            Showdown => "Showdown",
+            EndingHand => "EndingHand",
+            EndingGame => "EndingGame",
+        };
+        write!(f, "{s}")
+    }
 }
 
 impl PeerContext {
@@ -54,21 +101,29 @@ pub enum Effect {
 
 #[derive(Clone, Serialize, Deserialize,)]
 pub struct ContractState {
-    pub phase:   Phase,
+    pub phase:   HandPhase,
     pub players: std::collections::BTreeMap<PeerId, PlayerPrivate,>,
+    pub num_seats: u64,
 }
 
 impl Default for ContractState {
     fn default() -> Self {
+        Self::new(3)
+    }
+}
+
+impl ContractState {
+    fn new(num_seats: u64) -> Self {
         Self {
-            phase:   Phase::Waiting,
+            phase:   HandPhase::WaitingForPlayers,
             players: Default::default(),
+            num_seats,
         }
     }
 }
 
-impl std::fmt::Debug for ContractState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_,>,) -> std::fmt::Result {
+impl fmt::Debug for ContractState {
+    fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
         f.write_str(&format!(
             "phase: {:?}, players tree len: {:?}",
             self.phase,
@@ -93,9 +148,9 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                 .values()
                 .all(|p| p.has_sent_start_game_notification,)
             {
-                st.phase = Phase::Ready;
+                st.phase = HandPhase::StartingGame;
             } else {
-                st.phase = Phase::Starting;
+                st.phase = HandPhase::StartingHand;
             }
         },
         WireMsg::JoinTableReq {
@@ -108,6 +163,11 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                 *player_id,
                 PlayerPrivate::new(*player_id, nickname.clone(), *chips,),
             );
+
+            if st.players.len() >= st.num_seats as usize {
+                st.phase = HandPhase::StartingGame;
+            }
+
         },
         WireMsg::StartGameNotify {
             seat_order: _seat_order,
