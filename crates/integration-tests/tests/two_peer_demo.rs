@@ -19,14 +19,14 @@ use rand::{RngCore, thread_rng};
 use tokio::time::sleep;
 
 const BLAKE3_HASH_BYTE_ARR_LEN: usize = 32;
-const MESSAGE_RECEIVE_TIMEOUT: u64 = 2;
+const MESSAGE_RECEIVE_TIMEOUT: u64 = 5;
 const NETWORK_PUMP_MS_DELAY: u64 = 10;
 const CHIPS_JOIN_AMOUNT: u32 = 1_000;
 
 // Initialize logger for tests to print info and warn messages.
 fn init_logger() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("error",),)
-        .init();
+    let _ = env_logger::Builder::from_env(Env::default().default_filter_or("error",),)
+        .try_init();
 }
 
 async fn wait_for_listen_addr(proj: &mut Projection,) {
@@ -52,7 +52,7 @@ async fn pump_three(
     bob: &mut Projection,
     charlie: &mut Projection,
 ) {
-    let timeout = Duration::from_secs(5,); // Prevent infinite loop
+    let timeout = Duration::from_secs(MESSAGE_RECEIVE_TIMEOUT,); // Prevent infinite loop
     let start = tokio::time::Instant::now();
 
     loop {
@@ -98,12 +98,14 @@ async fn pump_messages(alice: &mut Projection, bob: &mut Projection,) {
         while let Ok(msg,) = alice.try_recv() {
             info!("alice received message: {}", msg.message());
             alice.handle_network_msg(msg,).await;
+            alice.update().await;
         }
 
         bob.tick().await;
         while let Ok(msg,) = bob.try_recv() {
             info!("bob received message: {}", msg.message());
             bob.handle_network_msg(msg,).await;
+            bob.update().await;
         }
 
         sleep(Duration::from_millis(NETWORK_PUMP_MS_DELAY,),).await;
@@ -902,8 +904,6 @@ async fn late_join_replay_chain() -> Result<(),> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn game_starts_correctly() -> Result<(),> {
-    init_logger();
-
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
     let kp_c = KeyPair::generate();
@@ -1026,10 +1026,157 @@ async fn game_starts_correctly() -> Result<(),> {
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
     // now after all three peers have joined, we expect the state of the
-    // handphase of each peer to have moved to GameStarting.
+    // hand phase of each peer to have moved to GameStarting.
     assert_eq!(alice.phase(), HandPhase::StartingGame);
     assert_eq!(bob.phase(), HandPhase::StartingGame);
     assert_eq!(charlie.phase(), HandPhase::StartingGame);
+
+    Ok((),)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+async fn enter_start_hand_test() -> Result<()> {
+    init_logger();
+    let kp_a = KeyPair::generate();
+    let kp_b = KeyPair::generate();
+    let kp_c = KeyPair::generate();
+
+    let table_id = TableId::new_id();
+
+    // Alice as seed
+    let transport_a = swarm_task::new(&table_id, kp_a.clone(), None,);
+    let mut alice = Projection::new(
+        "Alice".into(),
+        table_id,
+        3,
+        kp_a.clone(),
+        transport_a,
+        |_| {},
+        true,
+    );
+
+    // Wait for Alice's listen address
+    wait_for_listen_addr(&mut alice,).await;
+    let alice_addr = alice.listen_addr.clone().expect("Alice listen addr",);
+
+    let transport_b =
+        swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr.clone(),),);
+    let mut bob = Projection::new(
+        "Bob".into(),
+        table_id,
+        3,
+        kp_b.clone(),
+        transport_b,
+        |_| {},
+        false,
+    );
+    wait_for_listen_addr(&mut bob,).await;
+
+    let transport_c =
+        swarm_task::new(&table_id, kp_c.clone(), Some(alice_addr.clone(),),);
+    let mut charlie = Projection::new(
+        "Charlie".into(),
+        table_id,
+        3,
+        kp_c.clone(),
+        transport_c,
+        |_| {},
+        false,
+    );
+    wait_for_listen_addr(&mut charlie,).await;
+
+    // expect the Handphase of each peer to be WaitingForPlayers.
+    assert_eq!(alice.phase(), HandPhase::WaitingForPlayers);
+    assert_eq!(bob.phase(), HandPhase::WaitingForPlayers);
+    assert_eq!(charlie.phase(), HandPhase::WaitingForPlayers);
+
+    // three peers all join.
+    // Alice joins
+    alice
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await;
+
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
+    alice.tick().await;
+    bob.tick().await;
+    charlie.tick().await;
+
+    assert_eq!(alice.players().len(), 1);
+    assert_eq!(charlie.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(bob.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(bob.hash_head(), charlie.hash_head());
+
+    // Bob joins
+    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: bob.peer_id(),
+        nickname: "Bob".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await;
+
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
+    alice.tick().await;
+    bob.tick().await;
+    charlie.tick().await;
+
+    assert_eq!(alice.players().len(), 2);
+    assert_eq!(bob.players().len(), 2);
+    assert_eq!(charlie.players().len(), 0); // charlie has 0 players, since he has not synced yet.
+    assert_eq!(alice.hash_chain().len(), 2);
+    assert_eq!(bob.hash_chain().len(), 2);
+    assert_eq!(charlie.hash_chain().len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
+    assert_eq!(alice.hash_head(), bob.hash_head());
+
+    // Charlie joins
+    charlie
+        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: charlie.peer_id(),
+            nickname: "Charlie".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await;
+
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
+
+    // now after all three peers have joined, we expect the state of the
+    // hand phase of each peer to have moved to GameStarting.
+    assert_eq!(alice.phase(), HandPhase::StartingGame);
+    assert_eq!(bob.phase(), HandPhase::StartingGame);
+    assert_eq!(charlie.phase(), HandPhase::StartingGame);
+    assert_eq!(alice.players().len(), 3);
+    assert_eq!(bob.players().len(), 3);
+    assert_eq!(charlie.players().len(), 3);
+    assert_eq!(alice.hash_chain().len(), 3);
+    assert_eq!(bob.hash_chain().len(), 3);
+    assert_eq!(charlie.players().len(), 3);
+    assert_eq!(alice.hash_head(), bob.hash_head());
+    assert_eq!(alice.hash_head(), charlie.hash_head());
+    assert_eq!(bob.hash_head(), charlie.hash_head());
+    assert_eq!(alice.hash_chain(), bob.hash_chain());
+    assert_eq!(alice.hash_head(), charlie.hash_head());
+    assert_eq!(bob.hash_head(), charlie.hash_head());
+
+    // call update() on each player, such that each instance enters start_game().
+    alice.update().await;
+    bob.update().await;
+    charlie.update().await;
+
+    // pump messages such that each player sends & receives the startGameNotify message of the other peers.
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
+    alice.tick().await;
+    bob.tick().await;
+    charlie.tick().await;
+
+    assert_eq!(alice.phase(), HandPhase::StartingHand);
+    assert_eq!(bob.phase(), HandPhase::StartingHand);
+    assert_eq!(charlie.phase(), HandPhase::StartingHand);
 
     Ok((),)
 }
