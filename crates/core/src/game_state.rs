@@ -485,7 +485,10 @@ impl Projection {
     // — public helpers (runtime ↔ UI) —
 
     pub async fn update(&mut self,) {
-        if self.game_started && self.contract.phase == HandPhase::StartingGame {
+        if self.contract.phase == HandPhase::StartingGame {
+            self.game_started = true;
+        }
+        if self.contract.phase == HandPhase::StartingGame {
             self.enter_start_game(1, 5,).await;
         }
     }
@@ -998,15 +1001,17 @@ impl Projection {
             .iter()
             .map(|p| p.peer_id,)
             .collect::<Vec<_,>>();
+        info!("{} sending StartGameNotify...", self.peer_context.nick);
         let _ = self.send_contract(WireMsg::StartGameNotify {
             seat_order: seats,
             table:      self.table_id,
             game_id:    self.game_id,
             sb:         Self::START_GAME_SB,
             bb:         Self::START_GAME_BB,
+            sender: self.peer_id(),
         },);
         if let Some(me,) = self.get_player_mut(&self.peer_id(),) {
-            me.sent_start_game_notification();
+            me.has_sent_start_game_notification = true;
         }
 
         // -----------------------------------------------------------
@@ -1020,7 +1025,6 @@ impl Projection {
                 .iter()
                 .all(|p| p.has_sent_start_game_notification,)
             {
-                // ✅ ready – enter the hand
                 self.enter_start_hand();
                 break;
             }
@@ -1035,6 +1039,7 @@ impl Projection {
     }
     /// Start a new hand.
     fn enter_start_hand(&mut self,) {
+        self.contract.phase = HandPhase::StartingHand;
         self.start_hand();
 
         // If there are fewer than 2 active players end the game.
