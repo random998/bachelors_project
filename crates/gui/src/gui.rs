@@ -12,7 +12,7 @@ use p2p_net::runtime_bridge::UiHandle; // ← the two channels & runtime
 use poker_cards::egui::Textures;
 use poker_core::crypto::{KeyPair, PeerId};
 use poker_core::game_state::GameState;
-use poker_core::message::{UiCmd, UiEvent};
+use poker_core::message::{SignedMessage, UiCmd, UiEvent};
 use poker_core::poker::TableId;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
@@ -54,6 +54,12 @@ pub struct AppData {
 }
 
 // ─────────────────────────── App (shared by all views) ───────────────────
+
+pub trait Gui {
+    fn send_ui_cmd(&mut self, cmd: UiCmd);
+    fn get_latest_snapshot(&self) -> Option<GameState>;
+    fn handle_signed_message(&mut self, msg: SignedMessage);
+}
 
 pub struct App {
     // static

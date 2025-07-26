@@ -9,9 +9,8 @@ use std::time::Duration;
 
 use poker_core::crypto::KeyPair;
 use poker_core::game_state::Projection;
-use poker_core::message::{SignedMessage, UiCmd, UiEvent};
+use poker_core::message::{UiCmd, UiEvent};
 use poker_core::net::traits::P2pTransport;
-use poker_core::net::NetTx;
 use poker_core::poker::TableId;
 use tokio::runtime::{Builder, Runtime};
 use tokio::sync::mpsc;
@@ -55,14 +54,6 @@ pub fn start(
             crate::swarm_task::new(&table, kp.clone(), seed.clone(),);
 
         // 2) engine
-
-        // 3) “loopback” closure → every *local* message is sent both
-        // to the network layer and back to the GUI
-        let mut tx_net = transport.tx.clone();
-        let loopback = move |m: SignedMessage| {
-            let _ = tx_net.send(m,); // to peers
-        };
-
         let is_seed_peer = seed.is_none();
         let mut eng = Projection::new(
             nick,
@@ -70,7 +61,6 @@ pub fn start(
             seats,
             kp,
             transport,
-            loopback,
             is_seed_peer,
         );
 
