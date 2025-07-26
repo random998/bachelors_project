@@ -900,6 +900,7 @@ async fn late_join_replay_chain() -> Result<(),> {
     Ok((),)
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn game_starts_correctly() -> Result<(),> {
     init_logger();
 
