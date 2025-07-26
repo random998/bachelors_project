@@ -25,7 +25,9 @@ use crate::message::{
 use crate::net::traits::P2pTransport;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId};
 use crate::protocol::msg::{Hash, LogEntry, WireMsg};
-pub use crate::protocol::state::{self as contract, ContractState, GENESIS_HASH, PeerContext, HandPhase};
+pub use crate::protocol::state::{
+    self as contract, ContractState, GENESIS_HASH, HandPhase, PeerContext,
+};
 // per-player helper
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize,)]
@@ -147,8 +149,6 @@ impl PlayerPrivate {
         self.chips > Chips::ZERO
     }
 }
-
-
 
 /// A *derived*, mutable view of the canonical contract state,
 /// enriched with peer–local convenience data.
@@ -332,7 +332,6 @@ impl Projection {
                 let player =
                     PlayerPrivate::new(*player_id, nickname.clone(), *chips,);
                 self.contract.players.insert(*player_id, player,);
-                
             },
             WireMsg::StartGameNotify {
                 seat_order, sb, bb,
@@ -983,9 +982,9 @@ impl Projection {
     pub fn send_gui(&mut self, msg: NetworkMessage,) -> anyhow::Result<(),> {
         self.send_plain(msg,)
     }
-    
-    pub fn phase(&self) -> HandPhase {
-       self.contract.phase.clone()
+
+    #[must_use] pub fn phase(&self,) -> HandPhase {
+        self.contract.phase.clone()
     }
 
     async fn enter_start_game(&mut self, timeout_s: u64, max_retries: u32,) {

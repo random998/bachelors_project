@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fmt::Formatter;
+
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
@@ -22,7 +23,8 @@ pub struct PeerContext {
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize,)]
 pub enum HandPhase {
-    WaitingForPlayers, // waiting till the required amount of players joined the table.
+    WaitingForPlayers, /* waiting till the required amount of players
+                        * joined the table. */
     StartingGame, // waiting for all peers to send StartingGame Notification.
     StartingHand,
     PreflopBetting,
@@ -71,7 +73,8 @@ impl PeerContext {
         Self { id, nick, chips, }
     }
 
-    #[must_use] pub fn default() -> Self {
+    #[must_use]
+    pub fn default() -> Self {
         Self {
             id:    PeerId::default(),
             nick:  String::default(),
@@ -101,21 +104,21 @@ pub enum Effect {
 
 #[derive(Clone, Serialize, Deserialize,)]
 pub struct ContractState {
-    pub phase:   HandPhase,
-    pub players: std::collections::BTreeMap<PeerId, PlayerPrivate,>,
+    pub phase:     HandPhase,
+    pub players:   std::collections::BTreeMap<PeerId, PlayerPrivate,>,
     pub num_seats: u64,
 }
 
 impl Default for ContractState {
     fn default() -> Self {
-        Self::new(3)
+        Self::new(3,)
     }
 }
 
 impl ContractState {
-    fn new(num_seats: u64) -> Self {
+    fn new(num_seats: u64,) -> Self {
         Self {
-            phase:   HandPhase::WaitingForPlayers,
+            phase: HandPhase::WaitingForPlayers,
             players: Default::default(),
             num_seats,
         }
@@ -167,7 +170,6 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
             if st.players.len() >= st.num_seats as usize {
                 st.phase = HandPhase::StartingGame;
             }
-
         },
         WireMsg::StartGameNotify {
             seat_order: _seat_order,
