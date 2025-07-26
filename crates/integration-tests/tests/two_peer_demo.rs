@@ -926,7 +926,8 @@ async fn game_starts_correctly() -> Result<(),> {
     wait_for_listen_addr(&mut alice,).await;
     let alice_addr = alice.listen_addr.clone().expect("Alice listen addr",);
 
-    let transport_b = swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr.clone(),),);
+    let transport_b =
+        swarm_task::new(&table_id, kp_b.clone(), Some(alice_addr.clone(),),);
     let mut bob = Projection::new(
         "Bob".into(),
         table_id,
@@ -938,7 +939,8 @@ async fn game_starts_correctly() -> Result<(),> {
     );
     wait_for_listen_addr(&mut bob,).await;
 
-    let transport_c = swarm_task::new(&table_id, kp_c.clone(), Some(alice_addr.clone(),),);
+    let transport_c =
+        swarm_task::new(&table_id, kp_c.clone(), Some(alice_addr.clone(),),);
     let mut charlie = Projection::new(
         "Charlie".into(),
         table_id,
@@ -949,13 +951,13 @@ async fn game_starts_correctly() -> Result<(),> {
         false,
     );
     wait_for_listen_addr(&mut charlie,).await;
-    
+
     // expect the Handphase of each peer to be WaitingForPlayers.
     assert_eq!(alice.phase(), HandPhase::WaitingForPlayers);
     assert_eq!(bob.phase(), HandPhase::WaitingForPlayers);
     assert_eq!(charlie.phase(), HandPhase::WaitingForPlayers);
 
-   // three peers all join.
+    // three peers all join.
     // Alice joins
     alice
         .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
@@ -1023,10 +1025,11 @@ async fn game_starts_correctly() -> Result<(),> {
     assert_eq!(alice.hash_head(), charlie.hash_head());
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
-   // now after all three peers have joined, we expect the state of the handphase of each peer to have moved to GameStarting.
+    // now after all three peers have joined, we expect the state of the
+    // handphase of each peer to have moved to GameStarting.
     assert_eq!(alice.phase(), HandPhase::StartingGame);
     assert_eq!(bob.phase(), HandPhase::StartingGame);
     assert_eq!(charlie.phase(), HandPhase::StartingGame);
-    
-    Ok(())
+
+    Ok((),)
 }
