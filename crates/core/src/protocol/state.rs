@@ -179,8 +179,11 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
             bb,
             sender,
         } => {
-            st.players.get_mut(sender).unwrap().has_sent_start_game_notification = true;
-            //TODO: check if small-blind, big-blind, etc. match our values.
+            st.players
+                .get_mut(sender,)
+                .unwrap()
+                .has_sent_start_game_notification = true;
+            // TODO: check if small-blind, big-blind, etc. match our values.
         },
         WireMsg::DealCards { .. } => {
             todo!()

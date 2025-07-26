@@ -986,7 +986,8 @@ impl Projection {
         self.send_plain(msg,)
     }
 
-    #[must_use] pub fn phase(&self,) -> HandPhase {
+    #[must_use]
+    pub fn phase(&self,) -> HandPhase {
         self.contract.phase.clone()
     }
 
@@ -1008,7 +1009,7 @@ impl Projection {
             game_id:    self.game_id,
             sb:         Self::START_GAME_SB,
             bb:         Self::START_GAME_BB,
-            sender: self.peer_id(),
+            sender:     self.peer_id(),
         },);
         if let Some(me,) = self.get_player_mut(&self.peer_id(),) {
             me.has_sent_start_game_notification = true;
