@@ -56,9 +56,9 @@ pub struct AppData {
 // ─────────────────────────── App (shared by all views) ───────────────────
 
 pub trait Gui {
-    fn send_ui_cmd(&mut self, cmd: UiCmd);
-    fn get_latest_snapshot(&self) -> Option<GameState>;
-    fn handle_signed_message(&mut self, msg: SignedMessage);
+    fn send_ui_cmd(&mut self, cmd: UiCmd,);
+    fn get_latest_snapshot(&self,) -> Option<GameState,>;
+    fn handle_signed_message(&mut self, msg: SignedMessage,);
 }
 
 pub struct App {
