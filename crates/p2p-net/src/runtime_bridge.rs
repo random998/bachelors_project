@@ -6,11 +6,12 @@
 
 use std::sync::Arc;
 use std::time::Duration;
+
 use libp2p::Multiaddr;
-use log::{info};
+use log::info;
 use poker_core::crypto::KeyPair;
 use poker_core::game_state::Projection;
-use poker_core::message::{UIEvent, EngineEvent};
+use poker_core::message::{EngineEvent, UIEvent};
 use poker_core::net::traits::P2pTransport;
 use poker_core::poker::TableId;
 use tokio::runtime::{Builder, Runtime};
@@ -58,18 +59,26 @@ pub fn start(
         let is_seed_peer = seed.is_none();
         let mut eng =
             Projection::new(nick, table, seats, kp, transport, is_seed_peer,);
-        
+
         // 4) main loop
         loop {
             // a) GUI -> engine
             while let Ok(cmd,) = cmd_rx.try_recv() {
-                info!("{}: engine handling ui msg: {}", eng.snapshot().nickname, cmd.to_string());
+                info!(
+                    "{}: engine handling ui msg: {}",
+                    eng.snapshot().nickname,
+                    cmd.to_string()
+                );
                 eng.handle_ui_msg(cmd,).await;
             }
 
             // b) network → engine
             while let Ok(msg,) = eng.try_recv() {
-                info!("{}: engine handling network msg: {}", eng.snapshot().nickname, msg.to_string());
+                info!(
+                    "{}: engine handling network msg: {}",
+                    eng.snapshot().nickname,
+                    msg.to_string()
+                );
                 eng.handle_network_msg(msg,).await;
             }
 
@@ -87,9 +96,8 @@ pub fn start(
 
             tokio::time::sleep(Duration::from_millis(16,),).await;
         }
-        
     },);
-    
+
     UiHandle {
         cmd_tx,
         msg_rx,

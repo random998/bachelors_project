@@ -50,7 +50,7 @@ impl fmt::Display for Pot {
 }
 
 /// One player as stored in *our* local copy of the table state.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,)]
 pub struct PlayerPrivate {
     pub peer_id:                          PeerId,
     pub nickname:                         String,
@@ -180,15 +180,15 @@ pub struct Projection {
     pending_effects: Vec<WireMsg,>,
 
     // game state ----------------------------------------------------------
-    deck:             Deck,
-    current_pot:      Pot,
-    action_request:   Option<ActionRequest,>,
-    active_player:    Option<PlayerPrivate,>,
-    last_bet:         Chips,
-    hand_count:       usize,
-    min_raise:        Chips,
-    pub game_started: bool,
-    hash_chain:       Vec<LogEntry,>,
+    deck:                             Deck,
+    current_pot:                      Pot,
+    action_request:                   Option<ActionRequest,>,
+    active_player:                    Option<PlayerPrivate,>,
+    last_bet:                         Chips,
+    hand_count:                       usize,
+    min_raise:                        Chips,
+    pub game_started:                 bool,
+    hash_chain:                       Vec<LogEntry,>,
     has_sent_start_game_notification: bool,
 
     // misc ----------------------------------------------------------------
@@ -375,21 +375,22 @@ impl Projection {
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
         GameState {
-            has_sent_start_game_notification: self.has_sent_start_game_notification,
-            hash_chain: self.hash_chain.clone(),
-            is_seed_peer:     self.has_joined_table,
-            key_pair:         self.key_pair.clone(),
-            hash_head:        self.hash_head.clone(),
-            has_joined_table: self.has_joined_table,
-            table_id:         self.table_id,
-            seats:            self.num_seats,
-            game_started:     !matches!(
+            has_sent_start_game_notification: self
+                .has_sent_start_game_notification,
+            hash_chain:                       self.hash_chain.clone(),
+            is_seed_peer:                     self.has_joined_table,
+            key_pair:                         self.key_pair.clone(),
+            hash_head:                        self.hash_head.clone(),
+            has_joined_table:                 self.has_joined_table,
+            table_id:                         self.table_id,
+            seats:                            self.num_seats,
+            game_started:                     !matches!(
                 self.contract.phase,
                 HandPhase::WaitingForPlayers
             ),
 
             player_id: self.key_pair.clone().peer_id(),
-            nickname: self.peer_context.nick.clone(),
+            nickname:  self.peer_context.nick.clone(),
 
             players:     self.players(),
             board:       self.board.clone(),
@@ -864,12 +865,12 @@ pub enum TableJoinError {
 }
 
 /// The **immutable** snapshot handed to the GUI every frame.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize,)]
 pub struct GameState {
     pub has_sent_start_game_notification: bool,
-    pub table_id:     TableId,
-    pub seats:        usize,
-    pub game_started: bool,
+    pub table_id:                         TableId,
+    pub seats:                            usize,
+    pub game_started:                     bool,
 
     pub player_id:        PeerId, // local player
     pub nickname:         String,
@@ -885,15 +886,16 @@ pub struct GameState {
     pub listen_addr: Option<Multiaddr,>,
 
     // -- crypto
-    pub hash_head: Hash,
-    pub hash_chain: Vec<LogEntry>,
-    pub key_pair:  KeyPair,
+    pub hash_head:  Hash,
+    pub hash_chain: Vec<LogEntry,>,
+    pub key_pair:   KeyPair,
 }
 
 impl PartialEq for GameState {
-    fn eq(&self, other: &Self) -> bool {
-        self.hash_head == other.hash_head &&
-            self.has_sent_start_game_notification == other.has_sent_start_game_notification
+    fn eq(&self, other: &Self,) -> bool {
+        self.hash_head == other.hash_head
+            && self.has_sent_start_game_notification
+                == other.has_sent_start_game_notification
     }
 }
 
@@ -930,22 +932,22 @@ impl GameState {
     pub fn default() -> Self {
         Self {
             has_sent_start_game_notification: false,
-            hash_chain:       Vec::default(),
-            is_seed_peer:     false,
-            key_pair:         KeyPair::generate(),
-            hash_head:        GENESIS_HASH.clone(),
-            has_joined_table: false,
-            table_id:         TableId::new_id(),
-            seats:            0,
-            game_started:     false,
-            player_id:        PeerId::default(),
-            players:          Vec::new(),
-            nickname:         String::default(),
-            board:            Vec::new(),
-            pot:              Pot::default(),
-            action_req:       None,
-            hand_phase:       HandPhase::WaitingForPlayers,
-            listen_addr:      None,
+            hash_chain:                       Vec::default(),
+            is_seed_peer:                     false,
+            key_pair:                         KeyPair::generate(),
+            hash_head:                        GENESIS_HASH.clone(),
+            has_joined_table:                 false,
+            table_id:                         TableId::new_id(),
+            seats:                            0,
+            game_started:                     false,
+            player_id:                        PeerId::default(),
+            players:                          Vec::new(),
+            nickname:                         String::default(),
+            board:                            Vec::new(),
+            pot:                              Pot::default(),
+            action_req:                       None,
+            hand_phase:                       HandPhase::WaitingForPlayers,
+            listen_addr:                      None,
         }
     }
 

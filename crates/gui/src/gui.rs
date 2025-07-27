@@ -12,7 +12,7 @@ use p2p_net::runtime_bridge::UiHandle; // ← the two channels & runtime
 use poker_cards::egui::Textures;
 use poker_core::crypto::{KeyPair, PeerId};
 use poker_core::game_state::GameState;
-use poker_core::message::{SignedMessage, UIEvent, EngineEvent};
+use poker_core::message::{EngineEvent, SignedMessage, UIEvent};
 use poker_core::poker::TableId;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
@@ -71,7 +71,7 @@ pub struct App {
     // runtime ↔ GUI channels
     cmd_tx: mpsc::Sender<UIEvent,>, // GUI ➜ runtime
     msg_rx: mpsc::Receiver<EngineEvent,>, // runtime ➜ GUI
-    _rt:    Arc<Runtime,>,        // keep Tokio alive!
+    _rt:    Arc<Runtime,>,          // keep Tokio alive!
 
     // latest immutable snapshot
     pub game_state: GameState,
