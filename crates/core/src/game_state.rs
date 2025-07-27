@@ -20,7 +20,7 @@ use crate::connection_stats::ConnectionStats;
 use crate::crypto::{KeyPair, PeerId, SecretKey};
 use crate::message::{
     HandPayoff, NetworkMessage, PlayerAction, PlayerUpdate, SignedMessage,
-    UiCmd,
+    UIEvent,
 };
 use crate::net::traits::P2pTransport;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId};
@@ -50,7 +50,7 @@ impl fmt::Display for Pot {
 }
 
 /// One player as stored in *our* local copy of the table state.
-#[derive(Debug, Clone, Serialize, Deserialize,)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerPrivate {
     pub peer_id:                          PeerId,
     pub nickname:                         String,
@@ -189,6 +189,7 @@ pub struct Projection {
     min_raise:        Chips,
     pub game_started: bool,
     hash_chain:       Vec<LogEntry,>,
+    has_sent_start_game_notification: bool,
 
     // misc ----------------------------------------------------------------
     new_hand_start_timer: Option<Instant,>,
@@ -374,9 +375,11 @@ impl Projection {
     #[must_use]
     pub fn snapshot(&self,) -> GameState {
         GameState {
+            has_sent_start_game_notification: self.has_sent_start_game_notification,
+            hash_chain: self.hash_chain.clone(),
             is_seed_peer:     self.has_joined_table,
             key_pair:         self.key_pair.clone(),
-            prev_hash:        self.hash_head.clone(),
+            hash_head:        self.hash_head.clone(),
             has_joined_table: self.has_joined_table,
             table_id:         self.table_id,
             seats:            self.num_seats,
@@ -386,7 +389,7 @@ impl Projection {
             ),
 
             player_id: self.key_pair.clone().peer_id(),
-            nickname:  String::new(), // Optional: store locally if needed
+            nickname: self.peer_context.nick.clone(),
 
             players:     self.players(),
             board:       self.board.clone(),
@@ -438,6 +441,7 @@ impl Projection {
         is_seed_peer: bool,
     ) -> Self {
         let obj = Self {
+            has_sent_start_game_notification: false,
             is_synced: is_seed_peer,
             is_seed_peer,
             peer_context: PeerContext::new(
@@ -478,12 +482,7 @@ impl Projection {
         obj
     }
 
-    // — public helpers (runtime ↔ UI) —
-
     pub async fn update(&mut self,) {
-        if self.contract.phase == HandPhase::StartingGame {
-            self.game_started = true;
-        }
         if self.contract.phase == HandPhase::StartingGame {
             self.enter_start_game(1, 5,).await;
         }
@@ -719,9 +718,9 @@ impl Projection {
             },),);
         Ok((),)
     }
-    pub async fn handle_ui_msg(&mut self, msg: UiCmd,) {
+    pub async fn handle_ui_msg(&mut self, msg: UIEvent,) {
         match msg {
-            UiCmd::PlayerJoinTableRequest {
+            UIEvent::PlayerJoinTableRequest {
                 table_id,
                 player_requesting_join: peer_id,
                 nickname,
@@ -865,8 +864,9 @@ pub enum TableJoinError {
 }
 
 /// The **immutable** snapshot handed to the GUI every frame.
-#[derive(Debug, Clone, Serialize, Deserialize,)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameState {
+    pub has_sent_start_game_notification: bool,
     pub table_id:     TableId,
     pub seats:        usize,
     pub game_started: bool,
@@ -885,8 +885,16 @@ pub struct GameState {
     pub listen_addr: Option<Multiaddr,>,
 
     // -- crypto
-    pub prev_hash: Hash,
+    pub hash_head: Hash,
+    pub hash_chain: Vec<LogEntry>,
     pub key_pair:  KeyPair,
+}
+
+impl PartialEq for GameState {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash_head == other.hash_head &&
+            self.has_sent_start_game_notification == other.has_sent_start_game_notification
+    }
 }
 
 impl GameState {
@@ -898,9 +906,11 @@ impl GameState {
         seats: usize,
     ) -> Self {
         Self {
+            has_sent_start_game_notification: false,
+            hash_chain: Vec::default(),
             is_seed_peer: false,
             key_pair: KeyPair::generate(),
-            prev_hash: GENESIS_HASH.clone(),
+            hash_head: GENESIS_HASH.clone(),
             table_id,
             seats,
             game_started: false,
@@ -910,7 +920,7 @@ impl GameState {
             board: Vec::new(),
             pot: Pot::default(),
             action_req: None,
-            hand_phase: HandPhase::StartingGame,
+            hand_phase: HandPhase::WaitingForPlayers,
             listen_addr: None,
             has_joined_table: false,
         }
@@ -919,9 +929,11 @@ impl GameState {
     #[must_use]
     pub fn default() -> Self {
         Self {
+            has_sent_start_game_notification: false,
+            hash_chain:       Vec::default(),
             is_seed_peer:     false,
             key_pair:         KeyPair::generate(),
-            prev_hash:        GENESIS_HASH.clone(),
+            hash_head:        GENESIS_HASH.clone(),
             has_joined_table: false,
             table_id:         TableId::new_id(),
             seats:            0,
@@ -932,7 +944,7 @@ impl GameState {
             board:            Vec::new(),
             pot:              Pot::default(),
             action_req:       None,
-            hand_phase:       HandPhase::StartingGame,
+            hand_phase:       HandPhase::WaitingForPlayers,
             listen_addr:      None,
         }
     }
@@ -1007,6 +1019,7 @@ impl Projection {
             bb:         Self::START_GAME_BB,
             sender:     self.peer_id(),
         },);
+        self.has_sent_start_game_notification = true;
         if let Some(me,) = self.get_player_mut(&self.peer_id(),) {
             me.has_sent_start_game_notification = true;
         }
