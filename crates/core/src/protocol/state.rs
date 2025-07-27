@@ -207,7 +207,7 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
 // helper for hashing
 #[must_use]
 pub fn hash_state(st: &ContractState,) -> Hash {
-    let bytes = bincode::serialize(st,).unwrap();
-    let hash = blake3::hash(&bytes,);
+    let bytes = bincode::serialize(st,);
+    let hash = blake3::hash(bytes.unwrap().as_slice(),);
     Hash(hash,)
 }

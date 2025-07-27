@@ -24,11 +24,7 @@ impl MockUi {
         table_id: TableId,
     ) -> Self {
         let ui = runtime_bridge::start(
-            table_id,
-            num_seats,
-            keypair,
-            nick,
-            seed_addr,
+            table_id, num_seats, keypair, nick, seed_addr,
         );
 
         Self {
@@ -65,7 +61,10 @@ impl MockUi {
     pub fn try_recv_from_engine(
         &mut self,
     ) -> Result<EngineEvent, anyhow::Error,> {
-        self.ui_handle.msg_rx.try_recv().map_err(std::convert::Into::into,)
+        self.ui_handle
+            .msg_rx
+            .try_recv()
+            .map_err(std::convert::Into::into,)
     }
 
     pub async fn wait_for_listen_addr(&mut self,) {
@@ -110,7 +109,7 @@ impl MockUi {
                     }
                 }
             }
-            tokio::time::sleep(Duration::from_millis(delay_ms, ), ).await;
+            tokio::time::sleep(Duration::from_millis(delay_ms,),).await;
             tries += 1;
             if tries >= max_tries {
                 info!(

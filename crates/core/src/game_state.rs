@@ -50,7 +50,7 @@ impl fmt::Display for Pot {
 }
 
 /// One player as stored in *our* local copy of the table state.
-#[derive(Debug, Clone, Serialize, Deserialize,)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq,)]
 pub struct PlayerPrivate {
     pub peer_id:                          PeerId,
     pub nickname:                         String,
@@ -636,7 +636,7 @@ impl Projection {
                         return;
                     }
                     // set our current hash one hash forward.
-                    current_hash = entry.next_hash;
+                    current_hash = entry.hash;
                 }
 
                 // apply logentries of chain to our state only if all hashes in
@@ -647,7 +647,7 @@ impl Projection {
                     let next = res.next;
                     let next_hash = contract::hash_state(&next,);
 
-                    if next_hash != entry.next_hash {
+                    if next_hash != entry.hash {
                         warn!(
                             "{} (nick {}) received sync response with invalid chain - next_hash mismatch",
                             self.peer_context.id,
