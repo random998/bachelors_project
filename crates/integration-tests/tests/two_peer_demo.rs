@@ -3,6 +3,8 @@
 //! architecture as defined in `p2p-net::swarm_task`. Tests use Gossipsub with
 //! `MemoryTransport` for in-memory testing to simulate network communication.
 
+mod support;
+
 use std::time::Duration;
 
 use anyhow::Result;
@@ -11,12 +13,13 @@ use log::{info, warn};
 use p2p_net::swarm_task;
 use poker_core::crypto::KeyPair;
 use poker_core::game_state::{HandPhase, Projection};
-use poker_core::message::{NetworkMessage, SignedMessage, UiCmd};
+use poker_core::message::{NetworkMessage, SignedMessage, UIEvent};
 use poker_core::poker::{Chips, TableId};
 use poker_core::protocol::msg::Hash;
 use poker_core::protocol::state::GENESIS_HASH;
 use rand::{RngCore, thread_rng};
 use tokio::time::sleep;
+use crate::support::mock_gui::MockUi;
 
 const BLAKE3_HASH_BYTE_ARR_LEN: usize = 32;
 const MESSAGE_RECEIVE_TIMEOUT: u64 = 5;
@@ -161,7 +164,7 @@ async fn two_peers_join_success() -> Result<(),> {
 
     // Alice joins
     alice
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice.peer_id(),
             nickname: "Alice".into(),
@@ -184,7 +187,7 @@ async fn two_peers_join_success() -> Result<(),> {
     assert_eq!(bob.phase(), HandPhase::WaitingForPlayers);
 
     // Bob joins via SyncReq
-    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+    bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
@@ -270,7 +273,7 @@ async fn three_peers_join_success() -> Result<(),> {
 
     // Alice joins
     alice
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice.peer_id(),
             nickname: "Alice".into(),
@@ -289,7 +292,7 @@ async fn three_peers_join_success() -> Result<(),> {
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
     // Bob joins
-    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+    bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
@@ -312,7 +315,7 @@ async fn three_peers_join_success() -> Result<(),> {
 
     // Charlie joins
     charlie
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: charlie.peer_id(),
             nickname: "Charlie".into(),
@@ -398,7 +401,7 @@ async fn reject_join_table_full() -> Result<(),> {
 
     // Alice joins
     alice
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice.peer_id(),
             nickname: "Alice".into(),
@@ -413,7 +416,7 @@ async fn reject_join_table_full() -> Result<(),> {
     assert_eq!(charlie.players().len(), 0); // charlie has not added alice to his player's list, because he has not synced yet.
 
     // Bob joins
-    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+    bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
@@ -444,7 +447,7 @@ async fn reject_join_table_full() -> Result<(),> {
 
     // Charlie tries to join
     charlie
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: charlie.peer_id(),
             nickname: "Charlie".into(),
@@ -523,7 +526,7 @@ async fn reject_join_game_started() -> Result<(),> {
 
     // Alice joins
     alice
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice.peer_id(),
             nickname: "Alice".into(),
@@ -537,7 +540,7 @@ async fn reject_join_game_started() -> Result<(),> {
     bob.game_started = true; // Assume propagated
 
     // Bob tries to join
-    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+    bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
@@ -598,7 +601,7 @@ async fn reject_join_already_joined() -> Result<(),> {
 
     // Alice joins
     alice
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice.peer_id(),
             nickname: "Alice".into(),
@@ -615,7 +618,7 @@ async fn reject_join_already_joined() -> Result<(),> {
     assert_ne!(alice.hash_chain(), bob.hash_chain()); // expect that the chains diverge, because bob has not sent a SyncRequest, yet.
 
     // Bob joins first time
-    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+    bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
@@ -629,7 +632,7 @@ async fn reject_join_already_joined() -> Result<(),> {
     let chain_len_before = alice.hash_chain().len();
 
     // Bob tries to join again
-    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+    bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
@@ -695,7 +698,7 @@ async fn reject_invalid_sync_resp() -> Result<(),> {
 
     // Alice joins
     alice
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice.peer_id(),
             nickname: "Alice".into(),
@@ -711,7 +714,7 @@ async fn reject_invalid_sync_resp() -> Result<(),> {
     }
 
     // Bob sends SyncReq
-    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+    bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
@@ -801,7 +804,7 @@ async fn late_join_replay_chain() -> Result<(),> {
 
     // Alice joins
     alice
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice.peer_id(),
             nickname: "Alice".into(),
@@ -812,7 +815,7 @@ async fn late_join_replay_chain() -> Result<(),> {
 
     // Charlie joins
     charlie
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: charlie.peer_id(),
             nickname: "Charlie".into(),
@@ -849,7 +852,7 @@ async fn late_join_replay_chain() -> Result<(),> {
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
     // Bob joins late, should send SyncReq and replay full chain
-    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+    bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
@@ -942,7 +945,7 @@ async fn game_starts_correctly() -> Result<(),> {
     // three peers all join.
     // Alice joins
     alice
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice.peer_id(),
             nickname: "Alice".into(),
@@ -961,7 +964,7 @@ async fn game_starts_correctly() -> Result<(),> {
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
     // Bob joins
-    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+    bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
@@ -984,7 +987,7 @@ async fn game_starts_correctly() -> Result<(),> {
 
     // Charlie joins
     charlie
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: charlie.peer_id(),
             nickname: "Charlie".into(),
@@ -1072,7 +1075,7 @@ async fn enter_start_hand_test() -> Result<(),> {
     // three peers all join.
     // Alice joins
     alice
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice.peer_id(),
             nickname: "Alice".into(),
@@ -1091,7 +1094,7 @@ async fn enter_start_hand_test() -> Result<(),> {
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
     // Bob joins
-    bob.handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+    bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
         table_id,
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
@@ -1114,7 +1117,7 @@ async fn enter_start_hand_test() -> Result<(),> {
 
     // Charlie joins
     charlie
-        .handle_ui_msg(UiCmd::PlayerJoinTableRequest {
+        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: charlie.peer_id(),
             nickname: "Charlie".into(),
@@ -1158,6 +1161,111 @@ async fn enter_start_hand_test() -> Result<(),> {
     assert_eq!(alice.phase(), HandPhase::StartingHand);
     assert_eq!(bob.phase(), HandPhase::StartingHand);
     assert_eq!(charlie.phase(), HandPhase::StartingHand);
+
+    Ok((),)
+}
+
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+async fn test_mock_gui() -> Result<(),> {
+    init_logger();
+
+    let table_id = TableId::new_id();
+    let mut alice = MockUi::default(None, table_id, "Alice".into());
+    alice.wait_for_listen_addr().await;
+    let alice_addr = alice.get_listen_addr();
+    info!("alice addr: {:?}", alice_addr);
+    let mut bob = MockUi::default(alice_addr.clone(), table_id, "Bob".into());
+    bob.wait_for_listen_addr().await;
+    let mut charlie = MockUi::default(alice_addr.clone(), table_id, "Charlie".into());
+    charlie.wait_for_listen_addr().await;
+    let _ = charlie.get_listen_addr();
+
+    // expect the Handphase of each peer to be WaitingForPlayers.
+    assert_eq!(alice.last_game_state().hand_phase, HandPhase::WaitingForPlayers);
+    assert_eq!(bob.last_game_state().hand_phase, HandPhase::WaitingForPlayers);
+    assert_eq!(charlie.last_game_state().hand_phase, HandPhase::WaitingForPlayers);
+
+    // three peers all join.
+    // Alice joins
+    let res = alice.send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice.last_game_state().player_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },).await;
+    info!("{:?}", res);
+
+    alice.poll_game_state().await;
+    bob.poll_game_state().await;
+    charlie.poll_game_state().await;
+    assert_eq!(alice.last_game_state().players().len(), 1);
+    assert_eq!(charlie.last_game_state().players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(bob.last_game_state().players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(bob.last_game_state().hash_head, charlie.last_game_state().hash_head);
+
+    // Bob joins
+    let _ = bob.send_to_engine(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: bob.last_game_state().player_id,
+        nickname: "Bob".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await;
+
+    alice.poll_game_state().await;
+    bob.poll_game_state().await;
+    charlie.poll_game_state().await;
+
+    assert_eq!(alice.last_game_state().players().len(), 2);
+    assert_eq!(bob.last_game_state().players().len(), 2);
+    assert_eq!(charlie.last_game_state().players().len(), 0); // charlie has 0 players, since he has not synced yet.
+    assert_eq!(alice.last_game_state().hash_chain.len(), 2);
+    assert_eq!(bob.last_game_state().hash_chain.len(), 2);
+    assert_eq!(charlie.last_game_state().hash_chain.len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
+    assert_eq!(alice.last_game_state().hash_head, bob.last_game_state().hash_head);
+
+    // Charlie joins
+    let _ = charlie
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: charlie.last_game_state().player_id(),
+            nickname: "Charlie".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await;
+
+    // now after all three peers have joined, we expect the state of the
+    // hand phase of each peer to have moved to GameStarting.
+    alice.poll_game_state().await;
+    bob.poll_game_state().await;
+    charlie.poll_game_state().await;
+
+    assert_eq!(alice.last_game_state().hand_phase, HandPhase::StartingGame);
+    assert_eq!(bob.last_game_state().hand_phase, HandPhase::StartingGame);
+    assert_eq!(charlie.last_game_state().hand_phase, HandPhase::StartingGame);
+
+    assert_eq!(alice.last_game_state().players().len(), 3);
+    assert_eq!(bob.last_game_state().players().len(), 3);
+    assert_eq!(charlie.last_game_state().players().len(), 3);
+
+    assert_eq!(alice.last_game_state().hash_chain.len(), 6);
+    assert_eq!(charlie.last_game_state().hash_chain.len(), 6);
+    assert_eq!(bob.last_game_state().hash_chain.len(), 6);
+    assert_eq!(alice.last_game_state().hash_head, bob.last_game_state().hash_head);
+    assert_eq!(alice.last_game_state().hash_head, charlie.last_game_state().hash_head);
+    assert_eq!(bob.last_game_state().hash_head, charlie.last_game_state().hash_head);
+    assert_eq!(alice.last_game_state().hash_chain, bob.last_game_state().hash_chain);
+    assert_eq!(alice.last_game_state().hash_head, charlie.last_game_state().hash_head);
+    assert_eq!(bob.last_game_state().hash_head, charlie.last_game_state().hash_head);
+
+    alice.poll_game_state().await;
+    bob.poll_game_state().await;
+    charlie.poll_game_state().await;
+
+    assert_eq!(alice.last_game_state().hand_phase, HandPhase::StartingHand);
+    assert_eq!(bob.last_game_state().hand_phase, HandPhase::StartingHand);
+    assert_eq!(charlie.last_game_state().hand_phase, HandPhase::StartingHand);
 
     Ok((),)
 }

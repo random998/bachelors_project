@@ -2,7 +2,9 @@
   <dictionary name="project">
     <words>
       <w>egui</w>
+      <w>gamestate</w>
       <w>gossipsub</w>
+      <w>handphase</w>
       <w>jointablereq</w>
       <w>libp</w>
       <w>preflop</w>

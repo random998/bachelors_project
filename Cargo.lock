@@ -2745,6 +2745,7 @@ dependencies = [
  "anyhow",
  "blake3",
  "env_logger",
+ "libp2p",
  "log",
  "p2p-net",
  "poker-core",
