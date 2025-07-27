@@ -12,7 +12,7 @@ use p2p_net::runtime_bridge::UiHandle; // ← the two channels & runtime
 use poker_cards::egui::Textures;
 use poker_core::crypto::{KeyPair, PeerId};
 use poker_core::game_state::GameState;
-use poker_core::message::{SignedMessage, UiCmd, UiEvent};
+use poker_core::message::{SignedMessage, UIEvent, EngineEvent};
 use poker_core::poker::TableId;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
@@ -56,7 +56,7 @@ pub struct AppData {
 // ─────────────────────────── App (shared by all views) ───────────────────
 
 pub trait Gui {
-    fn send_ui_cmd(&mut self, cmd: UiCmd,);
+    fn send_ui_cmd(&mut self, cmd: UIEvent,);
     fn get_latest_snapshot(&self,) -> Option<GameState,>;
     fn handle_signed_message(&mut self, msg: SignedMessage,);
 }
@@ -69,8 +69,8 @@ pub struct App {
     key_pair:     KeyPair,
 
     // runtime ↔ GUI channels
-    cmd_tx: mpsc::Sender<UiCmd,>, // GUI ➜ runtime
-    msg_rx: mpsc::Receiver<UiEvent,>, // runtime ➜ GUI
+    cmd_tx: mpsc::Sender<UIEvent,>, // GUI ➜ runtime
+    msg_rx: mpsc::Receiver<EngineEvent,>, // runtime ➜ GUI
     _rt:    Arc<Runtime,>,        // keep Tokio alive!
 
     // latest immutable snapshot
@@ -82,7 +82,7 @@ impl App {
 
     pub fn update(&mut self,) {
         if let Ok(res,) = self.msg_rx.try_recv() {
-            if let UiEvent::Snapshot(gs,) = res {
+            if let EngineEvent::Snapshot(gs,) = res {
                 self.game_state = gs;
             }
         }
@@ -111,7 +111,7 @@ impl App {
     // ----------- message plumbing --------------------------------
 
     /// non-blocking pull from the runtime ➜ GUI channel
-    pub fn try_recv_event(&mut self,) -> Option<UiEvent,> {
+    pub fn try_recv_event(&mut self,) -> Option<EngineEvent,> {
         match self.msg_rx.try_recv() {
             Ok(m,) => Some(m,),
             Err(TryRecvError::Empty,) => None,
@@ -125,8 +125,8 @@ impl App {
     /// UI -> runtime
     pub fn send_cmd_to_engine(
         &self,
-        msg: UiCmd,
-    ) -> Result<(), TrySendError<UiCmd,>,> {
+        msg: UIEvent,
+    ) -> Result<(), TrySendError<UIEvent,>,> {
         self.cmd_tx.try_send(msg,)
     }
 

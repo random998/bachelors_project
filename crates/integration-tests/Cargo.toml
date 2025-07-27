@@ -13,3 +13,4 @@ log = "0.4.27"
 rand_core = "0.6.4"
 blake3 = "1.8.2"
 rand = "0.8.5"
+libp2p = {workspace = true}

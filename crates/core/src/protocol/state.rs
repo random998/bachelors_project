@@ -151,9 +151,9 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                 .values()
                 .all(|p| p.has_sent_start_game_notification,)
             {
-                st.phase = HandPhase::StartingGame;
-            } else {
                 st.phase = HandPhase::StartingHand;
+            } else {
+                st.phase = HandPhase::StartingGame;
             }
         },
         WireMsg::JoinTableReq {
@@ -173,10 +173,10 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
         },
         WireMsg::StartGameNotify {
             seat_order: _seat_order,
-            table: tableid,
-            game_id,
-            sb,
-            bb,
+            table: _tableid,
+            game_id: _game_id,
+            sb: _sb,
+            bb: _bb,
             sender,
         } => {
             st.players
