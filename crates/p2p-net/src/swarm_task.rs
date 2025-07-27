@@ -34,17 +34,16 @@ pub fn new(
     let peer_id = keypair.peer_id();
 
     // transport -----------------------------------------------------
-    let transport =
-        tcp::tokio::Transport::new(tcp::Config::default().nodelay(true,),)
-            .upgrade(upgrade::Version::V1,)
-            .authenticate(
-                noise::Config::new(&libp2p_identity::Keypair::from(
-                    keypair.0.clone(),
-                ),)
-                .unwrap(),
-            )
-            .multiplex(yamux::Config::default(),)
-            .boxed();
+    let _ = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true,),)
+        .upgrade(upgrade::Version::V1,)
+        .authenticate(
+            noise::Config::new(&libp2p_identity::Keypair::from(
+                keypair.0.clone(),
+            ),)
+            .unwrap(),
+        )
+        .multiplex(yamux::Config::default(),)
+        .boxed();
 
     // behaviour -----------------------------------------------------
     let topic = gossipsub::IdentTopic::new(format!("poker/{table_id}"),);
@@ -94,7 +93,7 @@ pub fn new(
     // try to dial seed peer
     if let Some(addr,) = seed_peer_addr {
         swarm.dial(addr.clone(),).expect("dial failure",);
-        info!("sucessfully dialed seed peer at {addr}");
+        info!("successfully dialed seed peer at {addr}");
     }
 
     // mpsc pipes ---------------------------------------------------
