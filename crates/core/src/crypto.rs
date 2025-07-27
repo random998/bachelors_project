@@ -291,8 +291,8 @@ impl PartialEq<Self,> for PeerId {
     }
 }
 
-impl PartialOrd<Self,> for PeerId {
-    fn partial_cmp(&self, other: &Self,) -> Option<Ordering,> {
+impl PartialOrd for PeerId {
+    fn partial_cmp(&self, other: &Self,) -> Option<std::cmp::Ordering,> {
         self.0.partial_cmp(&other.0,)
     }
 }
