@@ -3,10 +3,10 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::game_state::GameState;
-use crate::message::{SignedMessage, UiCmd};
+use crate::message::{SignedMessage, UIEvent};
 
 pub trait Gui {
-    fn send_ui_cmd(&mut self, cmd: UiCmd,);
+    fn send_ui_cmd(&mut self, cmd: UIEvent,);
     fn get_latest_snapshot(&self,) -> Option<GameState,>;
     fn handle_signed_message(&mut self, msg: SignedMessage,);
 }

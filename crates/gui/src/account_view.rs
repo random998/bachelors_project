@@ -11,7 +11,7 @@ use eframe::egui::{
 use log::warn;
 use poker_core::crypto::PeerId;
 use poker_core::game_state::GameState;
-use poker_core::message::UiCmd;
+use poker_core::message::UIEvent;
 use poker_core::poker::{Chips, TableId};
 
 use crate::{App, ConnectView, GameView, View};
@@ -115,7 +115,7 @@ impl View for AccountView {
                         && !self.game_state.has_joined_table
                     {
                         let table_id: TableId = app.snapshot().table_id;
-                        let join = UiCmd::PlayerJoinTableRequest {
+                        let join = UIEvent::PlayerJoinTableRequest {
                             table_id,
                             player_requesting_join: self.player_id,
                             nickname: self.nickname.clone(),

@@ -6,10 +6,11 @@
 
 use std::sync::Arc;
 use std::time::Duration;
-
+use libp2p::Multiaddr;
+use log::{info};
 use poker_core::crypto::KeyPair;
 use poker_core::game_state::Projection;
-use poker_core::message::{UiCmd, UiEvent};
+use poker_core::message::{UIEvent, EngineEvent};
 use poker_core::net::traits::P2pTransport;
 use poker_core::poker::TableId;
 use tokio::runtime::{Builder, Runtime};
@@ -18,9 +19,9 @@ use tokio::sync::mpsc;
 /// Handle returned to the GUI
 pub struct UiHandle {
     /// GUI ➜ runtime  –  signed commands produced by user input
-    pub cmd_tx: mpsc::Sender<UiCmd,>,
+    pub cmd_tx: mpsc::Sender<UIEvent,>,
     /// runtime ➜ GUI  –  every locally generated or echoed message
-    pub msg_rx: mpsc::Receiver<UiEvent,>,
+    pub msg_rx: mpsc::Receiver<EngineEvent,>,
     pub _rt:    Arc<Runtime,>, // keep Tokio alive
 }
 
@@ -31,7 +32,7 @@ pub fn start(
     seats: usize,
     kp: KeyPair,
     nick: String,
-    seed: Option<libp2p::Multiaddr,>,
+    seed: Option<Multiaddr,>,
 ) -> UiHandle {
     // ────────────────────────── Tokio runtime ───────────────────────────
     let rt = Arc::new(
@@ -43,8 +44,8 @@ pub fn start(
     );
 
     // ─────────────── channels GUI ↔ runtime (unbounded) ────────────────
-    let (cmd_tx, mut cmd_rx,) = mpsc::channel::<UiCmd,>(64,); // UI -> Runtime
-    let (msg_tx, msg_rx,) = mpsc::channel::<UiEvent,>(64,); // Runtime -> UI
+    let (cmd_tx, mut cmd_rx,) = mpsc::channel::<UIEvent,>(64,); // UI -> Runtime
+    let (msg_tx, msg_rx,) = mpsc::channel::<EngineEvent,>(64,); // Runtime -> UI
 
     // ─────────────────────── background task ───────────────────────────
     let rt_handle = rt.handle().clone();
@@ -57,16 +58,18 @@ pub fn start(
         let is_seed_peer = seed.is_none();
         let mut eng =
             Projection::new(nick, table, seats, kp, transport, is_seed_peer,);
-
+        
         // 4) main loop
         loop {
             // a) GUI -> engine
             while let Ok(cmd,) = cmd_rx.try_recv() {
+                info!("{}: engine handling ui msg: {}", eng.snapshot().nickname, cmd.to_string());
                 eng.handle_ui_msg(cmd,).await;
             }
 
             // b) network → engine
             while let Ok(msg,) = eng.try_recv() {
+                info!("{}: engine handling network msg: {}", eng.snapshot().nickname, msg.to_string());
                 eng.handle_network_msg(msg,).await;
             }
 
@@ -75,17 +78,18 @@ pub fn start(
 
             // d) engine -> Ui, send a snapshot of the engine.
             let sp = eng.snapshot();
-            let msg = UiEvent::Snapshot(sp,);
-            let _ = msg_tx.try_send(msg,);
+            let msg = EngineEvent::Snapshot(sp,);
+            let _ = msg_tx.send(msg,).await;
 
             // e) update the internal table state periodically (handle state
             // transitions).
-            let _ = eng.update();
+            eng.update().await;
 
             tokio::time::sleep(Duration::from_millis(16,),).await;
         }
+        
     },);
-
+    
     UiHandle {
         cmd_tx,
         msg_rx,

@@ -37,7 +37,7 @@ pub enum NetworkMessage {
 
 /// Represents a message send from the p2p poker instance to the ui.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
-pub enum UiEvent {
+pub enum EngineEvent {
     Snapshot(GameState,), // fresh projection every frame / on tick
     ActionRequest {
         allowed:   Vec<PlayerAction,>,
@@ -56,7 +56,7 @@ pub enum UiEvent {
 
 /// Sent from egui/iced/etc. into the Tokio task driving Projection.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
-pub enum UiCmd {
+pub enum UIEvent {
     Connect {
         nickname: String,
         buy_in:   Chips,
@@ -80,7 +80,7 @@ pub enum UiCmd {
         chips:                  Chips,
     },
 }
-impl Display for UiCmd {
+impl Display for UIEvent {
     fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
         let str = match self {
             Self::Connect { .. } => "connect",

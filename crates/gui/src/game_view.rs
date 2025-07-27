@@ -13,7 +13,7 @@ use eframe::egui::{
 use eframe::epaint;
 use poker_cards::egui::Textures;
 use poker_core::game_state::{GameState, PlayerPrivate};
-use poker_core::message::{PlayerAction, UiCmd};
+use poker_core::message::{PlayerAction, UIEvent};
 use poker_core::poker::{Chips, PlayerCards};
 
 use crate::{AccountView, App, ConnectView, View};
@@ -643,7 +643,7 @@ impl GameView {
         }
 
         if let Some((action, amount,),) = send_action {
-            let msg = UiCmd::Action {
+            let msg = UIEvent::Action {
                 kind: action,
                 amount,
             };
