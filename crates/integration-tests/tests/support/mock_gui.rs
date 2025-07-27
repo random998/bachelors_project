@@ -97,7 +97,7 @@ impl MockUi {
         self.last_gamestate.clone()
     }
 
-    pub async fn poll_game_state(&mut self,) {
+    pub async fn poll_game_state(&mut self,) -> GameState {
         let mut tries = 0u64;
         let max_tries = 100;
         let delay_ms = 20;
@@ -106,18 +106,18 @@ impl MockUi {
                 if let EngineEvent::Snapshot(gs,) = res {
                     if self.last_gamestate != gs {
                         self.last_gamestate = gs;
-                        break;
+                        return self.last_gamestate.clone();
                     }
                 }
             }
-            tokio::time::sleep(Duration::from_millis(delay_ms,),).await;
+            tokio::time::sleep(Duration::from_millis(delay_ms, ), ).await;
             tries += 1;
             if tries >= max_tries {
                 info!(
                     "{} did not update gamestate",
                     self.last_gamestate.nickname.clone()
                 );
-                break;
+                return self.last_gamestate.clone();
             }
         }
     }
