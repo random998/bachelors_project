@@ -1,6 +1,6 @@
 //! Hash-chained packet format (ready for ZK integration)
 
-use std::fmt::Write;
+use std::fmt::{Formatter, Write};
 
 use rand_core::RngCore;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -17,7 +17,7 @@ use crate::zk::{Commitment, Proof, RangeProof, ShuffleProof};
 pub struct LogEntry {
     pub prev_hash: Hash,
     pub payload:   WireMsg,
-    pub next_hash: Hash,
+    pub hash:      Hash,
     /// zkVM proof that `step(prev, payload) -> next`
     pub proof:     Proof,
     pub metadata:  EntryMetaData,
@@ -26,9 +26,23 @@ pub struct LogEntry {
 impl PartialEq for LogEntry {
     fn eq(&self, other: &Self,) -> bool {
         self.prev_hash == other.prev_hash
-            && self.next_hash == other.next_hash
+            && self.hash == other.hash
             && self.payload == other.payload
             && self.proof == other.proof
+    }
+}
+
+impl std::fmt::Display for LogEntry {
+    fn fmt(&self, f: &mut Formatter<'_,>,) -> std::fmt::Result {
+        write!(
+            f,
+            "prev_hash: {}\n\
+            payload: {}\n\
+            next_hash: {}\n",
+            self.prev_hash,
+            self.payload.label(),
+            self.hash
+        )
     }
 }
 
@@ -55,7 +69,7 @@ impl LogEntry {
         Self {
             prev_hash,
             payload,
-            next_hash,
+            hash: next_hash,
             metadata: EntryMetaData {
                 ts_micros: chrono::Utc::now().timestamp_micros() as u128,
                 author,
@@ -80,7 +94,7 @@ impl Hash {
 }
 
 impl std::fmt::Display for Hash {
-    fn fmt(&self, f: &mut std::fmt::Formatter,) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter,) -> std::fmt::Result {
         self.0.fmt(f,)
     }
 }
