@@ -142,31 +142,45 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
     let out = Vec::new();
 
     match msg {
-        WireMsg::StartGameBatch(batch) => {
+        WireMsg::StartGameBatch(batch,) => {
             // Verify: Complete, sorted, valid
-            let expected_senders: Vec<PeerId> = st.players.keys().cloned().collect();
-            let mut batch_senders: Vec<PeerId> = batch.iter().map(|sm| sm.sender()).collect();
-            batch_senders.sort_by_key(|id| id.to_string());
-            let mut expected_sorted: Vec<PeerId> = expected_senders.clone();
-            expected_sorted.sort_by_key(|id| id.to_string());
+            let expected_senders: Vec<PeerId,> =
+                st.players.keys().copied().collect();
+            let mut batch_senders: Vec<PeerId,> =
+                batch.iter().map(super::super::message::SignedMessage::sender,).collect();
+            batch_senders.sort_by_key(std::string::ToString::to_string,);
+            let mut expected_sorted: Vec<PeerId,> = expected_senders.clone();
+            expected_sorted.sort_by_key(std::string::ToString::to_string,);
 
-            if batch_senders != expected_sorted || batch.len() != expected_senders.len() {
+            if batch_senders != expected_sorted
+                || batch.len() != expected_senders.len()
+            {
                 // Invalid: Reject (return prev state, no effects)
-                return StepResult { next: prev.clone(), effects: vec![] };
+                return StepResult {
+                    next:    prev.clone(),
+                    effects: vec![],
+                };
             }
 
             // Verify each signature and fields match
             for sm in batch {
                 if !sm.verify() {
-                    return StepResult { next: prev.clone(), effects: vec![] };
-                };
+                    return StepResult {
+                        next:    prev.clone(),
+                        effects: vec![],
+                    };
+                }
                 // Apply: Set flags
-                if let Some(p) = st.players.get_mut(&sm.sender()) {
+                if let Some(p,) = st.players.get_mut(&sm.sender(),) {
                     p.has_sent_start_game_notification = true;
                 }
             }
             // All good: Advance phase
-            if st.players.values().all(|p| p.has_sent_start_game_notification) {
+            if st
+                .players
+                .values()
+                .all(|p| p.has_sent_start_game_notification,)
+            {
                 st.phase = HandPhase::StartingHand;
             }
         },

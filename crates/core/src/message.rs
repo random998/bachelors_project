@@ -1,6 +1,5 @@
 use std::fmt;
-use std::fmt::Formatter;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// Type definitions for p2p messages.
@@ -15,7 +14,7 @@ use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 use crate::protocol::msg::LogEntry;
 
 /// Represents a message exchanged between peers in the P2P poker protocol.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq,)]
 pub enum NetworkMessage {
     /// protocol entry for zk log.
     ProtocolEntry(LogEntry,),
@@ -115,7 +114,7 @@ impl NetworkMessage {
             Self::NewListenAddr { .. } => "NewListenAddr".to_string(),
             Self::SyncReq { .. } => "SyncReq".to_string(),
             Self::SyncResp { .. } => "SyncResp".to_string(),
-            Self::StartGameNotify {..} => "StartGameNotify".to_string(),
+            Self::StartGameNotify { .. } => "StartGameNotify".to_string(),
         }
     }
 }
@@ -191,22 +190,22 @@ pub struct HandPayoff {
 }
 
 /// A signed message.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize,)]
 pub struct SignedMessage {
     /// Clonable payload for broadcasting to multiple connection tasks.
     payload: Arc<Payload,>,
 }
 
 impl SignedMessage {
-    pub fn verify(&self) -> bool {
-        //TODO, as of now always return true.
+    #[must_use] pub const fn verify(&self,) -> bool {
+        // TODO, as of now always return true.
         true
     }
 }
 
 impl PartialEq for SignedMessage {
-    fn eq(&self, other: &Self) -> bool {
-        self.payload.eq(&other.payload)
+    fn eq(&self, other: &Self,) -> bool {
+        self.payload.eq(&other.payload,)
     }
 }
 
@@ -219,8 +218,8 @@ struct Payload {
 }
 
 impl PartialEq for Payload {
-    fn eq(&self, other: &Self) -> bool {
-        self.msg.eq(&other.msg)
+    fn eq(&self, other: &Self,) -> bool {
+        self.msg.eq(&other.msg,)
     }
 }
 
