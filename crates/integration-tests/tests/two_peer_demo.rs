@@ -1159,6 +1159,12 @@ async fn enter_start_hand_test() -> Result<(),> {
     bob.tick().await;
     charlie.tick().await;
 
+    // wait for leader to send batch.
+    pump_three(&mut alice, &mut bob, &mut charlie,).await;
+    alice.tick().await;
+    bob.tick().await;
+    charlie.tick().await;
+
     assert_eq!(alice.phase(), HandPhase::StartingHand);
     assert_eq!(bob.phase(), HandPhase::StartingHand);
     assert_eq!(charlie.phase(), HandPhase::StartingHand);
@@ -1304,13 +1310,13 @@ async fn test_mock_gui() -> Result<(),> {
     assert_eq!(alice_gs.hash_head, charlie_gs.hash_head);
     assert_eq!(bob_gs.hash_head, charlie_gs.hash_head);
 
-    alice.poll_game_state().await;
-    bob.poll_game_state().await;
-    charlie.poll_game_state().await;
+    let alice_gs = alice.poll_game_state().await;
+    let bob_gs = bob.poll_game_state().await;
+    let charlie_gs = charlie.poll_game_state().await;
 
-    assert_eq!(alice.last_game_state().hand_phase, HandPhase::StartingHand);
-    assert_eq!(bob.last_game_state().hand_phase, HandPhase::StartingHand);
-    assert_eq!(charlie.last_game_state().hand_phase, HandPhase::StartingHand);
+    assert_eq!(alice_gs.hand_phase, HandPhase::StartingHand);
+    assert_eq!(bob_gs.hand_phase, HandPhase::StartingHand);
+    assert_eq!(charlie_gs.hand_phase, HandPhase::StartingHand);
 
     Ok((),)
 }
