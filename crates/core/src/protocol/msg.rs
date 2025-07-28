@@ -1,12 +1,10 @@
 //! Hash-chained packet format (ready for ZK integration)
-
-use std::fmt::{Formatter, Write};
-
+use std::fmt::{Formatter};
 use rand_core::RngCore;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::crypto::PeerId;
-use crate::message::{HandPayoff, PlayerAction};
+use crate::message::{HandPayoff, PlayerAction, SignedMessage};
 use crate::poker::{Card, Chips, GameId, TableId};
 use crate::zk::{Commitment, Proof, RangeProof, ShuffleProof};
 // empty stub today
@@ -122,7 +120,7 @@ impl<'de,> Deserialize<'de,> for Hash {
 }
 
 // ---------- All message kinds ----------------------------------------------
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq,)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum WireMsg {
     // ── lobby ─────────────────────────────────────────────
     /// Dealer sends each player their two private cards (**plaintext – will be
@@ -145,15 +143,7 @@ pub enum WireMsg {
         player_id: PeerId,
     },
 
-    // ── game bootstrap & shuffle ─────────────────────────
-    StartGameNotify {
-        table:      TableId,
-        game_id:    GameId,
-        seat_order: Vec<PeerId,>,
-        sb:         Chips,
-        bb:         Chips,
-        sender:     PeerId,
-    },
+    StartGameBatch(Vec<SignedMessage>),  // Sorted list of plain StartGameNotify signed messages
     ShuffleCommit {
         deck_commit:   Commitment,
         shuffle_proof: ShuffleProof,
@@ -204,9 +194,9 @@ impl WireMsg {
     #[must_use]
     pub fn label(&self,) -> String {
         match self {
+            Self::StartGameBatch(..) => "StartGameBatch".to_string(),
             Self::JoinTableReq { .. } => "JoinTableReq".to_string(),
             Self::LeaveTable { .. } => "LeaveTable".to_string(),
-            Self::StartGameNotify { .. } => "StartGameNotify".to_string(),
             Self::ShuffleCommit { .. } => "ShuffleCommit".to_string(),
             Self::ActionRequest { .. } => "ActionRequest".to_string(),
             Self::PlayerAction { .. } => "PlayerAction".to_string(),
