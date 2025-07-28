@@ -67,7 +67,7 @@ pub fn start(
                 info!(
                     "{}: engine handling ui msg: {}",
                     eng.snapshot().nickname,
-                    cmd.to_string()
+                    cmd
                 );
                 eng.handle_ui_msg(cmd,).await;
             }
@@ -77,7 +77,7 @@ pub fn start(
                 info!(
                     "{}: engine handling network msg: {}",
                     eng.snapshot().nickname,
-                    msg.to_string()
+                    msg
                 );
                 eng.handle_network_msg(msg,).await;
             }

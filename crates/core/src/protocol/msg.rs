@@ -1,5 +1,6 @@
 //! Hash-chained packet format (ready for ZK integration)
-use std::fmt::{Formatter};
+use std::fmt::Formatter;
+
 use rand_core::RngCore;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -120,7 +121,7 @@ impl<'de,> Deserialize<'de,> for Hash {
 }
 
 // ---------- All message kinds ----------------------------------------------
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq,)]
 pub enum WireMsg {
     // ── lobby ─────────────────────────────────────────────
     /// Dealer sends each player their two private cards (**plaintext – will be
@@ -143,7 +144,9 @@ pub enum WireMsg {
         player_id: PeerId,
     },
 
-    StartGameBatch(Vec<SignedMessage>),  // Sorted list of plain StartGameNotify signed messages
+    StartGameBatch(Vec<SignedMessage,>,), /* Sorted list of plain
+                                           * StartGameNotify signed
+                                           * messages */
     ShuffleCommit {
         deck_commit:   Commitment,
         shuffle_proof: ShuffleProof,
@@ -194,7 +197,7 @@ impl WireMsg {
     #[must_use]
     pub fn label(&self,) -> String {
         match self {
-            Self::StartGameBatch(..) => "StartGameBatch".to_string(),
+            Self::StartGameBatch(..,) => "StartGameBatch".to_string(),
             Self::JoinTableReq { .. } => "JoinTableReq".to_string(),
             Self::LeaveTable { .. } => "LeaveTable".to_string(),
             Self::ShuffleCommit { .. } => "ShuffleCommit".to_string(),
