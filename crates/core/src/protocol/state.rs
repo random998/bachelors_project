@@ -142,18 +142,32 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
     let out = Vec::new();
 
     match msg {
-        WireMsg::StartGameNotify {
-            seat_order: _seat_order,
-            ..
-        } => {
-            if st
-                .players
-                .values()
-                .all(|p| p.has_sent_start_game_notification,)
-            {
+        WireMsg::StartGameBatch(batch) => {
+            // Verify: Complete, sorted, valid
+            let expected_senders: Vec<PeerId> = st.players.keys().cloned().collect();
+            let mut batch_senders: Vec<PeerId> = batch.iter().map(|sm| sm.sender()).collect();
+            batch_senders.sort_by_key(|id| id.to_string());
+            let mut expected_sorted: Vec<PeerId> = expected_senders.clone();
+            expected_sorted.sort_by_key(|id| id.to_string());
+
+            if batch_senders != expected_sorted || batch.len() != expected_senders.len() {
+                // Invalid: Reject (return prev state, no effects)
+                return StepResult { next: prev.clone(), effects: vec![] };
+            }
+
+            // Verify each signature and fields match
+            for sm in batch {
+                if !sm.verify() {
+                    return StepResult { next: prev.clone(), effects: vec![] };
+                };
+                // Apply: Set flags
+                if let Some(p) = st.players.get_mut(&sm.sender()) {
+                    p.has_sent_start_game_notification = true;
+                }
+            }
+            // All good: Advance phase
+            if st.players.values().all(|p| p.has_sent_start_game_notification) {
                 st.phase = HandPhase::StartingHand;
-            } else {
-                st.phase = HandPhase::StartingGame;
             }
         },
         WireMsg::JoinTableReq {
@@ -170,20 +184,6 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
             if st.players.len() >= st.num_seats as usize {
                 st.phase = HandPhase::StartingGame;
             }
-        },
-        WireMsg::StartGameNotify {
-            seat_order: _seat_order,
-            table: _tableid,
-            game_id: _game_id,
-            sb: _sb,
-            bb: _bb,
-            sender,
-        } => {
-            st.players
-                .get_mut(sender,)
-                .unwrap()
-                .has_sent_start_game_notification = true;
-            // TODO: check if small-blind, big-blind, etc. match our values.
         },
         WireMsg::DealCards { .. } => {
             todo!()
