@@ -1,5 +1,6 @@
 use std::fmt;
-use std::fmt::{Display, Formatter, Write};
+use std::fmt::Formatter;
+use std::fmt::Display;
 use std::sync::Arc;
 
 /// Type definitions for p2p messages.
@@ -10,11 +11,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::crypto::{KeyPair, PeerId, PublicKey, Signature};
 use crate::game_state::GameState;
-use crate::poker::{Card, Chips, PlayerCards, TableId};
+use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 use crate::protocol::msg::LogEntry;
 
 /// Represents a message exchanged between peers in the P2P poker protocol.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub enum NetworkMessage {
     /// protocol entry for zk log.
     ProtocolEntry(LogEntry,),
@@ -32,6 +33,14 @@ pub enum NetworkMessage {
     SyncResp {
         player_asking_for_sync: PeerId,
         chain:                  Vec<LogEntry,>,
+    },
+    StartGameNotify {
+        table:      TableId,
+        game_id:    GameId,
+        seat_order: Vec<PeerId,>,
+        sb:         Chips,
+        bb:         Chips,
+        sender:     PeerId,
     },
 }
 
@@ -106,6 +115,7 @@ impl NetworkMessage {
             Self::NewListenAddr { .. } => "NewListenAddr".to_string(),
             Self::SyncReq { .. } => "SyncReq".to_string(),
             Self::SyncResp { .. } => "SyncResp".to_string(),
+            Self::StartGameNotify {..} => "StartGameNotify".to_string(),
         }
     }
 }
@@ -181,10 +191,23 @@ pub struct HandPayoff {
 }
 
 /// A signed message.
-#[derive(Debug, Clone, Deserialize, Serialize,)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SignedMessage {
     /// Clonable payload for broadcasting to multiple connection tasks.
     payload: Arc<Payload,>,
+}
+
+impl SignedMessage {
+    pub fn verify(&self) -> bool {
+        //TODO, as of now always return true.
+        true
+    }
+}
+
+impl PartialEq for SignedMessage {
+    fn eq(&self, other: &Self) -> bool {
+        self.payload.eq(&other.payload)
+    }
 }
 
 /// Private signed message payload.
@@ -193,6 +216,12 @@ struct Payload {
     msg:        NetworkMessage,
     sig:        Signature,
     public_key: PublicKey,
+}
+
+impl PartialEq for Payload {
+    fn eq(&self, other: &Self) -> bool {
+        self.msg.eq(&other.msg)
+    }
 }
 
 impl SignedMessage {
