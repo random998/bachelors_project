@@ -1010,18 +1010,18 @@ impl GameState {
         self.action_req.clone()
     }
 
-    pub fn has_joined_table(&self,) -> bool {
+    #[must_use] pub const fn has_joined_table(&self,) -> bool {
         self.has_joined_table
     }
 
-    pub fn phase(&self,) -> HandPhase {
+    #[must_use] pub fn phase(&self,) -> HandPhase {
         self.hand_phase.clone()
     }
-    pub fn hash_head(&self,) -> Hash {
+    #[must_use] pub fn hash_head(&self,) -> Hash {
         self.hash_head.clone()
     }
 
-    pub fn hash_chain(&self,) -> Vec<LogEntry,> {
+    #[must_use] pub fn hash_chain(&self,) -> Vec<LogEntry,> {
         self.hash_chain.clone()
     }
 
@@ -1056,7 +1056,7 @@ impl Projection {
         msg: NetworkMessage,
     ) -> (SignedMessage, anyhow::Result<(),>,) {
         let sm = SignedMessage::new(&self.key_pair, msg,);
-        (sm.clone(), self.send(sm.clone(),),)
+        (sm.clone(), self.send(sm,),)
     }
 
     // convenience wrappers ------------------------------------------
@@ -1092,17 +1092,16 @@ impl Projection {
             bb:         Self::START_GAME_BB,
             sender:     self.peer_id(),
         };
-        let (sm, result,) = self.send_plain(notify.clone(),);
+        let (sm, result,) = self.send_plain(notify,);
 
-        if let Ok((),) = result {
-            if !self
+        if matches!(result, Ok((),))
+            && !self
                 .start_game_message_buffer
                 .iter()
                 .any(|b| b.sender() == sm.sender(),)
             {
-                self.start_game_message_buffer.push(sm.clone(),);
+                self.start_game_message_buffer.push(sm,);
             }
-        }
 
         // Set our local flag (for UI/progress)
         if let Some(me,) = self.get_player_mut(&self.peer_id(),) {
