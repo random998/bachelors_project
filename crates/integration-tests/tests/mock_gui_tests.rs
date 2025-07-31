@@ -10,7 +10,6 @@ use poker_core::crypto::KeyPair;
 use poker_core::game_state::{HandPhase, Projection};
 use poker_core::message::UIEvent;
 use poker_core::poker::{Chips, TableId};
-use rand::RngCore;
 use tokio::time::sleep;
 
 use crate::support::mock_gui::MockUi;
@@ -25,7 +24,7 @@ fn init_logger() {
     let _ = env_logger::Builder::from_env(
         Env::default().default_filter_or("error",),
     )
-        .try_init();
+    .try_init();
 }
 
 async fn wait_for_listen_addr(proj: &mut Projection,) {
@@ -62,13 +61,8 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
     let kp_b = KeyPair::generate();
     let table_id = TableId::new_id();
     let num_seats = 2;
-    let mut alice_ui = MockUi::new(
-        kp_a,
-        "Alice".into(),
-        None,
-        num_seats,
-        table_id,
-    );
+    let mut alice_ui =
+        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
     let mut bob_ui = MockUi::new(
         kp_b,
@@ -79,9 +73,9 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
     );
     bob_ui.wait_for_listen_addr().await;
 
-
     // Alice joins
-    alice_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
+    alice_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice_ui.peer_id(),
             nickname: "Alice".into(),
@@ -106,12 +100,13 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
     }
 
     // Bob joins via SyncReq
-    bob_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: bob_ui.peer_id(),
-        nickname: "Bob".into(),
-        chips: Chips::new(1_000,),
-    },)
+    bob_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: bob_ui.peer_id(),
+            nickname: "Bob".into(),
+            chips: Chips::new(1_000,),
+        },)
         .await?;
 
     {
@@ -140,13 +135,8 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
     let table_id = TableId::new_id();
     let num_seats = 3;
 
-    let mut alice_ui = MockUi::new(
-        kp_a,
-        "Alice".into(),
-        None,
-        num_seats,
-        table_id,
-    );
+    let mut alice_ui =
+        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
 
     let mut bob_ui = MockUi::new(
@@ -166,7 +156,6 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
         table_id,
     );
     charlie_ui.wait_for_listen_addr().await;
-
 
     // Alice joins
     alice_ui
@@ -189,12 +178,13 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
     }
 
     // Bob joins
-    bob_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: bob_ui.peer_id(),
-        nickname: "Bob".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
+    bob_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: bob_ui.peer_id(),
+            nickname: "Bob".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
         .await?;
 
     {
@@ -211,7 +201,7 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
     }
 
     // Charlie joins
-    charlie_ui 
+    charlie_ui
         .send_to_engine(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: charlie_ui.peer_id(),
@@ -220,11 +210,10 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
         },)
         .await?;
 
-
     {
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
-        let charlie= charlie_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
 
         assert_eq!(alice.players().len(), 3);
         assert_eq!(bob.players().len(), 3);
@@ -239,7 +228,7 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
         assert_eq!(alice.hash_head(), charlie.hash_head());
         assert_eq!(bob.hash_head(), charlie.hash_head());
     }
-    
+
     alice_ui.shutdown().await?;
     bob_ui.shutdown().await?;
     charlie_ui.shutdown().await?;

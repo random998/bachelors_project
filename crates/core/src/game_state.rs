@@ -189,7 +189,7 @@ pub struct Projection {
     pub game_started:                 bool,
     hash_chain:                       Vec<LogEntry,>,
     has_sent_start_game_notification: bool,
-    has_sent_start_game_batch: bool,
+    has_sent_start_game_batch:        bool,
 
     // misc ----------------------------------------------------------------
     new_hand_start_timer: Option<Instant,>,
@@ -202,10 +202,10 @@ pub struct Projection {
     // peer context
     peer_context: PeerContext,
 
-    start_game_message_buffer:   Vec<SignedMessage,>, /* Buffer for plain
-                                               * StartGameNotify msgs */
-    start_game_timeout:  Option<Instant,>, // Timer for buffering phase
-    start_game_proposer: Option<PeerId,>,  // Cached proposer ID
+    start_game_message_buffer: Vec<SignedMessage,>, /* Buffer for plain
+                                                     * StartGameNotify msgs */
+    start_game_timeout:        Option<Instant,>, // Timer for buffering phase
+    start_game_proposer:       Option<PeerId,>,  // Cached proposer ID
 }
 
 impl Projection {
@@ -405,7 +405,7 @@ impl Projection {
             listen_addr: self.listen_addr.clone(),
         }
     }
-    
+
     #[must_use]
     pub fn secret_key(&self,) -> SecretKey {
         self.key_pair.secret()
@@ -537,7 +537,8 @@ impl Projection {
             }
         }
 
-        if self.phase() == HandPhase::StartingGame && !self.has_sent_start_game_batch
+        if self.phase() == HandPhase::StartingGame
+            && !self.has_sent_start_game_batch
         {
             let expected_count = self.players().len();
             if self.start_game_message_buffer.len() >= expected_count {
@@ -549,7 +550,10 @@ impl Projection {
                     // Proposer: Append batch to chain
                     let batch_msg = WireMsg::StartGameBatch(sorted_buffer,);
                     if self.commit_step(&batch_msg,).is_ok() {
-                        info!("Proposer ({}) appended StartGameBatch", self.peer_id());
+                        info!(
+                            "Proposer ({}) appended StartGameBatch",
+                            self.peer_id()
+                        );
                         self.has_sent_start_game_batch = true;
                     }
                 } else {
@@ -573,8 +577,7 @@ impl Projection {
                 game_id: _game_id,
                 sender,
             } => {
-                if self.phase() != HandPhase::StartingGame
-                {
+                if self.phase() != HandPhase::StartingGame {
                     return;
                 }
                 // Verify signature and not duplicate
@@ -1006,24 +1009,21 @@ impl GameState {
     pub fn action_req(&self,) -> Option<ActionRequest,> {
         self.action_req.clone()
     }
-    
-    pub fn has_joined_table(&self) -> bool {
+
+    pub fn has_joined_table(&self,) -> bool {
         self.has_joined_table
     }
-    
-    pub fn phase(&self) -> HandPhase {
+
+    pub fn phase(&self,) -> HandPhase {
         self.hand_phase.clone()
     }
-    pub fn hash_head(&self) -> Hash {
-       self.hash_head.clone()
+    pub fn hash_head(&self,) -> Hash {
+        self.hash_head.clone()
     }
-    
-    pub fn hash_chain(&self) -> Vec<LogEntry> {
+
+    pub fn hash_chain(&self,) -> Vec<LogEntry,> {
         self.hash_chain.clone()
     }
-    
-    
-    
 
     pub fn pot(&mut self,) -> Pot {
         self.pot.clone()
@@ -1051,9 +1051,12 @@ impl Projection {
     }
 
     // send messages that are not appended to the log entry list.
-    fn send_plain(&mut self, msg: NetworkMessage,) -> (SignedMessage, anyhow::Result<(),>) {
+    fn send_plain(
+        &mut self,
+        msg: NetworkMessage,
+    ) -> (SignedMessage, anyhow::Result<(),>,) {
         let sm = SignedMessage::new(&self.key_pair, msg,);
-        (sm.clone(), self.send(sm.clone(),))
+        (sm.clone(), self.send(sm.clone(),),)
     }
 
     // convenience wrappers ------------------------------------------
@@ -1070,7 +1073,7 @@ impl Projection {
         if self.game_started {
             return;
         }
-        
+
         self.game_started = true;
 
         // Compute deterministic proposer: lowest peer_id in sorted player list
@@ -1089,9 +1092,9 @@ impl Projection {
             bb:         Self::START_GAME_BB,
             sender:     self.peer_id(),
         };
-        let (sm, result) = self.send_plain(notify.clone(),);
+        let (sm, result,) = self.send_plain(notify.clone(),);
 
-        if let Ok(()) = result {
+        if let Ok((),) = result {
             if !self
                 .start_game_message_buffer
                 .iter()

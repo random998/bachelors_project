@@ -1323,5 +1323,5 @@ async fn test_mock_gui() -> Result<(),> {
     let _ = bob.shutdown().await;
     let _ = charlie.shutdown().await;
 
-    Ok(())
+    Ok((),)
 }
