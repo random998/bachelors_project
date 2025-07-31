@@ -3,7 +3,7 @@ use std::time::Duration;
 use libp2p::Multiaddr;
 use p2p_net::runtime_bridge;
 use p2p_net::runtime_bridge::UiHandle;
-use poker_core::crypto::KeyPair;
+use poker_core::crypto::{KeyPair, PeerId};
 use poker_core::game_state::GameState;
 use poker_core::message::{EngineEvent, UIEvent};
 use poker_core::poker::TableId;
@@ -15,7 +15,7 @@ pub struct MockUi {
 }
 
 impl MockUi {
-    pub(crate) async fn shutdown(&mut self) -> Result<(), anyhow::Error> {
+    pub async fn shutdown(&mut self) -> Result<(), anyhow::Error> {
         // Call UiHandle's shutdown method
         let _ = self.ui_handle.shutdown().await;
         self.last_gamestate.listen_addr = None; // Clear listen_addr
@@ -35,6 +35,10 @@ impl MockUi {
             ui_handle:      ui,
             last_gamestate: GameState::default(),
         }
+    }
+    
+    pub fn peer_id(&self) -> PeerId {
+        self.last_gamestate.player_id
     }
 
     pub fn default(
@@ -119,6 +123,10 @@ impl MockUi {
                 return self.last_gamestate.clone();
             }
         }
+    }
+    
+    pub async fn game_state(&mut self) -> GameState {
+        self.poll_game_state().await
     }
 
 
