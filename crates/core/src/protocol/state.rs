@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fmt::Formatter;
-
+use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
@@ -139,23 +139,28 @@ impl fmt::Debug for ContractState {
 #[must_use]
 pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
     let mut st = prev.clone();
-    let out = Vec::new();
+    let mut out = Vec::new();
 
     match msg {
         WireMsg::StartGameBatch(batch,) => {
             // Verify: Complete, sorted, valid
             let expected_senders: Vec<PeerId,> =
                 st.players.keys().copied().collect();
-            let mut batch_senders: Vec<PeerId,> =
+           
+            let mut batch_senders_sorted: Vec<PeerId,> =
                 batch.iter().map(super::super::message::SignedMessage::sender,).collect();
-            batch_senders.sort_by_key(std::string::ToString::to_string,);
-            let mut expected_sorted: Vec<PeerId,> = expected_senders.clone();
-            expected_sorted.sort_by_key(std::string::ToString::to_string,);
+            batch_senders_sorted.sort_by_key(std::string::ToString::to_string,);
+            
+            let mut expected_senders_sorted: Vec<PeerId,> = expected_senders.clone();
+            expected_senders_sorted.sort_by_key(std::string::ToString::to_string,);
 
-            if batch_senders != expected_sorted
-                || batch.len() != expected_senders.len()
+            if batch_senders_sorted != expected_senders_sorted
+                || batch_senders_sorted.len() != expected_senders.len()
             {
-                // Invalid: Reject (return prev state, no effects)
+                info!("invalid startGameBatch message, rejecting:\n\
+                    batch_senders_len: {:#?},\n\
+                    expected_senders_len: {:#?}",
+                    batch_senders_sorted, expected_senders_sorted);
                 return StepResult {
                     next:    prev.clone(),
                     effects: vec![],
@@ -183,6 +188,9 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
             {
                 st.phase = HandPhase::StartingHand;
             }
+            // add startGameBatch message to effects, since we want to send it to our peers.else { 
+            let eff = Effect::Send(msg.clone());
+            out.push(eff)
         },
         WireMsg::JoinTableReq {
             player_id,
