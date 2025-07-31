@@ -22,23 +22,21 @@ pub struct UiHandle {
     pub cmd_tx: mpsc::Sender<UIEvent,>,
     /// runtime ➜ GUI  –  every locally generated or echoed message
     pub msg_rx: mpsc::Receiver<EngineEvent,>,
-    pub _rt:    Option<Arc<Runtime,>>, // keep Tokio alive
+    pub _rt:    Option<Arc<Runtime,>,>, // keep Tokio alive
 }
 
 impl UiHandle {
-    pub async fn shutdown(&mut self) -> Result<(), anyhow::Error> {
+    pub async fn shutdown(&mut self,) -> Result<(), anyhow::Error,> {
         // Close channels
         self.msg_rx.close();
         // Safely drop the runtime in a blocking context
-        if let Some(rt) = self._rt.take() {
+        if let Some(rt,) = self._rt.take() {
             tokio::task::block_in_place(|| {
-                drop(rt);
-            });
+                drop(rt,);
+            },);
         }
-        Ok(())
+        Ok((),)
     }
-
-
 }
 
 /// Spawn the background runtime and give the GUI its three channel ends.
@@ -106,6 +104,6 @@ pub fn start(
     UiHandle {
         cmd_tx,
         msg_rx,
-        _rt: Some(rt),
+        _rt: Some(rt,),
     }
 }
