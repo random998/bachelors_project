@@ -11,7 +11,7 @@ use poker_core::game_state::{HandPhase, Projection};
 use poker_core::message::UIEvent;
 use poker_core::poker::{Chips, TableId};
 use tokio::time::sleep;
-
+use p2p_net::swarm_task;
 use crate::support::mock_gui::MockUi;
 
 const BLAKE3_HASH_BYTE_ARR_LEN: usize = 32;
@@ -25,22 +25,6 @@ fn init_logger() {
         Env::default().default_filter_or("error",),
     )
     .try_init();
-}
-
-async fn wait_for_listen_addr(proj: &mut Projection,) {
-    let mut attempts = 0;
-    loop {
-        proj.tick().await;
-        while let Ok(msg,) = proj.try_recv() {
-            proj.handle_network_msg(msg,).await;
-        }
-        if proj.listen_addr.is_some() {
-            break;
-        }
-        sleep(Duration::from_millis(50,),).await;
-        attempts += 1;
-        assert!(attempts <= 20, "Timeout waiting for listen addr");
-    }
 }
 
 /// Test successful join of two peers: seed (Alice) joins directly, non-seed
@@ -351,5 +335,63 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
     alice_ui.shutdown().await?;
     bob_ui.shutdown().await?;
     charlie_ui.shutdown().await?;
+    Ok((),)
+}
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reject_join_game_started_mock_gui() -> Result<(),> {
+    let kp_a = KeyPair::generate();
+    let kp_b = KeyPair::generate();
+    let table_id = TableId::new_id();
+    let num_seats = 1;
+
+    let mut alice_ui = MockUi::new(
+        kp_a,
+        "Alice".into(),
+        None,
+        num_seats,
+        table_id,
+    );
+    alice_ui.wait_for_listen_addr().await;
+    let mut bob_ui = MockUi::new(
+        kp_b,
+        "Bob".into(),
+        alice_ui.get_listen_addr(),
+        num_seats,
+        table_id,
+    );
+    bob_ui.wait_for_listen_addr().await;
+
+
+    // Alice joins
+   alice_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice_ui.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await?;
+
+
+    // Bob cannot join, since table is full/game has started
+    bob_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: bob_ui.peer_id(),
+        nickname: "Bob".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await?;
+
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        assert_eq!(alice.players().len(), 1);
+        assert_eq!(bob.players().len(), 0);
+        assert!(!bob.has_joined_table());
+    }
+
+    alice_ui.shutdown().await?;
+    bob_ui.shutdown().await?;
     Ok((),)
 }
