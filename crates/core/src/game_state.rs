@@ -189,6 +189,7 @@ pub struct Projection {
     pub game_started:                 bool,
     hash_chain:                       Vec<LogEntry,>,
     has_sent_start_game_notification: bool,
+    has_sent_start_game_batch: bool,
 
     // misc ----------------------------------------------------------------
     new_hand_start_timer: Option<Instant,>,
@@ -201,7 +202,7 @@ pub struct Projection {
     // peer context
     peer_context: PeerContext,
 
-    start_game_buffer:   Vec<SignedMessage,>, /* Buffer for plain
+    start_game_message_buffer:   Vec<SignedMessage,>, /* Buffer for plain
                                                * StartGameNotify msgs */
     start_game_timeout:  Option<Instant,>, // Timer for buffering phase
     start_game_proposer: Option<PeerId,>,  // Cached proposer ID
@@ -446,7 +447,8 @@ impl Projection {
         is_seed_peer: bool,
     ) -> Self {
         let obj = Self {
-            start_game_buffer: Vec::new(),
+            has_sent_start_game_batch: false,
+            start_game_message_buffer: Vec::new(),
             start_game_timeout: None,
             start_game_proposer: None,
             has_sent_start_game_notification: false,
@@ -504,7 +506,6 @@ impl Projection {
 
     /// Low-level send used by `sign_and_send` **and** by the gossip handler.
     pub fn send(&mut self, msg: SignedMessage,) -> anyhow::Result<(),> {
-        info!("{} sending {}", self.peer_id(), msg.message().label());
         // engine → network
         self.connection.tx.network_msg_sender.try_send(msg,)?;
         // also send the same msg to ourselves
@@ -536,33 +537,24 @@ impl Projection {
             }
         }
 
-        if self.phase() == HandPhase::StartingGame
-            && self.start_game_timeout.is_some()
+        if self.phase() == HandPhase::StartingGame && !self.has_sent_start_game_batch
         {
             let expected_count = self.players().len();
-            if self.start_game_buffer.len() == expected_count {
+            if self.start_game_message_buffer.len() >= expected_count {
                 // All received: sort locally
-                let mut sorted_buffer = self.start_game_buffer.clone();
+                let mut sorted_buffer = self.start_game_message_buffer.clone();
                 sorted_buffer.sort_by_key(|sm| sm.sender().to_string(),);
 
                 if self.peer_id() == self.start_game_proposer.unwrap() {
                     // Proposer: Append batch to chain
                     let batch_msg = WireMsg::StartGameBatch(sorted_buffer,);
                     if self.commit_step(&batch_msg,).is_ok() {
-                        info!("Proposer appended StartGameBatch");
+                        info!("Proposer ({}) appended StartGameBatch", self.peer_id());
+                        self.has_sent_start_game_batch = true;
                     }
                 } else {
-                    // Non-proposer: Just clear buffer after validation (in
-                    // apply/step)
+                    self.start_game_message_buffer.clear();
                 }
-                self.start_game_buffer.clear();
-                self.start_game_timeout = None;
-            } else if Instant::now() > self.start_game_timeout.unwrap() {
-                warn!(
-                    "Timeout waiting for all StartGameNotify; retry or abort"
-                );
-                self.start_game_timeout = None;
-                // Optional: Resend own notify or abort
             }
         }
     }
@@ -577,24 +569,21 @@ impl Projection {
                 seat_order: _seat_order,
                 sb: _sb,
                 bb: _bb,
-                table,
-                game_id,
+                table: _table,
+                game_id: _game_id,
                 sender,
             } => {
                 if self.phase() != HandPhase::StartingGame
-                    || *table != self.table_id
-                    || *game_id != self.game_id
                 {
-                    warn!("Invalid StartGameNotify from {sender}");
                     return;
                 }
                 // Verify signature and not duplicate
                 if !self
-                    .start_game_buffer
+                    .start_game_message_buffer
                     .iter()
-                    .any(|b| b.sender() == *sender,)
+                    .any(|b| b.sender() == sm.sender(),)
                 {
-                    self.start_game_buffer.push(sm.clone(),);
+                    self.start_game_message_buffer.push(sm.clone(),);
                 }
                 // Update local player's flag if applicable
                 if let Some(p,) = self.get_player_mut(sender,) {
@@ -792,7 +781,6 @@ impl Projection {
                 nickname,
                 chips,
             } => {
-                info!("{} handling ui jointablereq command!", self.peer_id());
                 if table_id == self.table_id
                     && peer_id == self.peer_id()
                     && !self.has_joined_table
@@ -816,10 +804,8 @@ impl Projection {
                             nickname,
                             chips,
                         };
-                        info!("{} sending sync request", self.peer_id());
                         let _ = self.send_plain(sync_msg,);
                     } else {
-                        info!("Seed peer or already-synced: direct commit");
                         let _ = self.commit_step(&wiremsg,);
                         self.has_joined_table = true;
                     }
@@ -1046,19 +1032,15 @@ impl Projection {
         self.commit_step(&payload,)
     }
 
-    // old api still needed for GUI / UX messages ---------------------
-    fn send_plain(&mut self, msg: NetworkMessage,) -> anyhow::Result<(),> {
+    // send messages that are not appended to the log entry list.
+    fn send_plain(&mut self, msg: NetworkMessage,) -> (SignedMessage, anyhow::Result<(),>) {
         let sm = SignedMessage::new(&self.key_pair, msg,);
-        self.send(sm,)
+        (sm.clone(), self.send(sm.clone(),))
     }
 
     // convenience wrappers ------------------------------------------
     pub fn sign_and_send(&mut self, payload: WireMsg,) -> anyhow::Result<(),> {
         self.send_contract(payload,)
-    }
-
-    pub fn send_gui(&mut self, msg: NetworkMessage,) -> anyhow::Result<(),> {
-        self.send_plain(msg,)
     }
 
     #[must_use]
@@ -1067,6 +1049,10 @@ impl Projection {
     }
 
     async fn enter_start_game(&mut self, timeout_s: u64, max_retries: u32,) {
+        if self.game_started {
+            return;
+        }
+        
         self.game_started = true;
 
         // Compute deterministic proposer: lowest peer_id in sorted player list
@@ -1085,8 +1071,17 @@ impl Projection {
             bb:         Self::START_GAME_BB,
             sender:     self.peer_id(),
         };
-        info!("{} sending plain StartGameNotify...", self.peer_context.nick);
-        let _ = self.send_plain(notify,);
+        let (sm, result) = self.send_plain(notify.clone(),);
+
+        if let Ok(()) = result {
+            if !self
+                .start_game_message_buffer
+                .iter()
+                .any(|b| b.sender() == sm.sender(),)
+            {
+                self.start_game_message_buffer.push(sm.clone(),);
+            }
+        }
 
         // Set our local flag (for UI/progress)
         if let Some(me,) = self.get_player_mut(&self.peer_id(),) {
@@ -1100,8 +1095,6 @@ impl Projection {
                 + Duration::from_secs(timeout_s * u64::from(max_retries,),),
         );
     }
-
-    /// Start a new hand.
     fn enter_start_hand(&mut self,) {
         self.contract.phase = HandPhase::StartingHand;
         self.start_hand();

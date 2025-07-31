@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use libp2p::Multiaddr;
-use log::info;
 use p2p_net::runtime_bridge;
 use p2p_net::runtime_bridge::UiHandle;
 use poker_core::crypto::KeyPair;
@@ -16,6 +15,12 @@ pub struct MockUi {
 }
 
 impl MockUi {
+    pub(crate) async fn shutdown(&mut self) -> Result<(), anyhow::Error> {
+        // Call UiHandle's shutdown method
+        let _ = self.ui_handle.shutdown().await;
+        self.last_gamestate.listen_addr = None; // Clear listen_addr
+        Ok(())
+    }
     pub fn new(
         keypair: KeyPair,
         nick: String,
@@ -26,7 +31,6 @@ impl MockUi {
         let ui = runtime_bridge::start(
             table_id, num_seats, keypair, nick, seed_addr,
         );
-
         Self {
             ui_handle:      ui,
             last_gamestate: GameState::default(),
@@ -112,12 +116,10 @@ impl MockUi {
             tokio::time::sleep(Duration::from_millis(delay_ms,),).await;
             tries += 1;
             if tries >= max_tries {
-                info!(
-                    "{} did not update gamestate",
-                    self.last_gamestate.nickname.clone()
-                );
                 return self.last_gamestate.clone();
             }
         }
     }
+
+
 }

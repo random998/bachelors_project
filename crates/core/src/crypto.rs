@@ -4,7 +4,7 @@
 use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::fmt;
-
+use std::fmt::Display;
 use anyhow::{Result, bail};
 use bip39::{Language, Mnemonic};
 use blake2::digest::consts;
@@ -285,6 +285,12 @@ impl Default for PeerId {
     }
 }
 
+impl Display for PeerId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
+        write!(f, "{}", bs58::encode(self.0.to_bytes()).into_string())
+    }
+}
+
 impl PartialEq<Self,> for PeerId {
     fn eq(&self, other: &Self,) -> bool {
         self.0 == other.0
@@ -292,7 +298,7 @@ impl PartialEq<Self,> for PeerId {
 }
 
 impl PartialOrd for PeerId {
-    fn partial_cmp(&self, other: &Self,) -> Option<std::cmp::Ordering,> {
+    fn partial_cmp(&self, other: &Self,) -> Option<Ordering,> {
         self.0.partial_cmp(&other.0,)
     }
 }
@@ -334,11 +340,6 @@ impl PeerId {
 impl fmt::Debug for PeerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(f, "PeerId({self})")
-    }
-}
-impl fmt::Display for PeerId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        self.0.to_string().fmt(f,)
     }
 }
 
