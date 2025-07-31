@@ -164,9 +164,8 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
             {
                 info!(
                     "invalid startGameBatch message, rejecting:\n\
-                    batch_senders_len: {:#?},\n\
-                    expected_senders_len: {:#?}",
-                    batch_senders_sorted, expected_senders_sorted
+                    batch_senders_len: {batch_senders_sorted:#?},\n\
+                    expected_senders_len: {expected_senders_sorted:#?}"
                 );
                 return StepResult {
                     next:    prev.clone(),
@@ -198,7 +197,7 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
             // add startGameBatch message to effects, since we want to send it
             // to our peers.else {
             let eff = Effect::Send(msg.clone(),);
-            out.push(eff,)
+            out.push(eff,);
         },
         WireMsg::JoinTableReq {
             player_id,
