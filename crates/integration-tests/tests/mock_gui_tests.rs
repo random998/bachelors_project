@@ -386,7 +386,6 @@ async fn reject_join_game_started_mock_gui() -> Result<(),> {
     Ok((),)
 }
 
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn reject_join_already_joined_mock_gui() -> Result<(),> {
     let kp_a = KeyPair::generate();
@@ -394,13 +393,8 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
     let table_id = TableId::new_id();
     let num_seats = 6;
 
-    let mut alice_ui = MockUi::new(
-        kp_a,
-        "Alice".into(),
-        None,
-        num_seats,
-        table_id,
-    );
+    let mut alice_ui =
+        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
 
     let mut bob_ui = MockUi::new(
@@ -422,7 +416,6 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
         },)
         .await?;
 
-
     {
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
@@ -433,24 +426,26 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
     }
 
     // Bob joins first time
-    bob_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: bob_ui.peer_id(),
-        nickname: "Bob".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
+    bob_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: bob_ui.peer_id(),
+            nickname: "Bob".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
         .await?;
 
     {
         let alice = alice_ui.poll_game_state().await;
         let chain_len_before = alice.hash_chain().len();
 
-        bob_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: bob_ui.peer_id(),
-            nickname: "Bob".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
+        bob_ui
+            .send_to_engine(UIEvent::PlayerJoinTableRequest {
+                table_id,
+                player_requesting_join: bob_ui.peer_id(),
+                nickname: "Bob".into(),
+                chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+            },)
             .await?;
 
         let alice = alice_ui.poll_game_state().await;
