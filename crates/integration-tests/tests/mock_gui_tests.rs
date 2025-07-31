@@ -11,7 +11,7 @@ use poker_core::game_state::{HandPhase, Projection};
 use poker_core::message::UIEvent;
 use poker_core::poker::{Chips, TableId};
 use tokio::time::sleep;
-
+use p2p_net::swarm_task;
 use crate::support::mock_gui::MockUi;
 
 const BLAKE3_HASH_BYTE_ARR_LEN: usize = 32;
@@ -229,6 +229,127 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
         assert_eq!(bob.hash_head(), charlie.hash_head());
     }
 
+    alice_ui.shutdown().await?;
+    bob_ui.shutdown().await?;
+    charlie_ui.shutdown().await?;
+    Ok((),)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+async fn reject_join_table_full_mock_gui() -> Result<(),> {
+    let kp_a = KeyPair::generate();
+    let kp_b = KeyPair::generate();
+    let kp_c = KeyPair::generate();
+    let table_id = TableId::new_id();
+    let num_seats = 2;
+
+    let mut alice_ui= MockUi::new(
+        kp_a,
+        "Alice".into(),
+        None,
+        num_seats,
+        table_id,
+    );
+    alice_ui.wait_for_listen_addr().await;
+
+    let mut bob_ui = MockUi::new(
+        kp_b,
+        "Bob".into(),
+        alice_ui.get_listen_addr(),
+        2,
+        table_id,
+    );
+    bob_ui.wait_for_listen_addr().await;
+    
+    let mut charlie_ui= MockUi::new(
+        kp_c,
+        "Charlie".into(),
+        alice_ui.get_listen_addr(),
+        2,
+        table_id,
+    );
+    charlie_ui.wait_for_listen_addr().await;
+
+
+    // Alice joins
+    alice_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice_ui.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await?;
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+        assert_eq!(alice.players().len(), 1);
+        assert_eq!(bob.players().len(), 0); // bob has not added alice to his player's list, because he has not synced yet.
+        assert_eq!(charlie.players().len(), 0); // charlie has not added alice to his player's list, because he has not synced yet.
+    }
+
+
+    // Bob joins
+    bob_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: bob_ui.peer_id(),
+        nickname: "Bob".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await?;
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+        assert_eq!(alice.players().len(), 2);
+        assert_eq!(bob.players().len(), 2);
+        assert_eq!(charlie.players().len(), 0); // charlie has 0 players in his list, because he has not synced, yet.
+        assert_eq!(alice.hash_chain().len(), 2);
+        assert_eq!(bob.hash_chain().len(), 2);
+        assert_eq!(charlie.hash_chain().len(), 0); // charlies hash chain should have length 0, because he has not synced, yet.
+        assert_eq!(alice.hash_chain(), bob.hash_chain());
+    }
+
+        charlie_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: charlie_ui.peer_id(),
+            nickname: "Charlie".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await?;
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+
+        assert_eq!(
+            alice.players().len(),
+            2,
+            "table is full, charlie has not joined"
+        );
+        assert_eq!(bob.players().len(), 2, "table is full, charlie has not joined");
+        assert_eq!(
+            alice.hash_chain().len(),
+            2,
+            "table is full, charlie has not joined"
+        );
+        assert_eq!(
+            bob.hash_chain().len(),
+            2,
+            "table is full, charlie has not joined"
+        );
+        assert!(
+            !charlie.has_joined_table(),
+            "table is full, charlie has not joined"
+        );
+        assert_eq!(alice.hash_chain(), bob.hash_chain());
+        assert_eq!(bob.hash_chain(), alice.hash_chain());
+    }
+    
     alice_ui.shutdown().await?;
     bob_ui.shutdown().await?;
     charlie_ui.shutdown().await?;
