@@ -15,11 +15,11 @@ pub struct MockUi {
 }
 
 impl MockUi {
-    pub async fn shutdown(&mut self) -> Result<(), anyhow::Error> {
+    pub async fn shutdown(&mut self,) -> Result<(), anyhow::Error,> {
         // Call UiHandle's shutdown method
         let _ = self.ui_handle.shutdown().await;
         self.last_gamestate.listen_addr = None; // Clear listen_addr
-        Ok(())
+        Ok((),)
     }
     pub fn new(
         keypair: KeyPair,
@@ -36,8 +36,8 @@ impl MockUi {
             last_gamestate: GameState::default(),
         }
     }
-    
-    pub fn peer_id(&self) -> PeerId {
+
+    pub const fn peer_id(&self,) -> PeerId {
         self.last_gamestate.player_id
     }
 
@@ -124,10 +124,8 @@ impl MockUi {
             }
         }
     }
-    
-    pub async fn game_state(&mut self) -> GameState {
+
+    pub async fn game_state(&mut self,) -> GameState {
         self.poll_game_state().await
     }
-
-
 }

@@ -197,7 +197,8 @@ pub struct SignedMessage {
 }
 
 impl SignedMessage {
-    #[must_use] pub const fn verify(&self,) -> bool {
+    #[must_use]
+    pub const fn verify(&self,) -> bool {
         // TODO, as of now always return true.
         true
     }

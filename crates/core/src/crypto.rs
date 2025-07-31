@@ -5,6 +5,7 @@ use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::fmt;
 use std::fmt::Display;
+
 use anyhow::{Result, bail};
 use bip39::{Language, Mnemonic};
 use blake2::digest::consts;

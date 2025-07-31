@@ -186,7 +186,9 @@ impl fmt::Display for Chips {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq,)]
+#[derive(
+    Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq,
+)]
 /// enum for listening the different states the player's cards can be in.
 pub enum PlayerCards {
     #[default]
