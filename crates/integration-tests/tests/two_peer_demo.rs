@@ -1318,5 +1318,10 @@ async fn test_mock_gui() -> Result<(),> {
     assert_eq!(bob_gs.hand_phase, HandPhase::StartingHand);
     assert_eq!(charlie_gs.hand_phase, HandPhase::StartingHand);
 
-    Ok((),)
+    // Explicitly shut down MockUi instances
+    let _ = alice.shutdown().await;
+    let _ = bob.shutdown().await;
+    let _ = charlie.shutdown().await;
+
+    Ok(())
 }

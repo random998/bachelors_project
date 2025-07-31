@@ -48,3 +48,6 @@ integration-tests = {version = "0.0.1", path = "crates/integration-tests", defau
 [profile.release]
 opt-level = 3
 lto = "fat"
+
+[workspace.metadata]
+rustc.lints = { missing_docs = "allow" }

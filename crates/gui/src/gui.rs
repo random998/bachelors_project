@@ -96,12 +96,13 @@ impl App {
         textures: Textures,
         key_pair: KeyPair,
     ) -> Self {
+        let rt = ui._rt.unwrap();
         Self {
             key_pair,
             textures,
             cmd_tx: ui.cmd_tx.clone(),
             msg_rx: ui.msg_rx, // we *move* the receiver
-            _rt: ui._rt,       // keep the runtime alive
+            _rt: rt,
             player_id: state.player_id,
             nickname: String::new(),
             game_state: state,

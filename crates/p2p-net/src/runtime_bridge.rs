@@ -8,7 +8,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use libp2p::Multiaddr;
-use log::info;
 use poker_core::crypto::KeyPair;
 use poker_core::game_state::Projection;
 use poker_core::message::{EngineEvent, UIEvent};
@@ -23,7 +22,23 @@ pub struct UiHandle {
     pub cmd_tx: mpsc::Sender<UIEvent,>,
     /// runtime ➜ GUI  –  every locally generated or echoed message
     pub msg_rx: mpsc::Receiver<EngineEvent,>,
-    pub _rt:    Arc<Runtime,>, // keep Tokio alive
+    pub _rt:    Option<Arc<Runtime,>>, // keep Tokio alive
+}
+
+impl UiHandle {
+    pub async fn shutdown(&mut self) -> Result<(), anyhow::Error> {
+        // Close channels
+        self.msg_rx.close();
+        // Safely drop the runtime in a blocking context
+        if let Some(rt) = self._rt.take() {
+            tokio::task::block_in_place(|| {
+                drop(rt);
+            });
+        }
+        Ok(())
+    }
+
+
 }
 
 /// Spawn the background runtime and give the GUI its three channel ends.
@@ -64,21 +79,11 @@ pub fn start(
         loop {
             // a) GUI -> engine
             while let Ok(cmd,) = cmd_rx.try_recv() {
-                info!(
-                    "{}: engine handling ui msg: {}",
-                    eng.snapshot().nickname,
-                    cmd
-                );
                 eng.handle_ui_msg(cmd,).await;
             }
 
             // b) network → engine
             while let Ok(msg,) = eng.try_recv() {
-                info!(
-                    "{}: engine handling network msg: {}",
-                    eng.snapshot().nickname,
-                    msg
-                );
                 eng.handle_network_msg(msg,).await;
             }
 
@@ -101,6 +106,6 @@ pub fn start(
     UiHandle {
         cmd_tx,
         msg_rx,
-        _rt: rt,
+        _rt: Some(rt),
     }
 }
