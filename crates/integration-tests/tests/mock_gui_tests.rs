@@ -2,16 +2,14 @@
 
 mod support;
 
-use std::time::Duration;
 
 use anyhow::Result;
 use env_logger::Env;
 use poker_core::crypto::KeyPair;
-use poker_core::game_state::{HandPhase, Projection};
+use poker_core::game_state::HandPhase;
 use poker_core::message::UIEvent;
 use poker_core::poker::{Chips, TableId};
-use tokio::time::sleep;
-use p2p_net::swarm_task;
+
 use crate::support::mock_gui::MockUi;
 
 const BLAKE3_HASH_BYTE_ARR_LEN: usize = 32;
@@ -344,13 +342,8 @@ async fn reject_join_game_started_mock_gui() -> Result<(),> {
     let table_id = TableId::new_id();
     let num_seats = 1;
 
-    let mut alice_ui = MockUi::new(
-        kp_a,
-        "Alice".into(),
-        None,
-        num_seats,
-        table_id,
-    );
+    let mut alice_ui =
+        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
     let mut bob_ui = MockUi::new(
         kp_b,
@@ -361,9 +354,8 @@ async fn reject_join_game_started_mock_gui() -> Result<(),> {
     );
     bob_ui.wait_for_listen_addr().await;
 
-
     // Alice joins
-   alice_ui
+    alice_ui
         .send_to_engine(UIEvent::PlayerJoinTableRequest {
             table_id,
             player_requesting_join: alice_ui.peer_id(),
@@ -372,16 +364,15 @@ async fn reject_join_game_started_mock_gui() -> Result<(),> {
         },)
         .await?;
 
-
     // Bob cannot join, since table is full/game has started
-    bob_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
-        table_id,
-        player_requesting_join: bob_ui.peer_id(),
-        nickname: "Bob".into(),
-        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
+    bob_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: bob_ui.peer_id(),
+            nickname: "Bob".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
         .await?;
-
 
     {
         let alice = alice_ui.poll_game_state().await;
