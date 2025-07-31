@@ -385,3 +385,87 @@ async fn reject_join_game_started_mock_gui() -> Result<(),> {
     bob_ui.shutdown().await?;
     Ok((),)
 }
+
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reject_join_already_joined_mock_gui() -> Result<(),> {
+    let kp_a = KeyPair::generate();
+    let kp_b = KeyPair::generate();
+    let table_id = TableId::new_id();
+    let num_seats = 6;
+
+    let mut alice_ui = MockUi::new(
+        kp_a,
+        "Alice".into(),
+        None,
+        num_seats,
+        table_id,
+    );
+    alice_ui.wait_for_listen_addr().await;
+
+    let mut bob_ui = MockUi::new(
+        kp_b,
+        "Bon".into(),
+        alice_ui.get_listen_addr(),
+        num_seats,
+        table_id,
+    );
+    bob_ui.wait_for_listen_addr().await;
+
+    // Alice joins
+    alice_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice_ui.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await?;
+
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        assert_eq!(alice.players().len(), 1); // expect that alice joined her own instance.
+        assert_eq!(bob.players().len(), 0); // expect that alice has not joined bobs instance, because he has not synced yet.
+        assert!(!bob.has_joined_table()); // expect that bob has not joined a table, yet.
+        assert_ne!(alice.hash_chain(), bob.hash_chain()); // expect that the chains diverge, because bob has not sent a SyncRequest, yet.
+    }
+
+    // Bob joins first time
+    bob_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: bob_ui.peer_id(),
+        nickname: "Bob".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },)
+        .await?;
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let chain_len_before = alice.hash_chain().len();
+
+        bob_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: bob_ui.peer_id(),
+            nickname: "Bob".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+            .await?;
+
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        assert_eq!(alice.players().len(), 2);
+        assert_eq!(bob.players().len(), 2);
+        assert_eq!(
+            alice.hash_chain().len(),
+            chain_len_before,
+            "No new chain entry"
+        );
+        assert_eq!(bob.hash_chain(), alice.hash_chain());
+    }
+
+    alice_ui.shutdown().await?;
+    bob_ui.shutdown().await?;
+    Ok((),)
+}
