@@ -2,7 +2,6 @@
 
 mod support;
 
-
 use anyhow::Result;
 use env_logger::Env;
 use poker_core::crypto::KeyPair;
