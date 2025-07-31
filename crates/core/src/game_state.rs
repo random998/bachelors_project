@@ -405,7 +405,7 @@ impl Projection {
             listen_addr: self.listen_addr.clone(),
         }
     }
-
+    
     #[must_use]
     pub fn secret_key(&self,) -> SecretKey {
         self.key_pair.secret()
@@ -1006,6 +1006,24 @@ impl GameState {
     pub fn action_req(&self,) -> Option<ActionRequest,> {
         self.action_req.clone()
     }
+    
+    pub fn has_joined_table(&self) -> bool {
+        self.has_joined_table
+    }
+    
+    pub fn phase(&self) -> HandPhase {
+        self.hand_phase.clone()
+    }
+    pub fn hash_head(&self) -> Hash {
+       self.hash_head.clone()
+    }
+    
+    pub fn hash_chain(&self) -> Vec<LogEntry> {
+        self.hash_chain.clone()
+    }
+    
+    
+    
 
     pub fn pot(&mut self,) -> Pot {
         self.pot.clone()
