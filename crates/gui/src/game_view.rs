@@ -6,9 +6,9 @@
 
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{
-    pos2, text, vec2, Align, Align2, Button, Color32, Context,
-    CornerRadius, FontFamily, FontId, Image, Key, Pos2, Rect, RichText, Sense,
-    Slider, Stroke, StrokeKind, TextFormat, Ui, Vec2, Window,
+    Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId,
+    Image, Key, Pos2, Rect, RichText, Sense, Slider, Stroke, StrokeKind,
+    TextFormat, Ui, Vec2, Window, pos2, text, vec2,
 };
 use eframe::epaint;
 use poker_cards::egui::Textures;
@@ -466,7 +466,8 @@ impl GameView {
                     .corner_radius(2.0,)
                     .paint_at(ui, single_card_rect,);
 
-                single_card_rect = single_card_rect.translate(vec2(card_lx + 1.0, 0.0,),);
+                single_card_rect =
+                    single_card_rect.translate(vec2(card_lx + 1.0, 0.0,),);
             }
 
             let rank_rect = Rect::from_min_size(
@@ -552,12 +553,7 @@ impl GameView {
     }
 
     // ---------- controls (fold, call, raise…) ---------------------
-    fn paint_action_controls(
-        &mut self,
-        ui: &mut Ui,
-        rect: &Rect,
-        app: &App,
-    ) {
+    fn paint_action_controls(&mut self, ui: &mut Ui, rect: &Rect, app: &App,) {
         let mut send_action = None;
 
         if let Some(req,) = self.game_state.action_req() {
@@ -1004,7 +1000,7 @@ fn paint_border(ui: &Ui, rect: &Rect,) {
         StrokeKind::Inside,
     );
 
-    for (idx, &color) in (0..6).zip(&[100, 120, 140, 100, 80,],) {
+    for (idx, &color,) in (0..6).zip(&[100, 120, 140, 100, 80,],) {
         let border_rect = rect.expand(idx as f32,);
         let stroke = Stroke::new(1.0, Color32::from_gray(color as u8,),);
         ui.painter()
