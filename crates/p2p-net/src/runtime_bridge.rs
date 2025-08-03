@@ -77,25 +77,25 @@ pub fn start(
         loop {
             // a) GUI -> engine
             while let Ok(cmd,) = cmd_rx.try_recv() {
-                eng.handle_ui_msg(cmd,).await;
+                eng.handle_ui_msg(cmd,);
             }
 
             // b) network → engine
             while let Ok(msg,) = eng.try_recv() {
-                eng.handle_network_msg(msg,).await;
+                eng.handle_network_msg(msg,);
             }
 
             // c) timers
-            eng.tick().await;
+            eng.tick();
 
             // d) engine -> Ui, send a snapshot of the engine.
             let sp = eng.snapshot();
-            let msg = EngineEvent::Snapshot(sp,);
+            let msg = EngineEvent::Snapshot(Box::from(sp,),);
             let _ = msg_tx.send(msg,).await;
 
             // e) update the internal table state periodically (handle state
             // transitions).
-            eng.update().await;
+            eng.update();
 
             tokio::time::sleep(Duration::from_millis(16,),).await;
         }

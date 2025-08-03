@@ -6,9 +6,9 @@
 
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{
-    Align, Align2, Button, Color32, Context, CornerRadius, FontFamily, FontId,
-    Image, Key, Pos2, Rect, RichText, Sense, Slider, Stroke, StrokeKind,
-    TextFormat, Ui, Vec2, Window, pos2, text, vec2,
+    pos2, text, vec2, Align, Align2, Button, Color32, Context,
+    CornerRadius, FontFamily, FontId, Image, Key, Pos2, Rect, RichText, Sense,
+    Slider, Stroke, StrokeKind, TextFormat, Ui, Vec2, Window,
 };
 use eframe::epaint;
 use poker_cards::egui::Textures;
@@ -22,13 +22,11 @@ use crate::{AccountView, App, ConnectView, View};
 
 const TEXT_FONT: FontId = FontId::new(15.0, FontFamily::Monospace,);
 const SMALL_BUTTON_SZ: Vec2 = vec2(30.0, 30.0,);
-const ACTION_BUTTON_LX: f32 = 81.0;
-const ACTION_BUTTON_LY: f32 = 35.0;
 const BG_COLOR: Color32 = Color32::from_gray(20,);
 const TEXT_COLOR: Color32 = Color32::from_rgb(20, 150, 20,);
 
 // ───────────────────────────── view state  ───────────────────────────────
-
+#[allow(missing_docs, dead_code)]
 pub struct GameView {
     connection_closed: bool,
     error:             Option<String,>,
@@ -52,8 +50,8 @@ impl GameView {
     const BG_COLOR: Color32 = Color32::from_gray(20,);
     const ACTION_BUTTON_LX: f32 = 81.0;
     const ACTION_BUTTON_LY: f32 = 35.0;
-    const SMALL_BUTTON_SZ: Vec2 = vec2(30.0, 30.0,);
     #[must_use]
+    #[allow(missing_docs)]
     pub fn new(ctx: &Context, game_state: GameState,) -> Self {
         ctx.request_repaint(); // keep the UI animating
         Self {
@@ -100,7 +98,7 @@ impl View for GameView {
     fn next(
         &mut self,
         _ctx: &Context,
-        frame: &mut eframe::Frame,
+        _frame: &mut eframe::Frame,
         app: &mut App,
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {
@@ -119,7 +117,7 @@ impl GameView {
     fn paint_player_action(
         &self,
         player: &PlayerPrivate,
-        ui: &mut Ui,
+        ui: &Ui,
         rect: &Rect,
         align: &Align2,
     ) {
@@ -210,7 +208,7 @@ impl GameView {
     fn paint_player_name_and_chips(
         &self,
         player: &PlayerPrivate,
-        ui: &mut Ui,
+        ui: &Ui,
         rect: &Rect,
     ) {
         let bg_rect = Rect::from_min_size(
@@ -258,7 +256,7 @@ impl GameView {
 
     // ---------- the oval-shaped table background -------------------
     fn paint_table(&self, ui: &mut Ui, rect: &Rect,) {
-        fn paint_oval(ui: &mut Ui, rect: &Rect, fill_color: Color32,) {
+        fn paint_oval(ui: &Ui, rect: &Rect, fill_color: Color32,) {
             let radius = rect.height() / 2.0;
             ui.painter().add(epaint::CircleShape {
                 center: rect.left_center() + vec2(radius, 0.0,),
@@ -324,7 +322,7 @@ impl GameView {
     }
 
     // ---------- community cards -----------------------------------
-    fn paint_board(&self, ui: &mut Ui, rect: &Rect, app: &App,) {
+    fn paint_board(&self, ui: &Ui, rect: &Rect, app: &App,) {
         const CARD: Vec2 = vec2(38.0, 72.0,);
         const GAP: f32 = 5.0;
 
@@ -348,7 +346,7 @@ impl GameView {
     }
 
     // ---------- central pot value ---------------------------------
-    fn paint_pot(&mut self, ui: &mut Ui, rect: &Rect,) {
+    fn paint_pot(&mut self, ui: &Ui, rect: &Rect,) {
         if self.game_state.pot_chips() == Chips::ZERO {
             return;
         }
@@ -409,7 +407,7 @@ impl GameView {
         rect: &Rect,
         app: &App,
     ) {
-        let rect = player_rect(rect, align,);
+        let rect = player_rect(rect, *align,);
         let id_rect = self.paint_player_id(player, ui, &rect, align,);
         self.paint_player_name_and_chips(player, ui, &id_rect,);
         self.paint_player_cards(player, ui, &id_rect, align, &app.textures,);
@@ -420,7 +418,7 @@ impl GameView {
     fn paint_winning_hand(
         &self,
         player: &PlayerPrivate,
-        ui: &mut Ui,
+        ui: &Ui,
         rect: &Rect,
         align: &Align2,
         textures: &Textures,
@@ -457,7 +455,7 @@ impl GameView {
 
             let card_lx = (cards_rect.size().x - 11.0) / 5.0;
             let card_size = vec2(card_lx, IMAGE_LY - 8.0,);
-            let mut card_rect = Rect::from_min_size(
+            let mut single_card_rect = Rect::from_min_size(
                 cards_rect.left_top() + vec2(4.0, 4.0,),
                 card_size,
             );
@@ -466,9 +464,9 @@ impl GameView {
                 let tx = textures.card(*card,);
                 Image::new(&tx,)
                     .corner_radius(2.0,)
-                    .paint_at(ui, card_rect,);
+                    .paint_at(ui, single_card_rect,);
 
-                card_rect = card_rect.translate(vec2(card_lx + 1.0, 0.0,),);
+                single_card_rect = single_card_rect.translate(vec2(card_lx + 1.0, 0.0,),);
             }
 
             let rank_rect = Rect::from_min_size(
@@ -503,7 +501,7 @@ impl GameView {
     fn paint_player_id(
         &self,
         player: &PlayerPrivate,
-        ui: &mut Ui,
+        ui: &Ui,
         rect: &Rect,
         align: &Align2,
     ) -> Rect {
@@ -558,7 +556,7 @@ impl GameView {
         &mut self,
         ui: &mut Ui,
         rect: &Rect,
-        app: &mut App,
+        app: &App,
     ) {
         let mut send_action = None;
 
@@ -672,7 +670,7 @@ impl GameView {
         }
     }
 
-    fn paint_local_peer_id(&mut self, ui: &mut Ui, rect: &Rect,) {
+    fn paint_local_peer_id(&self, ui: &Ui, rect: &Rect,) {
         // build a `LayoutJob` manually instead of the old `.into_job()`
         let mut job = LayoutJob::default();
         let id: String = format!("id: {}", self.game_state.player_id());
@@ -692,7 +690,7 @@ impl GameView {
         ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
     }
 
-    fn paint_listen_addr(&mut self, ui: &mut Ui, rect: &Rect,) {
+    fn paint_listen_addr(&self, ui: &Ui, rect: &Rect,) {
         // build a `LayoutJob` manually instead of the old `.into_job()`
         let mut job = LayoutJob::default();
         let mut id: String = "addr: None".to_string();
@@ -716,7 +714,7 @@ impl GameView {
         ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
     }
 
-    fn paint_hand_phase(&mut self, ui: &mut Ui, rect: &Rect,) {
+    fn paint_hand_phase(&self, ui: &Ui, rect: &Rect,) {
         // build a `LayoutJob` manually instead of the old `.into_job()`
         let mut job = LayoutJob::default();
         let id: String =
@@ -737,7 +735,7 @@ impl GameView {
         ui.painter().galley(bg.min + pad / 2.0, gal, TEXT_COLOR,);
     }
 
-    fn paint_legend(&mut self, ui: &mut Ui, rect: &Rect,) {
+    fn paint_legend(&self, ui: &Ui, rect: &Rect,) {
         if !self.show_legend {
             return;
         }
@@ -796,7 +794,7 @@ B  Bet
         };
         Rect::from_min_size(pos2(x, y,), PLAYER_SIZE,)
     }
-    fn paint_border(ui: &mut Ui, rect: &Rect,) {
+    fn paint_border(ui: &Ui, rect: &Rect,) {
         let border_color = Color32::from_gray(20,);
         ui.painter().rect(
             *rect,
@@ -996,7 +994,7 @@ B  Bet
     }
 }
 
-fn paint_border(ui: &mut Ui, rect: &Rect,) {
+fn paint_border(ui: &Ui, rect: &Rect,) {
     let border_color = Color32::from_gray(20,);
     ui.painter().rect(
         *rect,
@@ -1006,14 +1004,14 @@ fn paint_border(ui: &mut Ui, rect: &Rect,) {
         StrokeKind::Inside,
     );
 
-    for (idx, &color,) in (0..6).zip(&[100, 120, 140, 100, 80,],) {
+    for (idx, &color) in (0..6).zip(&[100, 120, 140, 100, 80,],) {
         let border_rect = rect.expand(idx as f32,);
         let stroke = Stroke::new(1.0, Color32::from_gray(color as u8,),);
         ui.painter()
             .rect_stroke(border_rect, 5.0, stroke, StrokeKind::Inside,);
     }
 }
-fn player_rect(rect: &Rect, align: &Align2,) -> Rect {
+fn player_rect(rect: &Rect, align: Align2,) -> Rect {
     const PLAYER_SIZE: Vec2 = vec2(120.0, 160.0,);
 
     let rect = rect.shrink(20.0,);
@@ -1041,7 +1039,7 @@ fn player_rect(rect: &Rect, align: &Align2,) -> Rect {
     Rect::from_min_size(pos2(x, y,), PLAYER_SIZE,)
 }
 
-fn fill_inactive(ui: &mut Ui, rect: &Rect,) {
+fn fill_inactive(ui: &Ui, rect: &Rect,) {
     ui.painter().rect(
         *rect,
         2.0,

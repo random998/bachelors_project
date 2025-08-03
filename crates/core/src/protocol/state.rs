@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -73,9 +74,9 @@ impl PeerContext {
     pub const fn new(id: PeerId, nick: String, chips: Chips,) -> Self {
         Self { id, nick, chips, }
     }
-
-    #[must_use]
-    pub fn default() -> Self {
+}
+impl Default for PeerContext {
+    fn default() -> Self {
         Self {
             id:    PeerId::default(),
             nick:  String::default(),
@@ -106,8 +107,8 @@ pub enum Effect {
 #[derive(Clone, Serialize, Deserialize,)]
 pub struct ContractState {
     pub phase:     HandPhase,
-    pub players:   std::collections::BTreeMap<PeerId, PlayerPrivate,>,
-    pub num_seats: u64,
+    pub players:   BTreeMap<PeerId, PlayerPrivate,>,
+    pub num_seats: usize,
 }
 
 impl Default for ContractState {
@@ -117,10 +118,10 @@ impl Default for ContractState {
 }
 
 impl ContractState {
-    fn new(num_seats: u64,) -> Self {
+    fn new(num_seats: usize,) -> Self {
         Self {
             phase: HandPhase::WaitingForPlayers,
-            players: Default::default(),
+            players: BTreeMap::default(),
             num_seats,
         }
     }
@@ -210,7 +211,7 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                 PlayerPrivate::new(*player_id, nickname.clone(), *chips,),
             );
 
-            if st.players.len() >= st.num_seats as usize {
+            if st.players.len() >= st.num_seats {
                 st.phase = HandPhase::StartingGame;
             }
         },
@@ -235,8 +236,11 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
 
 // helper for hashing
 #[must_use]
+
+/// # Panics
+/// panics if the bytes are not as expected
 pub fn hash_state(st: &ContractState,) -> Hash {
-    let bytes = bincode::serialize(st,);
-    let hash = blake3::hash(bytes.unwrap().as_slice(),);
+    let bytes = bincode::serialize(st,).expect("bincode serialization failed",);
+    let hash = blake3::hash(bytes.as_slice(),);
     Hash(hash,)
 }

@@ -38,9 +38,9 @@ fn init_logger() {
 async fn wait_for_listen_addr(proj: &mut Projection,) {
     let mut attempts = 0;
     loop {
-        proj.tick().await;
+        proj.tick();
         while let Ok(msg,) = proj.try_recv() {
-            proj.handle_network_msg(msg,).await;
+            proj.handle_network_msg(msg,);
         }
         if proj.listen_addr.is_some() {
             break;
@@ -67,22 +67,22 @@ async fn pump_three(
             break;
         }
 
-        alice.tick().await;
+        alice.tick();
         while let Ok(msg,) = alice.try_recv() {
             info!("alice received message: {}", msg.message());
-            alice.handle_network_msg(msg,).await;
+            alice.handle_network_msg(msg,);
         }
 
-        bob.tick().await;
+        bob.tick();
         while let Ok(msg,) = bob.try_recv() {
             info!("bob received message: {}", msg.message());
-            bob.handle_network_msg(msg,).await;
+            bob.handle_network_msg(msg,);
         }
 
-        charlie.tick().await;
+        charlie.tick();
         while let Ok(msg,) = charlie.try_recv() {
             info!("charlie received message: {}", msg.message());
-            charlie.handle_network_msg(msg,).await;
+            charlie.handle_network_msg(msg,);
         }
 
         sleep(Duration::from_millis(NETWORK_PUMP_MS_DELAY,),).await;
@@ -100,18 +100,18 @@ async fn pump_messages(alice: &mut Projection, bob: &mut Projection,) {
             break;
         }
 
-        alice.tick().await;
+        alice.tick();
         while let Ok(msg,) = alice.try_recv() {
             info!("alice received message: {}", msg.message());
-            alice.handle_network_msg(msg,).await;
-            alice.update().await;
+            alice.handle_network_msg(msg,);
+            alice.update();
         }
 
-        bob.tick().await;
+        bob.tick();
         while let Ok(msg,) = bob.try_recv() {
             info!("bob received message: {}", msg.message());
-            bob.handle_network_msg(msg,).await;
-            bob.update().await;
+            bob.handle_network_msg(msg,);
+            bob.update();
         }
 
         sleep(Duration::from_millis(NETWORK_PUMP_MS_DELAY,),).await;
@@ -130,6 +130,7 @@ async fn pump_messages(alice: &mut Projection, bob: &mut Projection,) {
 /// - Phases remain WaitingForPlayers until game starts.
 /// - has_joined_table flags are set correctly.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)]
 async fn two_peers_join_success() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -164,14 +165,12 @@ async fn two_peers_join_success() -> Result<(),> {
     wait_for_listen_addr(&mut bob,).await;
 
     // Alice joins
-    alice
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: alice.peer_id(),
-            nickname: "Alice".into(),
-            chips: Chips::new(1_000,),
-        },)
-        .await;
+    alice.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: alice.peer_id(),
+        nickname: "Alice".into(),
+        chips: Chips::new(1_000,),
+    },);
 
     pump_messages(&mut alice, &mut bob,).await;
 
@@ -193,8 +192,7 @@ async fn two_peers_join_success() -> Result<(),> {
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
         chips: Chips::new(1_000,),
-    },)
-        .await;
+    },);
 
     pump_messages(&mut alice, &mut bob,).await;
 
@@ -223,6 +221,7 @@ async fn two_peers_join_success() -> Result<(),> {
 /// - No mismatches during propagation, assuming PlayerJoinedConf is sent as
 ///   plain message.
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[allow(clippy::too_many_lines)]
 async fn three_peers_join_success() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -255,7 +254,7 @@ async fn three_peers_join_success() -> Result<(),> {
         transport_b,
         false,
     );
-    bob.tick().await;
+    bob.tick();
     wait_for_listen_addr(&mut bob,).await;
 
     // Charlie dials Alice
@@ -269,23 +268,21 @@ async fn three_peers_join_success() -> Result<(),> {
         transport_c,
         false,
     );
-    charlie.tick().await;
+    charlie.tick();
     wait_for_listen_addr(&mut charlie,).await;
 
     // Alice joins
-    alice
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: alice.peer_id(),
-            nickname: "Alice".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
+    alice.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: alice.peer_id(),
+        nickname: "Alice".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     assert_eq!(alice.players().len(), 1);
     assert_eq!(charlie.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
@@ -298,13 +295,12 @@ async fn three_peers_join_success() -> Result<(),> {
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
         chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
-        .await;
+    },);
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     assert_eq!(alice.players().len(), 2);
     assert_eq!(bob.players().len(), 2);
@@ -315,14 +311,12 @@ async fn three_peers_join_success() -> Result<(),> {
     assert_eq!(alice.hash_head(), bob.hash_head());
 
     // Charlie joins
-    charlie
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: charlie.peer_id(),
-            nickname: "Charlie".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
+    charlie.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: charlie.peer_id(),
+        nickname: "Charlie".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
@@ -351,6 +345,7 @@ async fn three_peers_join_success() -> Result<(),> {
 /// - Rejected peer remains with previous state, not joined.
 /// - Existing peers unchanged.
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[allow(clippy::too_many_lines)]
 async fn reject_join_table_full() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -401,14 +396,12 @@ async fn reject_join_table_full() -> Result<(),> {
     wait_for_listen_addr(&mut charlie,).await;
 
     // Alice joins
-    alice
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: alice.peer_id(),
-            nickname: "Alice".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
+    alice.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: alice.peer_id(),
+        nickname: "Alice".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
@@ -422,21 +415,20 @@ async fn reject_join_table_full() -> Result<(),> {
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
         chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
-        .await;
+    },);
 
     // send request from bob to alice.
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
     // tick all three players such that they can process the messages.
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
     // send response from alice to bob.
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
     // tick all three players such that they can process the messages.
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     assert_eq!(alice.players().len(), 2);
     assert_eq!(bob.players().len(), 2);
@@ -447,14 +439,12 @@ async fn reject_join_table_full() -> Result<(),> {
     assert_eq!(alice.hash_chain(), bob.hash_chain());
 
     // Charlie tries to join
-    charlie
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: charlie.peer_id(),
-            nickname: "Charlie".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
+    charlie.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: charlie.peer_id(),
+        nickname: "Charlie".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
@@ -491,6 +481,7 @@ async fn reject_join_table_full() -> Result<(),> {
 /// - Rejected peer does not join, no SyncResp sent.
 /// - Existing peer state unchanged.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)]
 async fn reject_join_game_started() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -526,14 +517,12 @@ async fn reject_join_game_started() -> Result<(),> {
     wait_for_listen_addr(&mut bob,).await;
 
     // Alice joins
-    alice
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: alice.peer_id(),
-            nickname: "Alice".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
+    alice.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: alice.peer_id(),
+        nickname: "Alice".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
     pump_messages(&mut alice, &mut bob,).await;
 
     // Simulate game start
@@ -546,8 +535,7 @@ async fn reject_join_game_started() -> Result<(),> {
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
         chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
-        .await;
+    },);
     pump_messages(&mut alice, &mut bob,).await;
 
     assert_eq!(alice.players().len(), 1);
@@ -564,6 +552,7 @@ async fn reject_join_game_started() -> Result<(),> {
 /// - No additional chain entries or state changes.
 /// - has_joined_table remains true, but no errors or mismatches.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)]
 async fn reject_join_already_joined() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -582,7 +571,7 @@ async fn reject_join_already_joined() -> Result<(),> {
     );
 
     wait_for_listen_addr(&mut alice,).await;
-    alice.tick().await;
+    alice.tick();
     let alice_addr = alice.listen_addr.clone().expect("Alice listen addr",);
 
     // Bob dials Alice
@@ -597,21 +586,19 @@ async fn reject_join_already_joined() -> Result<(),> {
         false,
     );
     wait_for_listen_addr(&mut bob,).await;
-    alice.tick().await;
-    bob.tick().await;
+    alice.tick();
+    bob.tick();
 
     // Alice joins
-    alice
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: alice.peer_id(),
-            nickname: "Alice".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
+    alice.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: alice.peer_id(),
+        nickname: "Alice".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
     pump_messages(&mut alice, &mut bob,).await;
-    alice.tick().await;
-    bob.tick().await;
+    alice.tick();
+    bob.tick();
 
     assert_eq!(alice.players().len(), 1); // expect that alice joined her own instance.
     assert_eq!(bob.players().len(), 0); // expect that alice has not joined bobs instance, because he has not synced yet.
@@ -624,11 +611,10 @@ async fn reject_join_already_joined() -> Result<(),> {
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
         chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
-        .await;
+    },);
     pump_messages(&mut bob, &mut alice,).await;
-    bob.tick().await;
-    alice.tick().await;
+    bob.tick();
+    alice.tick();
 
     let chain_len_before = alice.hash_chain().len();
 
@@ -638,8 +624,7 @@ async fn reject_join_already_joined() -> Result<(),> {
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
         chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
-        .await;
+    },);
     pump_messages(&mut alice, &mut bob,).await;
 
     assert_eq!(alice.players().len(), 2);
@@ -663,6 +648,7 @@ async fn reject_join_already_joined() -> Result<(),> {
 /// - Alice's state unchanged.
 /// - Warn log for mismatch.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(clippy::too_many_lines)]
 async fn reject_invalid_sync_resp() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -698,15 +684,13 @@ async fn reject_invalid_sync_resp() -> Result<(),> {
     wait_for_listen_addr(&mut bob,).await;
 
     // Alice joins
-    alice
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: alice.peer_id(),
-            nickname: "Alice".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
-    alice.tick().await;
+    alice.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: alice.peer_id(),
+        nickname: "Alice".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
+    alice.tick();
 
     // Discard messages at Bob to simulate not receiving Alice's join
     // ProtocolEntry
@@ -720,11 +704,10 @@ async fn reject_invalid_sync_resp() -> Result<(),> {
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
         chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
-        .await;
+    },);
 
-    alice.tick().await;
-    bob.tick().await;
+    alice.tick();
+    bob.tick();
     sleep(Duration::from_millis(100,),).await; // Allow message propagation
 
     // Consume the SyncReq at Alice without handling it
@@ -762,6 +745,7 @@ async fn reject_invalid_sync_resp() -> Result<(),> {
 /// - All state (players, seats) consistent across peers.
 /// - Chain length reflects all joins.
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[allow(clippy::too_many_lines)]
 async fn late_join_replay_chain() -> Result<(),> {
     init_logger();
 
@@ -804,34 +788,30 @@ async fn late_join_replay_chain() -> Result<(),> {
     pump_messages(&mut alice, &mut charlie,).await;
 
     // Alice joins
-    alice
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: alice.peer_id(),
-            nickname: "Alice".into(),
-            chips: Chips::new(1000,),
-        },)
-        .await;
+    alice.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: alice.peer_id(),
+        nickname: "Alice".into(),
+        chips: Chips::new(1000,),
+    },);
     pump_messages(&mut alice, &mut charlie,).await; // Pump for Alice and Charlie only
 
     // Charlie joins
-    charlie
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: charlie.peer_id(),
-            nickname: "Charlie".into(),
-            chips: Chips::new(1000,),
-        },)
-        .await;
+    charlie.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: charlie.peer_id(),
+        nickname: "Charlie".into(),
+        chips: Chips::new(1000,),
+    },);
 
     pump_messages(&mut alice, &mut charlie,).await; // charlie sends SyncRequest to alice.
     // alice creates SyncResponse
-    alice.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    charlie.tick();
     pump_messages(&mut alice, &mut charlie,).await; // alice sends SyncResponse to charlie.
     // charlie processes SyncResponse
-    alice.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    charlie.tick();
 
     assert_eq!(alice.players().len(), 2);
     assert_eq!(charlie.players().len(), 2);
@@ -858,24 +838,23 @@ async fn late_join_replay_chain() -> Result<(),> {
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
         chips: Chips::new(1000,),
-    },)
-        .await;
+    },);
 
     // request sent from bob to peers
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
     // give time to players to apply changes introduced by messages.
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     // replies sent from peers to bob
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
     // give time to players to apply changes introduced by messages.
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     assert_eq!(alice.players().len(), 3);
     assert_eq!(bob.players().len(), 3);
@@ -892,6 +871,7 @@ async fn late_join_replay_chain() -> Result<(),> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[allow(clippy::too_many_lines)]
 async fn game_starts_correctly() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -945,19 +925,17 @@ async fn game_starts_correctly() -> Result<(),> {
 
     // three peers all join.
     // Alice joins
-    alice
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: alice.peer_id(),
-            nickname: "Alice".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
+    alice.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: alice.peer_id(),
+        nickname: "Alice".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     assert_eq!(alice.players().len(), 1);
     assert_eq!(charlie.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
@@ -970,13 +948,12 @@ async fn game_starts_correctly() -> Result<(),> {
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
         chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
-        .await;
+    },);
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     assert_eq!(alice.players().len(), 2);
     assert_eq!(bob.players().len(), 2);
@@ -987,14 +964,12 @@ async fn game_starts_correctly() -> Result<(),> {
     assert_eq!(alice.hash_head(), bob.hash_head());
 
     // Charlie joins
-    charlie
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: charlie.peer_id(),
-            nickname: "Charlie".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
+    charlie.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: charlie.peer_id(),
+        nickname: "Charlie".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
@@ -1021,6 +996,7 @@ async fn game_starts_correctly() -> Result<(),> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[allow(clippy::too_many_lines)]
 async fn enter_start_hand_test() -> Result<(),> {
     init_logger();
     let kp_a = KeyPair::generate();
@@ -1075,19 +1051,15 @@ async fn enter_start_hand_test() -> Result<(),> {
 
     // three peers all join.
     // Alice joins
-    alice
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: alice.peer_id(),
-            nickname: "Alice".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
-
-    pump_three(&mut alice, &mut bob, &mut charlie,).await;
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: alice.peer_id(),
+        nickname: "Alice".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     assert_eq!(alice.players().len(), 1);
     assert_eq!(charlie.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
@@ -1100,13 +1072,12 @@ async fn enter_start_hand_test() -> Result<(),> {
         player_requesting_join: bob.peer_id(),
         nickname: "Bob".into(),
         chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-    },)
-        .await;
+    },);
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     assert_eq!(alice.players().len(), 2);
     assert_eq!(bob.players().len(), 2);
@@ -1117,14 +1088,12 @@ async fn enter_start_hand_test() -> Result<(),> {
     assert_eq!(alice.hash_head(), bob.hash_head());
 
     // Charlie joins
-    charlie
-        .handle_ui_msg(UIEvent::PlayerJoinTableRequest {
-            table_id,
-            player_requesting_join: charlie.peer_id(),
-            nickname: "Charlie".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
-        },)
-        .await;
+    charlie.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
+        table_id,
+        player_requesting_join: charlie.peer_id(),
+        nickname: "Charlie".into(),
+        chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+    },);
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
@@ -1148,22 +1117,22 @@ async fn enter_start_hand_test() -> Result<(),> {
 
     // call update() on each player, such that each instance enters
     // start_game().
-    alice.update().await;
-    bob.update().await;
-    charlie.update().await;
+    alice.update();
+    bob.update();
+    charlie.update();
 
     // pump messages such that each player sends & receives the startGameNotify
     // message of the other peers.
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     // wait for leader to send batch.
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
-    alice.tick().await;
-    bob.tick().await;
-    charlie.tick().await;
+    alice.tick();
+    bob.tick();
+    charlie.tick();
 
     assert_eq!(alice.phase(), HandPhase::StartingHand);
     assert_eq!(bob.phase(), HandPhase::StartingHand);
@@ -1172,6 +1141,7 @@ async fn enter_start_hand_test() -> Result<(),> {
     Ok((),)
 }
 
+#[allow(clippy::too_many_lines)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn test_mock_gui() -> Result<(),> {
     init_logger();
@@ -1289,7 +1259,7 @@ async fn test_mock_gui() -> Result<(),> {
         alice_gs.hash_head,
         bob_gs.hash_head,
         "{}",
-        format!(
+        format_args!(
             "\n{}\n{}",
             alice_gs.hash_chain.last().unwrap(),
             bob_gs.hash_chain.last().unwrap()
@@ -1299,7 +1269,7 @@ async fn test_mock_gui() -> Result<(),> {
         alice_gs.hash_head,
         charlie_gs.hash_head,
         "{}",
-        format!(
+        format_args!(
             "\n{}\n{}",
             alice_gs.hash_chain.last().unwrap(),
             charlie_gs.hash_chain.last().unwrap()

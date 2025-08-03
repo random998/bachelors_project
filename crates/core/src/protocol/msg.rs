@@ -47,7 +47,7 @@ impl std::fmt::Display for LogEntry {
 
 #[derive(Clone, Debug, Serialize, Deserialize,)]
 pub struct EntryMetaData {
-    pub ts_micros: u128,
+    pub ts_micros: i64,
     pub author:    PeerId,
 }
 
@@ -70,7 +70,7 @@ impl LogEntry {
             payload,
             hash: next_hash,
             metadata: EntryMetaData {
-                ts_micros: chrono::Utc::now().timestamp_micros() as u128,
+                ts_micros: chrono::Utc::now().timestamp_micros(),
                 author,
             },
             proof: Proof::default(),
@@ -93,7 +93,7 @@ impl Hash {
 }
 
 impl std::fmt::Display for Hash {
-    fn fmt(&self, f: &mut Formatter,) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_,>,) -> std::fmt::Result {
         self.0.fmt(f,)
     }
 }

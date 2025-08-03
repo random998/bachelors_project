@@ -1,7 +1,7 @@
 // copied from https://github.com/vincev/freezeout
 
 //! poker core types shared by peers.
-#![warn(clippy::all, rust_2018_idioms, missing_docs)]
+#![warn(clippy::all, rust_2018_idioms)]
 
 #[cfg(feature = "connection")]
 pub mod connection;

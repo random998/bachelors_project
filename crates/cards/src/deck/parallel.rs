@@ -65,6 +65,7 @@ fn nth_k_subset(mut n: usize, k: usize,) -> [usize; 7] {
 }
 
 // Calls the given closure for count k-subsets starting from the nth k-subset.
+#[allow(clippy::many_single_char_names)]
 fn for_each_k_subset<F,>(
     n: usize,
     k: usize,
@@ -198,7 +199,7 @@ mod tests {
         // For n < k = 0
         assert_eq!(n_choose_k(2, 3), 0);
 
-        [1, 52, 1_326, 22_100, 270_725, 2598_960, 20_358_520, 133_784_560,]
+        [1, 52, 1_326, 22_100, 270_725, 2_598_960, 20_358_520, 133_784_560,]
             .into_iter()
             .enumerate()
             .for_each(|(k, v,)| assert_eq!(n_choose_k(52, k), v),);
@@ -226,7 +227,6 @@ mod tests {
 
     // This takes a while to run in debug mode as it goes through 200M subsets.
     #[test]
-    #[ignore]
     fn test_nth_k_subset() {
         let mut counter = 0;
         let count = n_choose_k(52, 7,);
