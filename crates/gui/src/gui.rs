@@ -79,8 +79,8 @@ pub struct App {
 impl App {
     #[allow(missing_docs)]
     pub fn update(&mut self,) {
-        if let Ok(EngineEvent::Snapshot(gs),) = self.msg_rx.try_recv() {
-                self.game_state = *gs;
+        if let Ok(EngineEvent::Snapshot(gs,),) = self.msg_rx.try_recv() {
+            self.game_state = *gs;
         }
         // TODO: handle remaining UIEvent messages.
     }
@@ -158,7 +158,6 @@ impl App {
     pub fn snapshot(&self,) -> GameState {
         self.game_state.clone()
     }
-
 }
 
 // ─────────────────────────── Trait implemented by every view ─────────────
