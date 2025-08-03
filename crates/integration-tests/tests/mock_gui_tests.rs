@@ -1,9 +1,6 @@
 //! `crates/integration-tests/tests/mock_gui_tests.rs`
-
 mod support;
-
 use anyhow::Result;
-use env_logger::Env;
 use poker_core::crypto::KeyPair;
 use poker_core::game_state::HandPhase;
 use poker_core::message::UIEvent;
@@ -11,18 +8,7 @@ use poker_core::poker::{Chips, TableId};
 
 use crate::support::mock_gui::MockUi;
 
-const BLAKE3_HASH_BYTE_ARR_LEN: usize = 32;
-const MESSAGE_RECEIVE_TIMEOUT: u64 = 5;
-const NETWORK_PUMP_MS_DELAY: u64 = 10;
 const CHIPS_JOIN_AMOUNT: u32 = 1_000;
-
-// Initialize logger for tests to print info and warn messages.
-fn init_logger() {
-    let _ = env_logger::Builder::from_env(
-        Env::default().default_filter_or("error",),
-    )
-    .try_init();
-}
 
 /// Test successful join of two peers: seed (Alice) joins directly, non-seed
 /// (Bob) sends SyncReq -> Alice processes, appends JoinTableReq, sends SyncResp
@@ -217,6 +203,7 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[allow(clippy::too_many_lines)]
 async fn reject_join_table_full_mock_gui() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();

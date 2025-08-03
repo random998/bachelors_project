@@ -46,6 +46,7 @@ impl GameId {
     }
     /// create new unique (with high probability) game id.
     #[must_use]
+    /// # Panics
     pub fn new_id() -> Self {
         Self(Self::get_random_u32().unwrap(),)
     }
@@ -63,8 +64,9 @@ impl TableId {
     }
     /// create new unique (with high probability) table id.
     #[must_use]
+    /// # Panics
     pub fn new_id() -> Self {
-        Self(Self::get_random_u32().unwrap(),)
+        Self(Self::get_random_u32().expect("err",),)
     }
 }
 

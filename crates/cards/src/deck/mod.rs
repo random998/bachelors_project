@@ -372,13 +372,13 @@ mod tests {
 
         // From the Cactus Kev's website.
         let kd = Card::new(Rank::King, Suit::Diamonds,);
-        assert_eq!(kd.id(), 0x08004b25);
+        assert_eq!(kd.id(), 0x0800_4b25);
 
         let fs = Card::new(Rank::Five, Suit::Spades,);
-        assert_eq!(fs.id(), 0x00081307);
+        assert_eq!(fs.id(), 0x0008_1307);
 
         let jc = Card::new(Rank::Jack, Suit::Clubs,);
-        assert_eq!(jc.id(), 0x0200891d);
+        assert_eq!(jc.id(), 0x0200_891d);
     }
 
     #[test]

@@ -27,8 +27,8 @@ use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 pub use crate::protocol::state::{
     self as contract, ContractState, GENESIS_HASH, HandPhase, PeerContext,
 };
-// per-player helper
 
+#[allow(missing_docs)]
 #[derive(Debug, Default, Clone, Serialize, Deserialize,)]
 pub struct Pot {
     participants: AHashSet<PeerId,>,
@@ -492,9 +492,9 @@ impl Projection {
         obj
     }
 
-    pub async fn update(&mut self,) {
+    pub fn update(&mut self,) {
         if self.contract.phase == HandPhase::StartingGame {
-            self.enter_start_game(100, 50,).await;
+            self.enter_start_game(100, 50,);
         }
     }
 
@@ -514,7 +514,7 @@ impl Projection {
     }
 
     /// Called every ~20 ms by the runtime.
-    pub async fn tick(&mut self,) {
+    pub fn tick(&mut self,) {
         // NEW ───────────────────────────────────────────────────────────
         // broadcast all WireMsg side‑effects that the *pure* contract
         // returned in previous steps.  Each message is appended to the log
@@ -567,7 +567,7 @@ impl Projection {
     // inside `impl Projection { … }` ‑ add to `handle_network_msg`
     // ────────────────────────────────────────────────────────────────────────────
 
-    pub async fn handle_network_msg(&mut self, sm: SignedMessage,) {
+    pub fn handle_network_msg(&mut self, sm: SignedMessage,) {
         match sm.message() {
             NetworkMessage::StartGameNotify {
                 seat_order: _seat_order,
@@ -776,7 +776,7 @@ impl Projection {
             },),);
         Ok((),)
     }
-    pub async fn handle_ui_msg(&mut self, msg: UIEvent,) {
+    pub fn handle_ui_msg(&mut self, msg: UIEvent,) {
         match msg {
             UIEvent::PlayerJoinTableRequest {
                 table_id,
@@ -1073,7 +1073,7 @@ impl Projection {
         self.contract.phase.clone()
     }
 
-    async fn enter_start_game(&mut self, timeout_s: u64, max_retries: u32,) {
+    fn enter_start_game(&mut self, timeout_s: u64, max_retries: u32,) {
         if self.game_started {
             return;
         }
@@ -1204,7 +1204,7 @@ impl Projection {
         if self.is_round_complete() {
             self.next_round();
         } else {
-            let _ = self.request_action();
+            let () = self.request_action();
         }
     }
 
@@ -1257,7 +1257,7 @@ impl Projection {
         self.update_pots();
 
         // Give time to the UI to look at the updated pot and board.
-        let _ = self.send_throttle(100,);
+        let () = self.send_throttle(100,);
 
         let winners = self.pay_bets();
 
@@ -1523,7 +1523,7 @@ impl Projection {
 
         self.start_round(); // Assuming this is a method; adjust if needed
 
-        let _ = self.request_action();
+        let () = self.request_action();
     }
 
     fn update_pots(&mut self,) {
@@ -1567,7 +1567,7 @@ impl Projection {
         }
     }
     /// Request action to the active player.
-    async fn request_action(&mut self,) {
+    fn request_action(&mut self,) {
         if let Some(player,) = &mut self.active_player {
             let mut actions = vec![PlayerAction::Fold];
 
@@ -1612,11 +1612,11 @@ impl Projection {
     /// Broadcast a throttle message to all players at the table.
     fn broadcast_throttle(&mut self, millis: u32,) {
         for _ in self.players() {
-            let _ = self.send_throttle(millis,);
+            let () = self.send_throttle(millis,);
         }
     }
 
-    async fn send_throttle(&mut self, millis: u32,) {
+    fn send_throttle(&mut self, millis: u32,) {
         let msg = WireMsg::Throttle { millis, };
         let _ = self.send_contract(msg,);
     }

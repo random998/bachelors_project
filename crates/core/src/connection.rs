@@ -62,9 +62,9 @@ where S: AsyncRead + AsyncWrite + Unpin
                         self.noise_transport
                             .read_message(&payload, &mut buffer,)
                             .map_err(anyhow::Error::from,)
-                            .and_then(|len| {
+                            .and_then(|_| {
                                 SignedMessage::deserialize_and_verify(
-                                    Vec::from(buffer,),
+                                    buffer.as_ref(),
                                 )
                             },),
                     );

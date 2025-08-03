@@ -36,6 +36,7 @@ impl ConnectView {
         }
     }
     #[must_use]
+    #[allow(missing_docs)]
     pub const fn peer_id(&self,) -> PeerId {
         self.game_state.player_id()
     }
@@ -55,9 +56,11 @@ impl ConnectView {
         }
     }
 
+    #[allow(dead_code)]
     fn passphrase(&self,) -> String {
         self.game_state.key_pair.secret().phrase()
     }
+    #[allow(dead_code)]
     fn player_id(&self,) -> PeerId {
         self.game_state.key_pair.public().to_peer_id()
     }
