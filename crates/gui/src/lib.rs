@@ -1,4 +1,4 @@
-#![warn(clippy::all, rust_2018_idioms, missing_docs)]
+#![warn(clippy::all, rust_2018_idioms)]
 pub mod account_view;
 pub use account_view::AccountView;
 

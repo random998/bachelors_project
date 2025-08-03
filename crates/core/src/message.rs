@@ -46,7 +46,7 @@ pub enum NetworkMessage {
 /// Represents a message send from the p2p poker instance to the ui.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
 pub enum EngineEvent {
-    Snapshot(GameState,), // fresh projection every frame / on tick
+    Snapshot(Box<GameState,>,), // fresh projection every frame / on tick
     ActionRequest {
         allowed:   Vec<PlayerAction,>,
         min_raise: Chips,
@@ -239,8 +239,9 @@ impl SignedMessage {
     }
 
     /// Deserializes this message and verifies its signature.
-    pub fn deserialize_and_verify(buf: Vec<u8,>,) -> Result<Self,> {
-        let payload = bincode::deserialize::<Payload,>(&buf,)?;
+    /// # Errors
+    pub fn deserialize_and_verify(buf: &[u8],) -> Result<Self,> {
+        let payload = bincode::deserialize::<Payload,>(buf,)?;
         let sm = Self {
             payload: Arc::new(payload,),
         };
@@ -257,6 +258,7 @@ impl SignedMessage {
     }
 
     /// Serializes this message.
+    /// # Panics
     #[must_use]
     pub fn serialize(&self,) -> Vec<u8,> {
         let payload = self.payload.clone();

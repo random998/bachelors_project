@@ -44,7 +44,6 @@ poker-table-engine = {version = "0.0.1", path = "crates/table-engine", default-f
 p2p-net = {version = "0.0.1", path = "crates/p2p-net", default-features = false}
 integration-tests = {version = "0.0.1", path = "crates/integration-tests", default-features = false }
 
-
 [profile.release]
 opt-level = 3
 lto = "fat"

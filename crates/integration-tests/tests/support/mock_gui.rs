@@ -36,11 +36,12 @@ impl MockUi {
             last_gamestate: GameState::default(),
         }
     }
-
+    #[allow(dead_code)]
     pub const fn peer_id(&self,) -> PeerId {
         self.last_gamestate.player_id
     }
 
+    #[allow(dead_code)]
     pub fn default(
         seed_addr: Option<Multiaddr,>,
         table_id: TableId,
@@ -81,7 +82,7 @@ impl MockUi {
         loop {
             while let Ok(ui_event,) = self.try_recv_from_engine() {
                 if let EngineEvent::Snapshot(game_state,) = ui_event {
-                    self.last_gamestate = game_state;
+                    self.last_gamestate = *game_state;
                 }
             }
             if self.last_gamestate.listen_addr.is_some() {
@@ -100,6 +101,7 @@ impl MockUi {
         self.last_gamestate.listen_addr.clone()
     }
 
+    #[allow(dead_code)]
     pub fn last_game_state(&self,) -> GameState {
         self.last_gamestate.clone()
     }
@@ -111,8 +113,8 @@ impl MockUi {
         loop {
             while let Ok(res,) = self.try_recv_from_engine() {
                 if let EngineEvent::Snapshot(gs,) = res {
-                    if self.last_gamestate != gs {
-                        self.last_gamestate = gs;
+                    if self.last_gamestate != *gs {
+                        self.last_gamestate = *gs;
                         return self.last_gamestate.clone();
                     }
                 }
@@ -125,6 +127,7 @@ impl MockUi {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn game_state(&mut self,) -> GameState {
         self.poll_game_state().await
     }
