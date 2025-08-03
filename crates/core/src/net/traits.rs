@@ -4,6 +4,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::game_state::GameState;
 use crate::message::{SignedMessage, UIEvent};
+#[allow(missing_docs)]
 
 pub trait Gui {
     fn send_ui_cmd(&mut self, cmd: UIEvent,);
@@ -39,7 +40,8 @@ pub struct P2pTransport {
 }
 
 impl P2pTransport {
-    pub async fn new(
+    #[must_use]
+    pub const fn new(
         sender: Sender<SignedMessage,>,
         receiver: Receiver<SignedMessage,>,
     ) -> Self {

@@ -1,13 +1,10 @@
 //  Top-level GUI glue (egui + our App model)
-
 use std::clone::Clone;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Parser;
-use eframe::Storage;
 use eframe::egui::{Context, Theme};
-use log::trace;
 use p2p_net::runtime_bridge::UiHandle; // ← the two channels & runtime
 use poker_cards::egui::Textures;
 use poker_core::crypto::{KeyPair, PeerId};
@@ -19,9 +16,8 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::{TryRecvError, TrySendError};
 
 use crate::ConnectView;
-
 // ─────────────────────────── CLI options (only on native) ───────────────
-
+#[allow(missing_docs)]
 #[derive(Parser, Debug,)]
 #[cfg(not(target_arch = "wasm32"))]
 struct Options {
@@ -48,6 +44,7 @@ struct Options {
 // ─────────────────────────── Persisted data (pass-phrase …) ─────────────
 
 #[derive(Debug, serde::Serialize, serde::Deserialize,)]
+#[allow(missing_docs)]
 pub struct AppData {
     pub passphrase: String,
     pub nickname:   String,
@@ -55,12 +52,14 @@ pub struct AppData {
 
 // ─────────────────────────── App (shared by all views) ───────────────────
 
+#[allow(missing_docs)]
 pub trait Gui {
     fn send_ui_cmd(&mut self, cmd: UIEvent,);
     fn get_latest_snapshot(&self,) -> Option<GameState,>;
     fn handle_signed_message(&mut self, msg: SignedMessage,);
 }
 
+#[allow(missing_docs)]
 pub struct App {
     // static
     pub textures: Textures,
@@ -78,18 +77,17 @@ pub struct App {
 }
 
 impl App {
-    const STORAGE_KEY: &'static str = "appdata";
-
+    #[allow(missing_docs)]
     pub fn update(&mut self,) {
-        if let Ok(res,) = self.msg_rx.try_recv() {
-            if let EngineEvent::Snapshot(gs,) = res {
-                self.game_state = gs;
-            }
+        if let Ok(EngineEvent::Snapshot(gs),) = self.msg_rx.try_recv() {
+                self.game_state = *gs;
         }
         // TODO: handle remaining UIEvent messages.
     }
 
     #[must_use]
+    #[allow(missing_docs)]
+    /// # Panics
     pub fn new(
         ui: UiHandle, // returned by `start`
         state: GameState,
@@ -124,6 +122,7 @@ impl App {
     }
 
     /// UI -> runtime
+    /// # Errors
     pub fn send_cmd_to_engine(
         &self,
         msg: UIEvent,
@@ -134,18 +133,21 @@ impl App {
     // ------------- helpers exposed to views ----------------------
 
     #[inline]
+    #[allow(missing_docs)]
     #[must_use]
     pub const fn player_id(&self,) -> &PeerId {
         &self.player_id
     }
     #[inline]
     #[must_use]
+    #[allow(missing_docs)]
     pub fn nickname(&self,) -> &str {
         &self.nickname
     }
 
     #[inline]
     #[must_use]
+    #[allow(missing_docs)]
     pub fn key_pair(&self,) -> KeyPair {
         self.key_pair.clone()
     }
@@ -157,40 +159,11 @@ impl App {
         self.game_state.clone()
     }
 
-    // ------------- (de)serialize tiny settings -------------------
-
-    pub fn load_from_storage(&mut self, storage: Option<&dyn Storage,>,) {
-        if let Some(data,) = storage
-            .and_then(|s| eframe::get_value::<AppData,>(s, Self::STORAGE_KEY,),)
-        {
-            self.nickname = data.nickname;
-        }
-    }
-
-    // Get a value from the app storage.
-    #[must_use]
-    pub fn get_storage(
-        &self,
-        storage: Option<&dyn Storage,>,
-    ) -> Option<AppData,> {
-        storage
-            .and_then(|s| eframe::get_value::<AppData,>(s, Self::STORAGE_KEY,),)
-    }
-
-    pub fn save_to_storage(&self, storage: Option<&mut dyn Storage,>,) {
-        if let Some(s,) = storage {
-            let data = AppData {
-                passphrase: String::new(),
-                nickname:   self.nickname.clone(),
-            };
-            eframe::set_value::<AppData,>(s, Self::STORAGE_KEY, &data,);
-            s.flush();
-        }
-    }
 }
 
 // ─────────────────────────── Trait implemented by every view ─────────────
 
+#[allow(missing_docs)]
 pub trait View {
     fn update(
         &mut self,
@@ -208,6 +181,7 @@ pub trait View {
 
 // ─────────────────────────── Top-level egui frame ------------------------
 
+#[allow(missing_docs)]
 pub struct AppFrame {
     app:   App,
     panel: Box<dyn View,>,
@@ -215,6 +189,7 @@ pub struct AppFrame {
 
 impl AppFrame {
     #[must_use]
+    #[allow(missing_docs)]
     pub fn new(
         cc: &eframe::CreationContext<'_,>,
         ui: UiHandle,
@@ -248,19 +223,4 @@ impl eframe::App for AppFrame {
 
         self.app.update();
     }
-}
-
-// ─────────────────────────── helper (native only) ------------------------
-
-#[cfg(not(target_arch = "wasm32"))]
-fn load_or_generate_keypair(
-    path: &std::path::Path,
-) -> anyhow::Result<KeyPair,> {
-    use std::fs;
-    use std::io::Write;
-    trace!("loading default key …");
-    let key = KeyPair::generate();
-    fs::File::create(path,)?
-        .write_all(bincode::serialize(&key,)?.as_slice(),)?;
-    Ok(key,)
 }

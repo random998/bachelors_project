@@ -48,6 +48,7 @@ impl Options {
 // ───────────────────────── main (native) ───────────────────────
 
 #[cfg(not(target_arch = "wasm32"))]
+/// # Errors
 pub fn main() -> eframe::Result<(),> {
     env_logger::init();
     let opt = Options::parse();

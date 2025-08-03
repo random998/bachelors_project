@@ -33,6 +33,7 @@ pub struct AccountView {
 
 impl AccountView {
     #[must_use]
+    #[allow(missing_docs)]
     pub fn new(chips: Chips, app: &App,) -> Self {
         Self {
             player_id: *app.player_id(),
@@ -141,7 +142,7 @@ impl View for AccountView {
     fn next(
         &mut self,
         ctx: &Context,
-        frame: &mut eframe::Frame,
+        _frame: &mut eframe::Frame,
         app: &mut App,
     ) -> Option<Box<dyn View,>,> {
         if self.connection_closed {

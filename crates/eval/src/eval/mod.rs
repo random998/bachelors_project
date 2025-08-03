@@ -1848,7 +1848,6 @@ mod tests {
     ///
     /// This is test is marked as disable as it takes a long time to run in
     /// debug mode.
-    #[ignore]
     #[test]
     fn eval_7cards() {
         // Evaluate all 133M hands.
