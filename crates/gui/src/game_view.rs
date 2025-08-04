@@ -953,7 +953,7 @@ B  Bet
             return;
         }
 
-        let (tx1, tx2,) = match player.hole_cards {
+        let (tx1, tx2,) = match player.public_cards {
             PlayerCards::None => return,
             PlayerCards::Covered => (textures.back(), textures.back(),),
             PlayerCards::Cards(c1, c2,) => {
