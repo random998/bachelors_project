@@ -4,10 +4,10 @@ use std::fmt::Formatter;
 
 use log::info;
 use serde::{Deserialize, Serialize};
-
 use crate::crypto::PeerId;
 use crate::game_state::PlayerPrivate;
-use crate::poker::Chips;
+use crate::poker::{Chips, TableId};
+use crate::poker::PlayerCards::Cards;
 use crate::protocol::msg::{Hash, WireMsg};
 
 pub static GENESIS_HASH: std::sync::LazyLock<Hash,> =
@@ -215,9 +215,20 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                 st.phase = HandPhase::StartingGame;
             }
         },
-        WireMsg::DealCards { .. } => {
-            todo!()
-        },
+        WireMsg::DealCards {
+            table: _table,
+            game_id: _game_id,
+            player_id, // receiver
+            card1,
+            card2,
+        } => {
+            for player in st.players.values_mut() {
+                if player.peer_id == *player_id  {
+                    player.hole_cards = Cards(*card1, *card2);
+                    break;
+                }
+            }
+    },
         WireMsg::ActionRequest { .. } => {
             todo!()
         },
