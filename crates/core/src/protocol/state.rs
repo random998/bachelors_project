@@ -346,26 +346,37 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                 st.phase = HandPhase::StartingGame;
             }
         },
-        WireMsg::DealCardsBatch(batch) => {
+        WireMsg::DealCardsBatch(batch,) => {
             // Verify: Complete, sorted, valid for active players
-            let expected_receivers: Vec<PeerId> = st.players.values().filter(|p| p.is_active && p.chips > Chips::ZERO).map(|p| p.peer_id).collect();
-            let mut batch_receivers_sorted: Vec<PeerId> = batch.iter().map(|dc| dc.player_id).collect();
-            batch_receivers_sorted.sort_by_key(|id| id.to_string());
+            let expected_receivers: Vec<PeerId,> = st
+                .players
+                .values()
+                .filter(|p| p.is_active && p.chips > Chips::ZERO,)
+                .map(|p| p.peer_id,)
+                .collect();
+            let mut batch_receivers_sorted: Vec<PeerId,> =
+                batch.iter().map(|dc| dc.player_id,).collect();
+            batch_receivers_sorted.sort_by_key(std::string::ToString::to_string,);
             let mut expected_receivers_sorted = expected_receivers.clone();
-            expected_receivers_sorted.sort_by_key(|id| id.to_string());
-            if batch_receivers_sorted != expected_receivers_sorted || batch.len() != expected_receivers.len() {
+            expected_receivers_sorted.sort_by_key(std::string::ToString::to_string,);
+            if batch_receivers_sorted != expected_receivers_sorted
+                || batch.len() != expected_receivers.len()
+            {
                 info!("Invalid DealCardsBatch; rejecting");
-                return StepResult { next: prev.clone(), effects: vec![] };
+                return StepResult {
+                    next:    prev.clone(),
+                    effects: vec![],
+                };
             }
             // Apply: Update hole_cards for each
             for dc in batch {
-                if let Some(player) = st.players.get_mut(&dc.player_id) {
-                    player.hole_cards = Cards(dc.card1, dc.card2);
+                if let Some(player,) = st.players.get_mut(&dc.player_id,) {
+                    player.hole_cards = Cards(dc.card1, dc.card2,);
                 }
             }
             // Add to effects if needed (e.g., broadcast)
-            let eff = Effect::Send(msg.clone());
-            out.push(eff);
+            let eff = Effect::Send(msg.clone(),);
+            out.push(eff,);
         },
         WireMsg::ActionRequest { .. } => {
             todo!()
