@@ -122,13 +122,13 @@ impl<'de,> Deserialize<'de,> for Hash {
 
 // ---------- All message kinds ----------------------------------------------
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq,)]
 pub struct DealCards {
-    pub(crate) card1: Card,
-    pub(crate) card2: Card,
-    pub(crate) player_id: PeerId,  // Receiver
-    pub(crate) table: TableId,
-    pub(crate) game_id: GameId,
+    pub(crate) card1:     Card,
+    pub(crate) card2:     Card,
+    pub(crate) player_id: PeerId, // Receiver
+    pub(crate) table:     TableId,
+    pub(crate) game_id:   GameId,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq,)]
@@ -149,7 +149,7 @@ pub enum WireMsg {
     StartGameBatch(Vec<SignedMessage,>,), /* Sorted list of plain
                                            * StartGameNotify signed
                                            * messages */
-    DealCardsBatch(Vec<DealCards>),  // Sorted by receiver peer_id
+    DealCardsBatch(Vec<DealCards,>,), // Sorted by receiver peer_id
 
     ShuffleCommit {
         deck_commit:   Commitment,
@@ -213,7 +213,7 @@ impl WireMsg {
             Self::EndGame { .. } => "EndGame".to_string(),
             Self::Throttle { .. } => "Throttle".to_string(),
             Self::Ping => "Ping".to_string(),
-            Self::DealCardsBatch(..) => "DealCards".to_string(),
+            Self::DealCardsBatch(..,) => "DealCards".to_string(),
         }
     }
 }
