@@ -114,15 +114,18 @@ pub struct ContractState {
 }
 
 impl ContractState {
-    #[must_use] pub fn get_phase(&self,) -> HandPhase {
+    #[must_use]
+    pub fn get_phase(&self,) -> HandPhase {
         self.phase.clone()
     }
 
-    #[must_use] pub fn get_players(&self,) -> BTreeMap<PeerId, PlayerPrivate,> {
+    #[must_use]
+    pub fn get_players(&self,) -> BTreeMap<PeerId, PlayerPrivate,> {
         self.players.clone()
     }
 
-    #[must_use] pub const fn get_num_seats(&self,) -> usize {
+    #[must_use]
+    pub const fn get_num_seats(&self,) -> usize {
         self.num_seats
     }
 }
