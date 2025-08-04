@@ -4,9 +4,11 @@ use std::fmt::Formatter;
 
 use log::info;
 use serde::{Deserialize, Serialize};
+
 use crate::crypto::PeerId;
 use crate::game_state::PlayerPrivate;
-use crate::poker::{Chips, TableId};
+use crate::message::PlayerAction;
+use crate::poker::Chips;
 use crate::poker::PlayerCards::Cards;
 use crate::protocol::msg::{Hash, WireMsg};
 
@@ -106,9 +108,23 @@ pub enum Effect {
 
 #[derive(Clone, Serialize, Deserialize,)]
 pub struct ContractState {
-    pub phase:     HandPhase,
-    pub players:   BTreeMap<PeerId, PlayerPrivate,>,
-    pub num_seats: usize,
+    phase:     HandPhase,
+    players:   BTreeMap<PeerId, PlayerPrivate,>,
+    num_seats: usize,
+}
+
+impl ContractState {
+    #[must_use] pub fn get_phase(&self,) -> HandPhase {
+        self.phase.clone()
+    }
+
+    #[must_use] pub fn get_players(&self,) -> BTreeMap<PeerId, PlayerPrivate,> {
+        self.players.clone()
+    }
+
+    #[must_use] pub const fn get_num_seats(&self,) -> usize {
+        self.num_seats
+    }
 }
 
 impl Default for ContractState {
@@ -124,6 +140,63 @@ impl ContractState {
             players: BTreeMap::default(),
             num_seats,
         }
+    }
+
+    pub fn fold(&mut self, id: &PeerId,) {
+        if let Some(player,) = self.players.get_mut(id,) {
+            player.fold();
+        }
+    }
+
+    pub fn fold_inactive_players(&mut self,) {
+        if let Some(p,) = self
+            .players
+            .values_mut()
+            .find(|p| p.action_timer.is_some(),)
+        {
+            if p.action_timer.unwrap_or(0,) >= 1_500 {
+                p.fold();
+            }
+        }
+    }
+
+    pub fn set_has_sent_start_game_notification(&mut self, id: &PeerId,) {
+        // Update local player's flag if applicable
+        if let Some(p,) = self.players.get_mut(id,) {
+            p.has_sent_start_game_notification = true;
+        }
+    }
+
+    pub fn place_bet(
+        &mut self,
+        id: &PeerId,
+        total_bet: Chips,
+        action: PlayerAction,
+    ) {
+        if let Some(player,) = self.players.get_mut(id,) {
+            player.place_bet(total_bet, action,);
+        }
+    }
+
+    pub fn start_hand(&mut self,) {
+        for player in self.players.values_mut() {
+            player.start_hand();
+        }
+    }
+
+    pub fn end_hand(&mut self,) {
+        for player in self.players.values_mut() {
+            player.finalize_hand();
+        }
+    }
+
+    pub fn remove_with_no_chips(&mut self,) {
+        self.players.retain(|_, p| p.chips > Chips::ZERO,);
+    }
+
+    pub fn activate_next_player(&mut self,) {
+        // Implement based on seat order or logic; stub
+        todo!()
     }
 }
 
@@ -223,12 +296,12 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
             card2,
         } => {
             for player in st.players.values_mut() {
-                if player.peer_id == *player_id  {
-                    player.hole_cards = Cards(*card1, *card2);
+                if player.peer_id == *player_id {
+                    player.hole_cards = Cards(*card1, *card2,);
                     break;
                 }
             }
-    },
+        },
         WireMsg::ActionRequest { .. } => {
             todo!()
         },

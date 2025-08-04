@@ -230,32 +230,19 @@ impl Projection {
     // Derived players access
     #[must_use]
     pub fn players(&self,) -> Vec<PlayerPrivate,> {
-        self.contract.players.values().cloned().collect()
-    }
-
-    pub fn players_mut(
-        &mut self,
-    ) -> impl Iterator<Item = &mut PlayerPrivate,> + '_ {
-        self.contract.players.values_mut()
+        self.contract.get_players().values().cloned().collect()
     }
 
     #[must_use]
     pub fn get_player(&self, id: &PeerId,) -> Option<PlayerPrivate,> {
-        self.contract.players.get(id,).cloned()
-    }
-
-    pub fn get_player_mut(
-        &mut self,
-        id: &PeerId,
-    ) -> Option<&mut PlayerPrivate,> {
-        self.contract.players.get_mut(id,)
+        self.contract.get_players().get(id,).cloned()
     }
 
     // Example derived methods for counts and operations
     #[must_use]
     pub fn count_active(&self,) -> usize {
         self.contract
-            .players
+            .get_players()
             .values()
             .filter(|p| p.is_active,)
             .count()
@@ -264,7 +251,7 @@ impl Projection {
     #[must_use]
     pub fn count_with_chips(&self,) -> usize {
         self.contract
-            .players
+            .get_players()
             .values()
             .filter(|p| p.has_chips(),)
             .count()
@@ -273,101 +260,10 @@ impl Projection {
     #[must_use]
     pub fn count_active_with_chips(&self,) -> usize {
         self.contract
-            .players
+            .get_players()
             .values()
             .filter(|p| p.is_active && p.has_chips(),)
             .count()
-    }
-
-    pub fn reseat(&mut self, seat_order: &[PeerId],) {
-        for (idx, id,) in seat_order.iter().enumerate() {
-            if let Some(player,) = self.get_player_mut(id,) {
-                player.seat_idx = Some(idx as u8,);
-            }
-        }
-    }
-
-    pub fn fold(&mut self, id: &PeerId,) {
-        if let Some(player,) = self.get_player_mut(id,) {
-            player.fold();
-        }
-    }
-
-    pub fn place_bet(
-        &mut self,
-        id: &PeerId,
-        total_bet: Chips,
-        action: PlayerAction,
-    ) {
-        if let Some(player,) = self.get_player_mut(id,) {
-            player.place_bet(total_bet, action,);
-        }
-    }
-
-    pub fn start_hand(&mut self,) {
-        for player in self.players_mut() {
-            player.start_hand();
-        }
-    }
-
-    pub fn end_hand(&mut self,) {
-        for player in self.players_mut() {
-            player.finalize_hand();
-        }
-    }
-
-    pub fn remove_with_no_chips(&mut self,) {
-        self.contract.players.retain(|_, p| p.chips > Chips::ZERO,);
-    }
-
-    pub fn activate_next_player(&mut self,) {
-        // Implement based on seat order or logic; stub
-        todo!()
-    }
-
-    pub fn apply(&mut self, msg: &WireMsg,) {
-        match msg {
-            WireMsg::StartGameBatch(batch,) => {
-                // Local projection: Set flags from batch
-                for sm in batch {
-                    if let Some(p,) = self.get_player_mut(&sm.sender(),) {
-                        p.has_sent_start_game_notification = true;
-                    }
-                }
-            },
-            WireMsg::JoinTableReq {
-                player_id,
-                nickname,
-                chips,
-                ..
-            } => {
-                let player =
-                    PlayerPrivate::new(*player_id, nickname.clone(), *chips,);
-                self.contract.players.insert(*player_id, player,);
-            },
-            WireMsg::DealCards {
-                player_id,
-                card1,
-                card2,
-                ..
-            } if *player_id == self.peer_id() => {
-                if let Some(player,) = self.get_player_mut(&self.peer_id(),) {
-                    player.hole_cards = PlayerCards::Cards(*card1, *card2,);
-                }
-            },
-            WireMsg::PlayerAction {
-                peer_id, action, ..
-            } => {
-                match action {
-                    PlayerAction::Bet { bet_amount, } => {
-                        self.place_bet(peer_id, *bet_amount, *action,);
-                    },
-                    PlayerAction::Fold => self.fold(peer_id,),
-                    _ => {},
-                }
-            },
-            _ => {},
-        }
     }
 }
 
@@ -390,7 +286,7 @@ impl Projection {
             table_id:                         self.table_id,
             seats:                            self.num_seats,
             game_started:                     !matches!(
-                self.contract.phase,
+                self.contract.get_phase(),
                 HandPhase::WaitingForPlayers
             ),
 
@@ -401,7 +297,7 @@ impl Projection {
             board:       self.board.clone(),
             pot:         self.current_pot.clone(),
             action_req:  self.action_request.clone(),
-            hand_phase:  self.contract.phase.clone(),
+            hand_phase:  self.contract.get_phase(),
             listen_addr: self.listen_addr.clone(),
         }
     }
@@ -493,8 +389,10 @@ impl Projection {
     }
 
     pub fn update(&mut self,) {
-        if self.contract.phase == HandPhase::StartingGame {
+        if self.contract.get_phase() == HandPhase::StartingGame {
             self.enter_start_game(100, 50,);
+        } else if self.contract.get_phase() == HandPhase::StartingHand {
+            self.enter_start_hand();
         }
     }
 
@@ -530,12 +428,7 @@ impl Projection {
         // ───────────────────────────────────────────────────────────────
 
         // existing fold‑timeout logic
-        if let Some(p,) = self.players_mut().find(|p| p.action_timer.is_some(),)
-        {
-            if p.action_timer.unwrap_or(0,) >= 1_500 {
-                p.fold();
-            }
-        }
+        self.contract.fold_inactive_players();
 
         if self.phase() == HandPhase::StartingGame
             && !self.has_sent_start_game_batch
@@ -588,10 +481,7 @@ impl Projection {
                 {
                     self.start_game_message_buffer.push(sm.clone(),);
                 }
-                // Update local player's flag if applicable
-                if let Some(p,) = self.get_player_mut(sender,) {
-                    p.has_sent_start_game_notification = true;
-                }
+                self.contract.set_has_sent_start_game_notification(sender,);
             },
             NetworkMessage::ProtocolEntry(entry,) => {
                 // 1. reject genuinely invalid branches
@@ -631,7 +521,7 @@ impl Projection {
                 if self.get_player(player_id,).is_some() {
                     return; // Already joined.
                 }
-                if self.contract.players.len() >= self.num_seats {
+                if self.contract.get_players().len() >= self.num_seats {
                     return; // Table full
                 }
                 if self.game_started {
@@ -712,10 +602,6 @@ impl Projection {
                         );
                         return;
                     }
-
-                    // Update projection
-                    self.apply(&entry.payload,);
-
                     // Ignore effects during replay
 
                     current_state = next;
@@ -742,9 +628,6 @@ impl Projection {
         // 1. pure state transition
         let StepResult { next, effects, } =
             contract::step(&self.contract, payload,);
-
-        // 2. bring local *projection* in sync
-        self.apply(payload,);
 
         // 3. compute next hash & build entry with deterministic ordering key
         let next_hash = contract::hash_state(&next,);
@@ -832,7 +715,9 @@ impl Projection {
     fn update_players(&mut self, updates: &[PlayerUpdate],) {
         for update in updates {
             let id = self.peer_id();
-            if let Some(player,) = self.get_player_mut(&update.player_id,) {
+            if let Some(player,) =
+                self.contract.get_players().get_mut(&update.player_id,)
+            {
                 player.chips = update.chips;
                 player.bet = update.bet;
                 player.action = update.action;
@@ -1070,7 +955,7 @@ impl Projection {
 
     #[must_use]
     pub fn phase(&self,) -> HandPhase {
-        self.contract.phase.clone()
+        self.contract.get_phase()
     }
 
     fn enter_start_game(&mut self, timeout_s: u64, max_retries: u32,) {
@@ -1108,9 +993,8 @@ impl Projection {
         }
 
         // Set our local flag (for UI/progress)
-        if let Some(me,) = self.get_player_mut(&self.peer_id(),) {
-            me.has_sent_start_game_notification = true;
-        }
+        self.contract
+            .set_has_sent_start_game_notification(&self.peer_id(),);
         self.has_sent_start_game_notification = true;
 
         // Start buffering timeout
@@ -1121,8 +1005,6 @@ impl Projection {
     }
     fn enter_start_hand(&mut self,) {
         info!("enter start hand...");
-        self.contract.phase = HandPhase::StartingHand;
-        self.start_hand();
 
         // If there are fewer than 2 active players end the game.
         if self.count_active() < 2 {
@@ -1158,7 +1040,7 @@ impl Projection {
             .map(|p| p.peer_id,)
             .collect::<Vec<_,>>();
 
-        for player in self.players_mut() {
+        for player in self.contract.get_players().values_mut() {
             if !active_ids.contains(&player.peer_id,) {
                 player.hole_cards = PlayerCards::None;
                 player.public_cards = PlayerCards::None;
@@ -1168,7 +1050,7 @@ impl Projection {
         for &id in &active_ids {
             let c1 = self.deck.deal();
             let c2 = self.deck.deal();
-            if let Some(player,) = self.get_player_mut(&id,) {
+            if let Some(player,) = self.contract.get_players().get_mut(&id,) {
                 player.public_cards = PlayerCards::Covered;
                 player.hole_cards = if c1.rank() < c2.rank() {
                     PlayerCards::Cards(c1, c2,)
@@ -1200,7 +1082,7 @@ impl Projection {
     }
 
     fn action_update(&mut self,) {
-        self.activate_next_player();
+        self.contract.activate_next_player();
 
         if self.is_round_complete() {
             self.next_round();
@@ -1234,7 +1116,7 @@ impl Projection {
     fn enter_showdown(&mut self,) {
         // self.phase = HandPhase::Showdown;
 
-        for player in self.players_mut() {
+        for player in self.contract.get_players().values_mut() {
             player.action = PlayerAction::None;
             if player.is_active {
                 player.public_cards = player.hole_cards;
@@ -1263,7 +1145,7 @@ impl Projection {
         let winners = self.pay_bets();
 
         // Update players and broadcast update to all players.
-        self.end_hand();
+        self.contract.end_hand();
         let _ = self.send_contract(WireMsg::EndHand {
             payoffs: winners,
             pot:     self.pot().total_chips,
@@ -1285,7 +1167,7 @@ impl Projection {
                 }
             }
 
-            self.remove_with_no_chips();
+            self.contract.remove_with_no_chips();
             self.new_hand_start_timer = Some(Instant::now(),);
         }
     }
@@ -1305,7 +1187,7 @@ impl Projection {
             let _ = self.send_contract(msg,);
         }
 
-        self.contract.players.clear();
+        // self.contract.players.clear();
 
         // Reset hand count for next game.
         self.hand_count = 0;
@@ -1381,7 +1263,7 @@ impl Projection {
                 win_payoff
             };
 
-            if let Some(player,) = self.get_player_mut(&id,) {
+            if let Some(player,) = self.contract.get_players().get_mut(&id,) {
                 player.chips += player_payoff;
             }
 
@@ -1515,7 +1397,7 @@ impl Projection {
         // Give some time to watch last action and pots.
         self.broadcast_throttle(1_000,);
 
-        for player in self.players_mut() {
+        for player in self.contract.get_players().values_mut() {
             player.bet = Chips::ZERO;
             player.action = PlayerAction::None;
         }
@@ -1554,7 +1436,9 @@ impl Projection {
 
                 let mut pot = self.current_pot.clone();
                 for id in active_player_ids {
-                    if let Some(player,) = self.get_player_mut(&id,) {
+                    if let Some(player,) =
+                        self.contract.get_players().get_mut(&id,)
+                    {
                         player.bet -= min_bet;
                         pot.total_chips += min_bet;
 
