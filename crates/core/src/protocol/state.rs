@@ -6,10 +6,9 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::crypto::PeerId;
-use crate::game_state::PlayerPrivate;
-use crate::message::PlayerAction;
-use crate::poker::Chips;
+use crate::message::{HandPayoff, PlayerAction};
 use crate::poker::PlayerCards::Cards;
+use crate::poker::{Chips, PlayerCards};
 use crate::protocol::msg::{Hash, WireMsg};
 
 pub static GENESIS_HASH: std::sync::LazyLock<Hash,> =
@@ -119,14 +118,32 @@ impl ContractState {
         self.phase.clone()
     }
 
+    pub const fn set_phase(&mut self, phase: HandPhase,) {
+        self.phase = phase;
+    }
+
+    pub fn clear_players(&mut self,) {
+        self.players.clear();
+    }
+
     #[must_use]
     pub fn get_players(&self,) -> BTreeMap<PeerId, PlayerPrivate,> {
         self.players.clone()
     }
-
     #[must_use]
     pub const fn get_num_seats(&self,) -> usize {
         self.num_seats
+    }
+}
+impl ContractState {
+    pub fn players_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut PlayerPrivate,> {
+        self.players.values_mut()
+    }
+    
+    pub fn get_player_mut(&mut self, id: PeerId) -> Option<&mut PlayerPrivate> {
+        self.players_mut().find(|p| p.peer_id == id)
     }
 }
 
@@ -148,6 +165,36 @@ impl ContractState {
     pub fn fold(&mut self, id: &PeerId,) {
         if let Some(player,) = self.players.get_mut(id,) {
             player.fold();
+        }
+    }
+
+    pub fn activate_next_player(&mut self) {
+        if self.players.is_empty() {
+            return;
+        }
+
+        // Get sorted list of player IDs (deterministic order)
+        let mut player_ids: Vec<PeerId> = self.players.keys().cloned().collect();
+        player_ids.sort_by_key(|id| id.to_string());
+
+        let len = player_ids.len();
+
+        // Find current active player's index
+        let current_idx = self.players.values().find(|p| p.is_active && p.chips > Chips::ZERO).map(|p| {
+            player_ids.iter().position(|id| *id == p.peer_id).unwrap_or(0)
+        }).unwrap_or(0);
+
+        // Cycle from next index
+        for offset in 1..=len {
+            let next_idx = (current_idx + offset) % len;
+            let next_id = player_ids[next_idx];
+            if let Some(player) = self.players.get_mut(&next_id) {
+                if player.is_active && player.chips > Chips::ZERO {
+                    // Set as active (assuming active_player_id or similar; adjust if needed)
+                    // If no active_player_id field, track separately or mark in PlayerPrivate
+                    break;
+                }
+            }
         }
     }
 
@@ -197,10 +244,6 @@ impl ContractState {
         self.players.retain(|_, p| p.chips > Chips::ZERO,);
     }
 
-    pub fn activate_next_player(&mut self,) {
-        // Implement based on seat order or logic; stub
-        todo!()
-    }
 }
 
 impl fmt::Debug for ContractState {
@@ -330,4 +373,105 @@ pub fn hash_state(st: &ContractState,) -> Hash {
     let bytes = bincode::serialize(st,).expect("bincode serialization failed",);
     let hash = blake3::hash(bytes.as_slice(),);
     Hash(hash,)
+}
+
+/// One player as stored in *our* local copy of the table state.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq,)]
+pub struct PlayerPrivate {
+    pub peer_id:                          PeerId,
+    pub nickname:                         String,
+    pub chips:                            Chips,
+    pub bet:                              Chips,
+    pub payoff:                           Option<HandPayoff,>,
+    pub action:                           PlayerAction,
+    pub action_timer:                     Option<u64,>,
+    pub hole_cards:                       PlayerCards,
+    pub public_cards:                     PlayerCards,
+    pub has_button:                       bool,
+    pub is_active:                        bool,
+    pub has_sent_start_game_notification: bool,
+    pub seat_idx:                         Option<u8,>,
+}
+
+impl PlayerPrivate {
+    pub fn start_hand(&mut self,) {
+        self.is_active = self.chips > Chips::ZERO;
+        self.has_button = false;
+        self.bet = Chips::ZERO;
+        self.action = PlayerAction::None;
+        self.public_cards = PlayerCards::None;
+        self.hole_cards = PlayerCards::None;
+    }
+}
+
+impl PlayerPrivate {
+    pub const fn finalize_hand(&mut self,) {
+        self.action = PlayerAction::None;
+        self.action_timer = None;
+    }
+
+    #[must_use]
+    pub fn id_digits(&self,) -> String {
+        self.peer_id.to_string()
+    }
+
+    pub const fn sent_start_game_notification(&mut self,) {
+        self.has_sent_start_game_notification = true;
+    }
+
+    #[must_use]
+    pub const fn has_sent_start_game_notification(&self,) -> bool {
+        self.has_sent_start_game_notification
+    }
+}
+
+impl PlayerPrivate {
+    pub fn reset_for_new_hand(&mut self,) {
+        self.is_active = self.chips > Chips::ZERO;
+        self.has_button = false;
+        self.bet = Chips::ZERO;
+        self.action = PlayerAction::None;
+        self.hole_cards = PlayerCards::None;
+        self.public_cards = PlayerCards::None;
+    }
+}
+
+impl PlayerPrivate {
+    #[must_use]
+    pub const fn new(id: PeerId, nickname: String, chips: Chips,) -> Self {
+        Self {
+            has_sent_start_game_notification: false,
+            peer_id: id,
+            nickname,
+            chips,
+            bet: Chips::default(),
+            payoff: None,
+            action: PlayerAction::None,
+            action_timer: None,
+            hole_cards: PlayerCards::None,
+            public_cards: PlayerCards::None,
+            has_button: false,
+            is_active: true,
+            seat_idx: None,
+        }
+    }
+
+    pub const fn fold(&mut self,) {
+        self.is_active = false;
+        self.action = PlayerAction::Fold;
+    }
+
+    pub fn place_bet(&mut self, total_bet: Chips, action: PlayerAction,) {
+        let required = total_bet - self.bet;
+        let actual_bet = required.min(self.chips,);
+
+        self.chips -= actual_bet;
+        self.bet += actual_bet;
+        self.action = action;
+    }
+
+    #[must_use]
+    pub fn has_chips(&self,) -> bool {
+        self.chips > Chips::ZERO
+    }
 }
