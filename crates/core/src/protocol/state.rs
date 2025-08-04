@@ -346,19 +346,26 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                 st.phase = HandPhase::StartingGame;
             }
         },
-        WireMsg::DealCards {
-            table: _table,
-            game_id: _game_id,
-            player_id, // receiver
-            card1,
-            card2,
-        } => {
-            for player in st.players.values_mut() {
-                if player.peer_id == *player_id {
-                    player.hole_cards = Cards(*card1, *card2,);
-                    break;
+        WireMsg::DealCardsBatch(batch) => {
+            // Verify: Complete, sorted, valid for active players
+            let expected_receivers: Vec<PeerId> = st.players.values().filter(|p| p.is_active && p.chips > Chips::ZERO).map(|p| p.peer_id).collect();
+            let mut batch_receivers_sorted: Vec<PeerId> = batch.iter().map(|dc| dc.player_id).collect();
+            batch_receivers_sorted.sort_by_key(|id| id.to_string());
+            let mut expected_receivers_sorted = expected_receivers.clone();
+            expected_receivers_sorted.sort_by_key(|id| id.to_string());
+            if batch_receivers_sorted != expected_receivers_sorted || batch.len() != expected_receivers.len() {
+                info!("Invalid DealCardsBatch; rejecting");
+                return StepResult { next: prev.clone(), effects: vec![] };
+            }
+            // Apply: Update hole_cards for each
+            for dc in batch {
+                if let Some(player) = st.players.get_mut(&dc.player_id) {
+                    player.hole_cards = Cards(dc.card1, dc.card2);
                 }
             }
+            // Add to effects if needed (e.g., broadcast)
+            let eff = Effect::Send(msg.clone());
+            out.push(eff);
         },
         WireMsg::ActionRequest { .. } => {
             todo!()
