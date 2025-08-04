@@ -2,6 +2,7 @@
 
 //! poker core types shared by peers.
 #![warn(clippy::all, rust_2018_idioms)]
+#![allow(dead_code)]
 
 #[cfg(feature = "connection")]
 pub mod connection;

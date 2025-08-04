@@ -1120,6 +1120,7 @@ impl Projection {
         );
     }
     fn enter_start_hand(&mut self,) {
+        info!("enter start hand...");
         self.contract.phase = HandPhase::StartingHand;
         self.start_hand();
 

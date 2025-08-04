@@ -1,7 +1,6 @@
 use std::{fmt, ops};
 
 pub use poker_cards::{Card, Deck, Rank, Suit};
-#[cfg(feature = "eval")]
 pub use poker_eval::eval::{HandRank, HandValue};
 use serde::{Deserialize, Serialize};
 
