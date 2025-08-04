@@ -82,7 +82,7 @@ pub struct Projection {
     deck:                             Deck,
     current_pot:                      Pot,
     action_request:                   Option<ActionRequest,>,
-    active_player_id:                    Option<PeerId,>,
+    active_player_id:                 Option<PeerId,>,
     last_bet:                         Chips,
     hand_count:                       usize,
     min_raise:                        Chips,
@@ -918,12 +918,18 @@ impl Projection {
 
         // Pay small and big blind.
         if let Some(id,) = &mut self.active_player_id {
-            self.contract.get_player_mut(*id).expect("err").place_bet(self.small_blind, PlayerAction::SmallBlind,);
+            self.contract
+                .get_player_mut(*id,)
+                .expect("err",)
+                .place_bet(self.small_blind, PlayerAction::SmallBlind,);
         }
 
         // Pay small and big blind.
         if let Some(p,) = &mut self.active_player_id {
-            self.contract.get_player_mut(*p).expect("err").place_bet(self.big_blind, PlayerAction::BigBlind,);
+            self.contract
+                .get_player_mut(*p,)
+                .expect("err",)
+                .place_bet(self.big_blind, PlayerAction::BigBlind,);
         }
 
         self.last_bet = self.big_blind;
@@ -952,7 +958,9 @@ impl Projection {
         for &id in &active_ids {
             let c1 = self.deck.deal();
             let c2 = self.deck.deal();
-            if let Some(player,) = self.contract.players_mut().find(|p| p.peer_id == id,) {
+            if let Some(player,) =
+                self.contract.players_mut().find(|p| p.peer_id == id,)
+            {
                 player.public_cards = PlayerCards::Covered;
                 player.hole_cards = if c1.rank() < c2.rank() {
                     PlayerCards::Cards(c1, c2,)
@@ -1127,7 +1135,7 @@ impl Projection {
 
     fn handle_single_player_payoff(&mut self, payoffs: &mut Vec<HandPayoff,>,) {
         if let Some(id,) = &mut self.active_player_id {
-            let player = self.contract.get_player_mut(*id).expect("err");
+            let player = self.contract.get_player_mut(*id,).expect("err",);
             player.chips += self.current_pot.total_chips;
 
             if let Some(payoff,) = payoffs
@@ -1357,7 +1365,7 @@ impl Projection {
     /// Request action to the active player.
     fn request_action(&mut self,) {
         if let Some(id,) = &mut self.active_player_id {
-            let player = self.contract.get_player_mut(*id).expect("err");
+            let player = self.contract.get_player_mut(*id,).expect("err",);
 
             let mut actions = vec![PlayerAction::Fold];
 
