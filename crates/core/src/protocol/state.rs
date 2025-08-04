@@ -141,9 +141,12 @@ impl ContractState {
     ) -> impl Iterator<Item = &mut PlayerPrivate,> {
         self.players.values_mut()
     }
-    
-    pub fn get_player_mut(&mut self, id: PeerId) -> Option<&mut PlayerPrivate> {
-        self.players_mut().find(|p| p.peer_id == id)
+
+    pub fn get_player_mut(
+        &mut self,
+        id: PeerId,
+    ) -> Option<&mut PlayerPrivate,> {
+        self.players_mut().find(|p| p.peer_id == id,)
     }
 }
 
@@ -168,30 +171,40 @@ impl ContractState {
         }
     }
 
-    pub fn activate_next_player(&mut self) {
+    pub fn activate_next_player(&mut self,) {
         if self.players.is_empty() {
             return;
         }
 
         // Get sorted list of player IDs (deterministic order)
-        let mut player_ids: Vec<PeerId> = self.players.keys().cloned().collect();
-        player_ids.sort_by_key(|id| id.to_string());
+        let mut player_ids: Vec<PeerId,> =
+            self.players.keys().copied().collect();
+        player_ids.sort_by_key(std::string::ToString::to_string,);
 
         let len = player_ids.len();
 
         // Find current active player's index
-        let current_idx = self.players.values().find(|p| p.is_active && p.chips > Chips::ZERO).map(|p| {
-            player_ids.iter().position(|id| *id == p.peer_id).unwrap_or(0)
-        }).unwrap_or(0);
+        let current_idx = self
+            .players
+            .values()
+            .find(|p| p.is_active && p.chips > Chips::ZERO,)
+            .map_or(0, |p| {
+                player_ids
+                    .iter()
+                    .position(|id| *id == p.peer_id,)
+                    .unwrap_or(0,)
+            },);
 
         // Cycle from next index
         for offset in 1..=len {
             let next_idx = (current_idx + offset) % len;
             let next_id = player_ids[next_idx];
-            if let Some(player) = self.players.get_mut(&next_id) {
+            if let Some(player,) = self.players.get_mut(&next_id,) {
                 if player.is_active && player.chips > Chips::ZERO {
-                    // Set as active (assuming active_player_id or similar; adjust if needed)
-                    // If no active_player_id field, track separately or mark in PlayerPrivate
+                    // Set as active (assuming active_player_id or similar;
+                    // adjust if needed)
+                    // If no active_player_id field, track separately or mark in
+                    // PlayerPrivate
                     break;
                 }
             }
@@ -243,7 +256,6 @@ impl ContractState {
     pub fn remove_with_no_chips(&mut self,) {
         self.players.retain(|_, p| p.chips > Chips::ZERO,);
     }
-
 }
 
 impl fmt::Debug for ContractState {
