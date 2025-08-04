@@ -905,7 +905,7 @@ impl Projection {
         );
     }
 
-    fn enter_start_hand(&mut self) {
+    fn enter_start_hand(&mut self,) {
         info!("enter start hand...");
         if self.count_active() < 2 {
             info!("exiting starting hand, less than 2 active players");
@@ -914,56 +914,66 @@ impl Projection {
         }
         self.update_blinds();
         // Pay small and big blind (using active_player_id).
-        if let Some(id) = self.active_player_id {
-            self.contract.place_bet(&id, self.small_blind, PlayerAction::SmallBlind);
+        if let Some(id,) = self.active_player_id {
+            self.contract.place_bet(
+                &id,
+                self.small_blind,
+                PlayerAction::SmallBlind,
+            );
         }
-        if let Some(id) = self.active_player_id {
-            self.contract.place_bet(&id, self.big_blind, PlayerAction::BigBlind);
+        if let Some(id,) = self.active_player_id {
+            self.contract.place_bet(
+                &id,
+                self.big_blind,
+                PlayerAction::BigBlind,
+            );
         }
         self.last_bet = self.big_blind;
         self.min_raise = self.big_blind;
         // Create a new deck.
-        self.deck = Deck::shuffled(&mut self.rng);
+        self.deck = Deck::shuffled(&mut self.rng,);
         // Clear board.
         self.board.clear();
         let active_ids = self
             .players()
             .iter()
-            .filter(|p| p.is_active)
-            .map(|p| p.peer_id)
-            .collect::<Vec<_>>();
+            .filter(|p| p.is_active,)
+            .map(|p| p.peer_id,)
+            .collect::<Vec<_,>>();
         for player in self.contract.players_mut() {
-            if !active_ids.contains(&player.peer_id) {
+            if !active_ids.contains(&player.peer_id,) {
                 player.hole_cards = PlayerCards::None;
                 player.public_cards = PlayerCards::None;
             }
         }
         // Collect DealCards for all active players
-        let mut deal_cards_list : Vec<DealCards>= Vec::new();
+        let mut deal_cards_list: Vec<DealCards,> = Vec::new();
         for &id in &active_ids {
             let c1 = self.deck.deal();
             let c2 = self.deck.deal();
-            if let Some(player) = self.contract.players_mut().find(|p| p.peer_id == id) {
+            if let Some(player,) =
+                self.contract.players_mut().find(|p| p.peer_id == id,)
+            {
                 player.public_cards = PlayerCards::Covered;
                 player.hole_cards = if c1.rank() < c2.rank() {
-                    PlayerCards::Cards(c1, c2)
+                    PlayerCards::Cards(c1, c2,)
                 } else {
-                    PlayerCards::Cards(c2, c1)
+                    PlayerCards::Cards(c2, c1,)
                 };
             }
             deal_cards_list.push(DealCards {
-                card1: c1,
-                card2: c2,
+                card1:     c1,
+                card2:     c2,
                 player_id: id,
-                table: self.table_id,
-                game_id: self.game_id,
-            });
+                table:     self.table_id,
+                game_id:   self.game_id,
+            },);
         }
         // Sort by player_id for deterministic order
-        deal_cards_list.sort_by_key(|dc| dc.player_id);
+        deal_cards_list.sort_by_key(|dc| dc.player_id,);
         // Append batch to chain
-        let batch_msg = WireMsg::DealCardsBatch(deal_cards_list);
-        let _ = self.send_contract(batch_msg);
+        let batch_msg = WireMsg::DealCardsBatch(deal_cards_list,);
+        let _ = self.send_contract(batch_msg,);
         self.enter_preflop_betting();
     }
     fn enter_preflop_betting(&mut self,) {
