@@ -121,19 +121,21 @@ impl<'de,> Deserialize<'de,> for Hash {
 }
 
 // ---------- All message kinds ----------------------------------------------
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct DealCards {
+    pub(crate) card1: Card,
+    pub(crate) card2: Card,
+    pub(crate) player_id: PeerId,  // Receiver
+    pub(crate) table: TableId,
+    pub(crate) game_id: GameId,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq,)]
 pub enum WireMsg {
     // ── lobby ─────────────────────────────────────────────
     /// Dealer sends each player their two private cards (**plaintext – will be
     /// replaced by commitments later**).
-    DealCards {
-        table:     TableId,
-        game_id:   GameId,
-        player_id: PeerId, // receiver
-        card1:     Card,
-        card2:     Card,
-    },
-
     JoinTableReq {
         table:     TableId,
         player_id: PeerId,
@@ -147,6 +149,8 @@ pub enum WireMsg {
     StartGameBatch(Vec<SignedMessage,>,), /* Sorted list of plain
                                            * StartGameNotify signed
                                            * messages */
+    DealCardsBatch(Vec<DealCards>),  // Sorted by receiver peer_id
+
     ShuffleCommit {
         deck_commit:   Commitment,
         shuffle_proof: ShuffleProof,
@@ -209,7 +213,7 @@ impl WireMsg {
             Self::EndGame { .. } => "EndGame".to_string(),
             Self::Throttle { .. } => "Throttle".to_string(),
             Self::Ping => "Ping".to_string(),
-            Self::DealCards { .. } => "DealCards".to_string(),
+            Self::DealCardsBatch(..) => "DealCards".to_string(),
         }
     }
 }
