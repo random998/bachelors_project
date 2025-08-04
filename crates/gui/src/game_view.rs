@@ -255,7 +255,7 @@ impl GameView {
     }
 
     // ---------- the oval-shaped table background -------------------
-    fn paint_table(&self, ui: &mut Ui, rect: &Rect,) {
+    fn paint_table(&self, ui: &Ui, rect: &Rect,) {
         fn paint_oval(ui: &Ui, rect: &Rect, fill_color: Color32,) {
             let radius = rect.height() / 2.0;
             ui.painter().add(epaint::CircleShape {
@@ -364,7 +364,7 @@ impl GameView {
     }
 
     // ---------- every seat / player box ---------------------------
-    fn paint_players(&mut self, ui: &mut Ui, rect: &Rect, app: &mut App,) {
+    fn paint_players(&mut self, ui: &mut Ui, rect: &Rect, app: &App,) {
         let seats = match self.game_state.players().len() {
             1 => vec![Align2::CENTER_BOTTOM],
             2 => vec![Align2::CENTER_BOTTOM, Align2::CENTER_TOP],
@@ -410,7 +410,7 @@ impl GameView {
         let rect = player_rect(rect, *align,);
         let id_rect = self.paint_player_id(player, ui, &rect, align,);
         self.paint_player_name_and_chips(player, ui, &id_rect,);
-        self.paint_player_cards(player, ui, &id_rect, align, &app.textures,);
+        self.paint_player_cards(player, ui, &id_rect, *align, &app.textures,);
         self.paint_player_action(player, ui, &id_rect, align,);
         self.paint_winning_hand(player, ui, &id_rect, align, &app.textures,);
     }
@@ -944,9 +944,9 @@ B  Bet
     fn paint_player_cards(
         &self,
         player: &PlayerPrivate,
-        ui: &mut Ui,
+        ui: &Ui,
         rect: &Rect,
-        align: &Align2,
+        align: Align2,
         textures: &Textures,
     ) {
         if !player.is_active {

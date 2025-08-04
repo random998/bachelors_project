@@ -26,6 +26,7 @@ use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId};
 use crate::protocol::msg::{Hash, LogEntry, WireMsg};
 pub use crate::protocol::state::{
     self as contract, ContractState, GENESIS_HASH, HandPhase, PeerContext,
+    PlayerPrivate,
 };
 
 #[allow(missing_docs)]
@@ -45,107 +46,6 @@ impl Pot {
 impl fmt::Display for Pot {
     fn fmt(&self, f: &mut Formatter<'_,>,) -> fmt::Result {
         write!(f, "{}", self.total_chips)
-    }
-}
-
-/// One player as stored in *our* local copy of the table state.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq,)]
-pub struct PlayerPrivate {
-    pub peer_id:                          PeerId,
-    pub nickname:                         String,
-    pub chips:                            Chips,
-    pub bet:                              Chips,
-    pub payoff:                           Option<HandPayoff,>,
-    pub action:                           PlayerAction,
-    pub action_timer:                     Option<u64,>,
-    pub hole_cards:                       PlayerCards,
-    pub public_cards:                     PlayerCards,
-    pub has_button:                       bool,
-    pub is_active:                        bool,
-    pub has_sent_start_game_notification: bool,
-    pub seat_idx:                         Option<u8,>,
-}
-
-impl PlayerPrivate {
-    pub fn start_hand(&mut self,) {
-        self.is_active = self.chips > Chips::ZERO;
-        self.has_button = false;
-        self.bet = Chips::ZERO;
-        self.action = PlayerAction::None;
-        self.public_cards = PlayerCards::None;
-        self.hole_cards = PlayerCards::None;
-    }
-}
-
-impl PlayerPrivate {
-    pub const fn finalize_hand(&mut self,) {
-        self.action = PlayerAction::None;
-        self.action_timer = None;
-    }
-
-    #[must_use]
-    pub fn id_digits(&self,) -> String {
-        self.peer_id.to_string()
-    }
-
-    pub const fn sent_start_game_notification(&mut self,) {
-        self.has_sent_start_game_notification = true;
-    }
-
-    #[must_use]
-    pub const fn has_sent_start_game_notification(&self,) -> bool {
-        self.has_sent_start_game_notification
-    }
-}
-
-impl PlayerPrivate {
-    pub fn reset_for_new_hand(&mut self,) {
-        self.is_active = self.chips > Chips::ZERO;
-        self.has_button = false;
-        self.bet = Chips::ZERO;
-        self.action = PlayerAction::None;
-        self.hole_cards = PlayerCards::None;
-        self.public_cards = PlayerCards::None;
-    }
-}
-
-impl PlayerPrivate {
-    #[must_use]
-    pub const fn new(id: PeerId, nickname: String, chips: Chips,) -> Self {
-        Self {
-            has_sent_start_game_notification: false,
-            peer_id: id,
-            nickname,
-            chips,
-            bet: Chips::default(),
-            payoff: None,
-            action: PlayerAction::None,
-            action_timer: None,
-            hole_cards: PlayerCards::None,
-            public_cards: PlayerCards::None,
-            has_button: false,
-            is_active: true,
-            seat_idx: None,
-        }
-    }
-
-    pub const fn fold(&mut self,) {
-        self.is_active = false;
-        self.action = PlayerAction::Fold;
-    }
-
-    pub fn place_bet(&mut self, total_bet: Chips, action: PlayerAction,) {
-        let required = total_bet - self.bet;
-        let actual_bet = required.min(self.chips,);
-
-        self.chips -= actual_bet;
-        self.bet += actual_bet;
-        self.action = action;
-    }
-
-    #[must_use]
-    pub fn has_chips(&self,) -> bool {
-        self.chips > Chips::ZERO
     }
 }
 
@@ -182,7 +82,7 @@ pub struct Projection {
     deck:                             Deck,
     current_pot:                      Pot,
     action_request:                   Option<ActionRequest,>,
-    active_player:                    Option<PlayerPrivate,>,
+    active_player_id:                    Option<PeerId,>,
     last_bet:                         Chips,
     hand_count:                       usize,
     min_raise:                        Chips,
@@ -203,7 +103,8 @@ pub struct Projection {
     peer_context: PeerContext,
 
     start_game_message_buffer: Vec<SignedMessage,>, /* Buffer for plain
-                                                     * StartGameNotify msgs */
+                                                     * StartGameNotify
+                                                     * messages */
     start_game_timeout:        Option<Instant,>, // Timer for buffering phase
     start_game_proposer:       Option<PeerId,>,  // Cached proposer ID
 }
@@ -365,7 +266,7 @@ impl Projection {
             min_raise: Chips::ZERO,
             game_id: GameId::new_id(),
             last_bet: Chips::ZERO,
-            active_player: None,
+            active_player_id: None,
             table_id,
             num_seats,
             key_pair,
@@ -1008,6 +909,7 @@ impl Projection {
 
         // If there are fewer than 2 active players end the game.
         if self.count_active() < 2 {
+            info!("exiting starting hand, less than 2 active players");
             self.enter_end_game();
             return;
         }
@@ -1015,13 +917,13 @@ impl Projection {
         self.update_blinds();
 
         // Pay small and big blind.
-        if let Some(p,) = &mut self.active_player {
-            p.place_bet(self.small_blind, PlayerAction::SmallBlind,);
+        if let Some(id,) = &mut self.active_player_id {
+            self.contract.get_player_mut(*id).expect("err").place_bet(self.small_blind, PlayerAction::SmallBlind,);
         }
 
         // Pay small and big blind.
-        if let Some(p,) = &mut self.active_player {
-            p.place_bet(self.big_blind, PlayerAction::BigBlind,);
+        if let Some(p,) = &mut self.active_player_id {
+            self.contract.get_player_mut(*p).expect("err").place_bet(self.big_blind, PlayerAction::BigBlind,);
         }
 
         self.last_bet = self.big_blind;
@@ -1040,7 +942,7 @@ impl Projection {
             .map(|p| p.peer_id,)
             .collect::<Vec<_,>>();
 
-        for player in self.contract.get_players().values_mut() {
+        for player in self.contract.players_mut() {
             if !active_ids.contains(&player.peer_id,) {
                 player.hole_cards = PlayerCards::None;
                 player.public_cards = PlayerCards::None;
@@ -1050,7 +952,7 @@ impl Projection {
         for &id in &active_ids {
             let c1 = self.deck.deal();
             let c2 = self.deck.deal();
-            if let Some(player,) = self.contract.get_players().get_mut(&id,) {
+            if let Some(player,) = self.contract.players_mut().find(|p| p.peer_id == id,) {
                 player.public_cards = PlayerCards::Covered;
                 player.hole_cards = if c1.rank() < c2.rank() {
                     PlayerCards::Cards(c1, c2,)
@@ -1077,7 +979,7 @@ impl Projection {
     }
 
     fn enter_preflop_betting(&mut self,) {
-        // self.phase = HandPhase::PreflopBetting;
+        self.contract.set_phase(HandPhase::PreflopBetting,);
         self.action_update();
     }
 
@@ -1096,25 +998,25 @@ impl Projection {
             self.board.push(self.deck.deal(),);
         }
 
-        // self.phase = HandPhase::FlopBetting;
+        self.contract.set_phase(HandPhase::FlopBetting,);
         self.start_round();
     }
 
     fn enter_deal_turn(&mut self,) {
         self.board.push(self.deck.deal(),);
-        // self.phase = HandPhase::TurnBetting;
+        self.contract.set_phase(HandPhase::TurnBetting,);
         self.start_round();
     }
 
     fn enter_deal_river(&mut self,) {
         self.board.push(self.deck.deal(),);
 
-        // self.phase = HandPhase::RiverBetting;
+        self.contract.set_phase(HandPhase::RiverBetting,);
         self.start_round();
     }
 
     fn enter_showdown(&mut self,) {
-        // self.phase = HandPhase::Showdown;
+        self.contract.set_phase(HandPhase::Showdown,);
 
         for player in self.contract.get_players().values_mut() {
             player.action = PlayerAction::None;
@@ -1135,7 +1037,7 @@ impl Projection {
             Duration::from_millis(3_000,)
         };
 
-        // self.phase = HandPhase::EndingHand;
+        self.contract.set_phase(HandPhase::EndingHand,);
 
         self.update_pots();
 
@@ -1177,7 +1079,7 @@ impl Projection {
         // game.
         self.broadcast_throttle(4_500,);
 
-        // self.phase = HandPhase::EndingGame;
+        self.contract.set_phase(HandPhase::EndingGame,);
 
         for player in self.players() {
             // Notify the client that this player has left the table.
@@ -1187,13 +1089,13 @@ impl Projection {
             let _ = self.send_contract(msg,);
         }
 
-        // self.contract.players.clear();
+        self.contract.clear_players();
 
         // Reset hand count for next game.
         self.hand_count = 0;
 
         // Wait for players to join.
-        // self.phase = HandPhase::WaitingForPlayers;
+        self.contract.set_phase(HandPhase::EndingGame,);
     }
 
     fn update_blinds(&mut self,) {
@@ -1224,7 +1126,8 @@ impl Projection {
     }
 
     fn handle_single_player_payoff(&mut self, payoffs: &mut Vec<HandPayoff,>,) {
-        if let Some(player,) = &mut self.active_player {
+        if let Some(id,) = &mut self.active_player_id {
+            let player = self.contract.get_player_mut(*id).expect("err");
             player.chips += self.current_pot.total_chips;
 
             if let Some(payoff,) = payoffs
@@ -1453,7 +1356,9 @@ impl Projection {
     }
     /// Request action to the active player.
     fn request_action(&mut self,) {
-        if let Some(player,) = &mut self.active_player {
+        if let Some(id,) = &mut self.active_player_id {
+            let player = self.contract.get_player_mut(*id).expect("err");
+
             let mut actions = vec![PlayerAction::Fold];
 
             if player.bet == self.last_bet {
