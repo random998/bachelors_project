@@ -1002,7 +1002,7 @@ fn paint_border(ui: &Ui, rect: &Rect,) {
 
     for (idx, &color,) in (0u8..6u8).zip(&[100u8, 120u8, 140u8, 100u8, 80u8,],)
     {
-        let border_rect = rect.expand(f32::from(idx),);
+        let border_rect = rect.expand(f32::from(idx,),);
         let stroke = Stroke::new(1.0, Color32::from_gray(color,),);
         ui.painter()
             .rect_stroke(border_rect, 5.0, stroke, StrokeKind::Inside,);
