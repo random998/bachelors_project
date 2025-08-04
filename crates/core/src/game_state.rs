@@ -1144,7 +1144,7 @@ impl Projection {
         }
     }
 
-    fn handle_multi_player_payoff(&mut self, payoffs: &mut Vec<HandPayoff,>,) {
+    fn handle_multi_player_payoff(&self, payoffs: &mut Vec<HandPayoff,>,) {
         let board = self.board.clone();
         let player_data = self.collect_player_data_for_pot(&self.current_pot,);
 

@@ -356,9 +356,11 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                 .collect();
             let mut batch_receivers_sorted: Vec<PeerId,> =
                 batch.iter().map(|dc| dc.player_id,).collect();
-            batch_receivers_sorted.sort_by_key(std::string::ToString::to_string,);
+            batch_receivers_sorted
+                .sort_by_key(std::string::ToString::to_string,);
             let mut expected_receivers_sorted = expected_receivers.clone();
-            expected_receivers_sorted.sort_by_key(std::string::ToString::to_string,);
+            expected_receivers_sorted
+                .sort_by_key(std::string::ToString::to_string,);
             if batch_receivers_sorted != expected_receivers_sorted
                 || batch.len() != expected_receivers.len()
             {
