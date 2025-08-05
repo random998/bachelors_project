@@ -126,27 +126,30 @@ impl ContractState {
         self.players.clear();
     }
 
-    #[must_use]
-    pub fn get_players(&self,) -> BTreeMap<PeerId, PlayerPrivate,> {
-        self.players.clone()
-    }
+
     #[must_use]
     pub const fn get_num_seats(&self,) -> usize {
         self.num_seats
     }
 }
 impl ContractState {
-    pub fn players_mut(
+    pub fn get_players_mut(
         &mut self,
     ) -> impl Iterator<Item = &mut PlayerPrivate,> {
         self.players.values_mut()
+    }
+
+    pub fn get_players(
+        &self,
+    ) -> Vec<PlayerPrivate> {
+        self.players.values().cloned().collect()
     }
 
     pub fn get_player_mut(
         &mut self,
         id: PeerId,
     ) -> Option<&mut PlayerPrivate,> {
-        self.players_mut().find(|p| p.peer_id == id,)
+        self.get_players_mut().find(|p| p.peer_id == id,)
     }
 }
 
@@ -157,7 +160,7 @@ impl Default for ContractState {
 }
 
 impl ContractState {
-    fn new(num_seats: usize,) -> Self {
+    pub(crate) fn new(num_seats: usize,) -> Self {
         Self {
             phase: HandPhase::WaitingForPlayers,
             players: BTreeMap::default(),
@@ -202,7 +205,7 @@ impl ContractState {
             if let Some(player,) = self.players.get_mut(&next_id,) {
                 if player.is_active && player.chips > Chips::ZERO {
                     // Set as active (assuming active_player_id or similar;
-                    // adjust if needed)
+                    // adjust if needed).
                     // If no active_player_id field, track separately or mark in
                     // PlayerPrivate
                     break;
