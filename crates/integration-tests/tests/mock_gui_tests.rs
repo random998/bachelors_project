@@ -54,9 +54,9 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
         // Assertions after Alice joins
-        assert_eq!(alice.players().len(), 1, "Alice should see herself");
+        assert_eq!(alice.get_players().len(), 1, "Alice should see herself");
         assert_eq!(
-            bob.players().len(),
+            bob.get_players().len(),
             0,
             "Bob should see Alice after processing her join, but reject, since he has not synced yet"
         );
@@ -77,11 +77,13 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
         .await?;
 
     {
+        let _= alice_ui.poll_game_state().await;
+        let _= bob_ui.poll_game_state().await;
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
         // Final assertions
-        assert_eq!(alice.players().len(), 2, "Alice sees both players");
-        assert_eq!(bob.players().len(), 2, "Bob sees both players");
+        assert_eq!(alice.get_players().len(), 2, "Alice sees both players");
+        assert_eq!(bob.get_players().len(), 2, "Bob sees both players");
         assert_eq!(alice.hash_head(), bob.hash_head(), "Hashes match");
         assert!(bob.has_joined_table());
         assert_eq!(alice.hash_chain().len(), 2, "Chain: Alice join + Bob join");
@@ -138,9 +140,9 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
         let charlie = charlie_ui.poll_game_state().await;
-        assert_eq!(alice.players().len(), 1);
-        assert_eq!(charlie.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
-        assert_eq!(bob.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+        assert_eq!(alice.get_players().len(), 1);
+        assert_eq!(charlie.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+        assert_eq!(bob.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
         assert_eq!(bob.hash_head(), charlie.hash_head());
     }
 
@@ -158,9 +160,9 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
         let charlie = charlie_ui.poll_game_state().await;
-        assert_eq!(alice.players().len(), 2);
-        assert_eq!(bob.players().len(), 2);
-        assert_eq!(charlie.players().len(), 0); // charlie has 0 players, since he has not synced yet.
+        assert_eq!(alice.get_players().len(), 2);
+        assert_eq!(bob.get_players().len(), 2);
+        assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
         assert_eq!(alice.hash_chain().len(), 2);
         assert_eq!(bob.hash_chain().len(), 2);
         assert_eq!(charlie.hash_chain().len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
@@ -182,12 +184,12 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
         let bob = bob_ui.poll_game_state().await;
         let charlie = charlie_ui.poll_game_state().await;
 
-        assert_eq!(alice.players().len(), 3);
-        assert_eq!(bob.players().len(), 3);
-        assert_eq!(charlie.players().len(), 3);
+        assert_eq!(alice.get_players().len(), 3);
+        assert_eq!(bob.get_players().len(), 3);
+        assert_eq!(charlie.get_players().len(), 3);
         assert_eq!(alice.hash_chain().len(), 3);
         assert_eq!(bob.hash_chain().len(), 3);
-        assert_eq!(charlie.players().len(), 3);
+        assert_eq!(charlie.get_players().len(), 3);
         assert_eq!(alice.hash_head(), bob.hash_head());
         assert_eq!(alice.hash_head(), charlie.hash_head());
         assert_eq!(bob.hash_head(), charlie.hash_head());
@@ -246,9 +248,9 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
         let charlie = charlie_ui.poll_game_state().await;
-        assert_eq!(alice.players().len(), 1);
-        assert_eq!(bob.players().len(), 0); // bob has not added alice to his player's list, because he has not synced yet.
-        assert_eq!(charlie.players().len(), 0); // charlie has not added alice to his player's list, because he has not synced yet.
+        assert_eq!(alice.get_players().len(), 1);
+        assert_eq!(bob.get_players().len(), 0); // bob has not added alice to his player's list, because he has not synced yet.
+        assert_eq!(charlie.get_players().len(), 0); // charlie has not added alice to his player's list, because he has not synced yet.
     }
 
     // Bob joins
@@ -265,9 +267,9 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
         let charlie = charlie_ui.poll_game_state().await;
-        assert_eq!(alice.players().len(), 2);
-        assert_eq!(bob.players().len(), 2);
-        assert_eq!(charlie.players().len(), 0); // charlie has 0 players in his list, because he has not synced, yet.
+        assert_eq!(alice.get_players().len(), 2);
+        assert_eq!(bob.get_players().len(), 2);
+        assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players in his list, because he has not synced, yet.
         assert_eq!(alice.hash_chain().len(), 2);
         assert_eq!(bob.hash_chain().len(), 2);
         assert_eq!(charlie.hash_chain().len(), 0); // charlies hash chain should have length 0, because he has not synced, yet.
@@ -289,12 +291,12 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         let charlie = charlie_ui.poll_game_state().await;
 
         assert_eq!(
-            alice.players().len(),
+            alice.get_players().len(),
             2,
             "table is full, charlie has not joined"
         );
         assert_eq!(
-            bob.players().len(),
+            bob.get_players().len(),
             2,
             "table is full, charlie has not joined"
         );
@@ -363,8 +365,8 @@ async fn reject_join_game_started_mock_gui() -> Result<(),> {
     {
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
-        assert_eq!(alice.players().len(), 1);
-        assert_eq!(bob.players().len(), 0);
+        assert_eq!(alice.get_players().len(), 1);
+        assert_eq!(bob.get_players().len(), 0);
         assert!(!bob.has_joined_table());
     }
 
@@ -406,8 +408,8 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
     {
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
-        assert_eq!(alice.players().len(), 1); // expect that alice joined her own instance.
-        assert_eq!(bob.players().len(), 0); // expect that alice has not joined bobs instance, because he has not synced yet.
+        assert_eq!(alice.get_players().len(), 1); // expect that alice joined her own instance.
+        assert_eq!(bob.get_players().len(), 0); // expect that alice has not joined bobs instance, because he has not synced yet.
         assert!(!bob.has_joined_table()); // expect that bob has not joined a table, yet.
         assert_ne!(alice.hash_chain(), bob.hash_chain()); // expect that the chains diverge, because bob has not sent a SyncRequest, yet.
     }
@@ -437,8 +439,8 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
 
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
-        assert_eq!(alice.players().len(), 2);
-        assert_eq!(bob.players().len(), 2);
+        assert_eq!(alice.get_players().len(), 2);
+        assert_eq!(bob.get_players().len(), 2);
         assert_eq!(
             alice.hash_chain().len(),
             chain_len_before,
@@ -450,4 +452,286 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
     alice_ui.shutdown().await?;
     bob_ui.shutdown().await?;
     Ok((),)
+}
+
+/// tests whether the same cards are dealt at each instance.
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+async fn test_card_dealing()-> Result<(),> {
+    // setup: 3 peers join
+    let kp_a = KeyPair::generate();
+    let kp_b = KeyPair::generate();
+    let kp_c = KeyPair::generate();
+    let table_id = TableId::new_id();
+    let num_seats = 3;
+
+    let mut alice_ui =
+        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
+    alice_ui.wait_for_listen_addr().await;
+
+    let mut bob_ui = MockUi::new(
+        kp_b,
+        "Bob".into(),
+        alice_ui.get_listen_addr(),
+        num_seats,
+        table_id,
+    );
+    bob_ui.wait_for_listen_addr().await;
+
+    let mut charlie_ui = MockUi::new(
+        kp_c,
+        "Charlie".into(),
+        alice_ui.get_listen_addr(),
+        num_seats,
+        table_id,
+    );
+    charlie_ui.wait_for_listen_addr().await;
+
+    // Alice joins
+    alice_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice_ui.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await?;
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+        assert_eq!(alice.get_players().len(), 1);
+        assert_eq!(charlie.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+        assert_eq!(bob.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+        assert_eq!(bob.hash_head(), charlie.hash_head());
+    }
+
+    // Bob joins
+    bob_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: bob_ui.peer_id(),
+            nickname: "Bob".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await?;
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+        assert_eq!(alice.get_players().len(), 2);
+        assert_eq!(bob.get_players().len(), 2);
+        assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
+        assert_eq!(alice.hash_chain().len(), 2);
+        assert_eq!(bob.hash_chain().len(), 2);
+        assert_eq!(charlie.hash_chain().len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
+        assert_eq!(alice.hash_head(), bob.hash_head());
+    }
+
+    // Charlie joins
+    charlie_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: charlie_ui.peer_id(),
+            nickname: "Charlie".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await?;
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+
+        assert_eq!(alice.get_players().len(), 3);
+        assert_eq!(bob.get_players().len(), 3);
+        assert_eq!(charlie.get_players().len(), 3);
+        assert_eq!(alice.hash_chain().len(), 3);
+        assert_eq!(bob.hash_chain().len(), 3);
+        assert_eq!(charlie.get_players().len(), 3);
+        assert_eq!(alice.hash_head(), bob.hash_head());
+        assert_eq!(alice.hash_head(), charlie.hash_head());
+        assert_eq!(bob.hash_head(), charlie.hash_head());
+        assert_eq!(alice.hash_chain(), bob.hash_chain());
+        assert_eq!(alice.hash_head(), charlie.hash_head());
+        assert_eq!(bob.hash_head(), charlie.hash_head());
+    }
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+        assert_eq!(alice.get_players().len(), 3);
+        assert_eq!(bob.get_players().len(), 3);
+        assert_eq!(charlie.get_players().len(), 3);
+        // Sort players by peer_id for consistent order across instances
+        let mut alice_players = alice.get_players();
+        alice_players.sort_by_key(|p| p.peer_id.to_string());
+        let mut bob_players = bob.get_players();
+        bob_players.sort_by_key(|p| p.peer_id.to_string());
+        let mut charlie_players = charlie.get_players();
+        charlie_players.sort_by_key(|p| p.peer_id.to_string());
+        let alice_player1 = alice_players.get(0).unwrap();
+        let alice_player2 = alice_players.get(1).unwrap();
+        let alice_player3 = alice_players.get(2).unwrap();
+        let bob_player1 = bob_players.get(0).unwrap();
+        let bob_player2 = bob_players.get(1).unwrap();
+        let bob_player3 = bob_players.get(2).unwrap();
+        let charlie_player1 = charlie_players.get(0).unwrap();
+        let charlie_player2 = charlie_players.get(1).unwrap();
+        let charlie_player3 = charlie_players.get(2).unwrap();
+        // Check cards for each sorted position (now consistent by peer_id)
+        // Player 1 (same peer_id across)
+        assert_eq!(alice_player1.peer_id, bob_player1.peer_id);
+        assert_eq!(alice_player1.peer_id, charlie_player1.peer_id);
+        assert_eq!(alice_player1.hole_cards, bob_player1.hole_cards);
+        assert_eq!(alice_player1.hole_cards, charlie_player1.hole_cards);
+        assert_eq!(alice_player1.public_cards, bob_player1.public_cards);
+        assert_eq!(alice_player1.public_cards, charlie_player1.public_cards);
+        // Player 2
+        assert_eq!(alice_player2.peer_id, bob_player2.peer_id);
+        assert_eq!(alice_player2.peer_id, charlie_player2.peer_id);
+        assert_eq!(alice_player2.hole_cards, bob_player2.hole_cards);
+        assert_eq!(alice_player2.hole_cards, charlie_player2.hole_cards);
+        assert_eq!(alice_player2.public_cards, bob_player2.public_cards);
+        assert_eq!(alice_player2.public_cards, charlie_player2.public_cards);
+        // Player 3
+        assert_eq!(alice_player3.peer_id, bob_player3.peer_id);
+        assert_eq!(alice_player3.peer_id, charlie_player3.peer_id);
+        assert_eq!(alice_player3.hole_cards, bob_player3.hole_cards);
+        assert_eq!(alice_player3.hole_cards, charlie_player3.hole_cards);
+        assert_eq!(alice_player3.public_cards, bob_player3.public_cards);
+        assert_eq!(alice_player3.public_cards, charlie_player3.public_cards);
+    }
+
+    // clean up && shutdown
+    alice_ui.shutdown().await?;
+    bob_ui.shutdown().await?;
+    charlie_ui.shutdown().await?;
+    Ok(())
+
+}
+/// tests whether the local player is the first in the player list at each instance.
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+async fn test_local_player_first()-> Result<(),> {
+    // setup: 3 peers join
+    let kp_a = KeyPair::generate();
+    let kp_b = KeyPair::generate();
+    let kp_c = KeyPair::generate();
+    let table_id = TableId::new_id();
+    let num_seats = 3;
+
+    let mut alice_ui =
+        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
+    alice_ui.wait_for_listen_addr().await;
+
+    let mut bob_ui = MockUi::new(
+        kp_b,
+        "Bob".into(),
+        alice_ui.get_listen_addr(),
+        num_seats,
+        table_id,
+    );
+    bob_ui.wait_for_listen_addr().await;
+
+    let mut charlie_ui = MockUi::new(
+        kp_c,
+        "Charlie".into(),
+        alice_ui.get_listen_addr(),
+        num_seats,
+        table_id,
+    );
+    charlie_ui.wait_for_listen_addr().await;
+
+    // Alice joins
+    alice_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: alice_ui.peer_id(),
+            nickname: "Alice".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await?;
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+        assert_eq!(alice.get_players().len(), 1);
+        assert_eq!(charlie.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+        assert_eq!(bob.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+        assert_eq!(bob.hash_head(), charlie.hash_head());
+    }
+
+    // Bob joins
+    bob_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: bob_ui.peer_id(),
+            nickname: "Bob".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await?;
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+        assert_eq!(alice.get_players().len(), 2);
+        assert_eq!(bob.get_players().len(), 2);
+        assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
+        assert_eq!(alice.hash_chain().len(), 2);
+        assert_eq!(bob.hash_chain().len(), 2);
+        assert_eq!(charlie.hash_chain().len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
+        assert_eq!(alice.hash_head(), bob.hash_head());
+    }
+
+    // Charlie joins
+    charlie_ui
+        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+            table_id,
+            player_requesting_join: charlie_ui.peer_id(),
+            nickname: "Charlie".into(),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
+        },)
+        .await?;
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+
+        assert_eq!(alice.get_players().len(), 3);
+        assert_eq!(bob.get_players().len(), 3);
+        assert_eq!(charlie.get_players().len(), 3);
+        assert_eq!(alice.hash_chain().len(), 3);
+        assert_eq!(bob.hash_chain().len(), 3);
+        assert_eq!(charlie.get_players().len(), 3);
+        assert_eq!(alice.hash_head(), bob.hash_head());
+        assert_eq!(alice.hash_head(), charlie.hash_head());
+        assert_eq!(bob.hash_head(), charlie.hash_head());
+        assert_eq!(alice.hash_chain(), bob.hash_chain());
+        assert_eq!(alice.hash_head(), charlie.hash_head());
+        assert_eq!(bob.hash_head(), charlie.hash_head());
+    }
+
+    {
+        let alice = alice_ui.poll_game_state().await;
+        let bob = bob_ui.poll_game_state().await;
+        let charlie = charlie_ui.poll_game_state().await;
+        assert_eq!(alice.get_players().len(), 3);
+        assert_eq!(bob.get_players().len(), 3);
+        assert_eq!(charlie.get_players().len(), 3);
+        assert_eq!(alice.players.get(0).unwrap().peer_id, alice.player_id);
+        assert_eq!(bob.players.get(0).unwrap().peer_id, bob.player_id);
+        assert_eq!(charlie.players.get(0).unwrap().peer_id, charlie.player_id);
+    }
+
+    // clean up && shutdown
+    alice_ui.shutdown().await?;
+    bob_ui.shutdown().await?;
+    charlie_ui.shutdown().await?;
+    Ok(())
+
 }

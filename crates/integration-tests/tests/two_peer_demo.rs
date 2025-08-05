@@ -175,9 +175,9 @@ async fn two_peers_join_success() -> Result<(),> {
     pump_messages(&mut alice, &mut bob,).await;
 
     // Assertions after Alice joins
-    assert_eq!(alice.players().len(), 1, "Alice should see herself");
+    assert_eq!(alice.get_players().len(), 1, "Alice should see herself");
     assert_eq!(
-        bob.players().len(),
+        bob.get_players().len(),
         0,
         "Bob should see Alice after processing her join, but reject, since he has not synced yet"
     );
@@ -197,8 +197,8 @@ async fn two_peers_join_success() -> Result<(),> {
     pump_messages(&mut alice, &mut bob,).await;
 
     // Final assertions
-    assert_eq!(alice.players().len(), 2, "Alice sees both players");
-    assert_eq!(bob.players().len(), 2, "Bob sees both players");
+    assert_eq!(alice.get_players().len(), 2, "Alice sees both players");
+    assert_eq!(bob.get_players().len(), 2, "Bob sees both players");
     assert_eq!(alice.hash_head(), bob.hash_head(), "Hashes match");
     assert!(bob.has_joined_table());
     assert_eq!(alice.hash_chain().len(), 2, "Chain: Alice join + Bob join");
@@ -284,9 +284,9 @@ async fn three_peers_join_success() -> Result<(),> {
     bob.tick();
     charlie.tick();
 
-    assert_eq!(alice.players().len(), 1);
-    assert_eq!(charlie.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
-    assert_eq!(bob.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(alice.get_players().len(), 1);
+    assert_eq!(charlie.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(bob.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
     // Bob joins
@@ -302,9 +302,9 @@ async fn three_peers_join_success() -> Result<(),> {
     bob.tick();
     charlie.tick();
 
-    assert_eq!(alice.players().len(), 2);
-    assert_eq!(bob.players().len(), 2);
-    assert_eq!(charlie.players().len(), 0); // charlie has 0 players, since he has not synced yet.
+    assert_eq!(alice.get_players().len(), 2);
+    assert_eq!(bob.get_players().len(), 2);
+    assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
     assert_eq!(alice.hash_chain().len(), 2);
     assert_eq!(bob.hash_chain().len(), 2);
     assert_eq!(charlie.hash_chain().len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
@@ -320,12 +320,12 @@ async fn three_peers_join_success() -> Result<(),> {
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
-    assert_eq!(alice.players().len(), 3);
-    assert_eq!(bob.players().len(), 3);
-    assert_eq!(charlie.players().len(), 3);
+    assert_eq!(alice.get_players().len(), 3);
+    assert_eq!(bob.get_players().len(), 3);
+    assert_eq!(charlie.get_players().len(), 3);
     assert_eq!(alice.hash_chain().len(), 3);
     assert_eq!(bob.hash_chain().len(), 3);
-    assert_eq!(charlie.players().len(), 3);
+    assert_eq!(charlie.get_players().len(), 3);
     assert_eq!(alice.hash_head(), bob.hash_head());
     assert_eq!(alice.hash_head(), charlie.hash_head());
     assert_eq!(bob.hash_head(), charlie.hash_head());
@@ -405,9 +405,9 @@ async fn reject_join_table_full() -> Result<(),> {
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
-    assert_eq!(alice.players().len(), 1);
-    assert_eq!(bob.players().len(), 0); // bob has not added alice to his player's list, because he has not synced yet.
-    assert_eq!(charlie.players().len(), 0); // charlie has not added alice to his player's list, because he has not synced yet.
+    assert_eq!(alice.get_players().len(), 1);
+    assert_eq!(bob.get_players().len(), 0); // bob has not added alice to his player's list, because he has not synced yet.
+    assert_eq!(charlie.get_players().len(), 0); // charlie has not added alice to his player's list, because he has not synced yet.
 
     // Bob joins
     bob.handle_ui_msg(UIEvent::PlayerJoinTableRequest {
@@ -430,9 +430,9 @@ async fn reject_join_table_full() -> Result<(),> {
     bob.tick();
     charlie.tick();
 
-    assert_eq!(alice.players().len(), 2);
-    assert_eq!(bob.players().len(), 2);
-    assert_eq!(charlie.players().len(), 0); // charlie has 0 players in his list, because he has not synced, yet.
+    assert_eq!(alice.get_players().len(), 2);
+    assert_eq!(bob.get_players().len(), 2);
+    assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players in his list, because he has not synced, yet.
     assert_eq!(alice.hash_chain().len(), 2);
     assert_eq!(bob.hash_chain().len(), 2);
     assert_eq!(charlie.hash_chain().len(), 0); // charlies hash chain should have length 0, because he has not synced, yet.
@@ -449,11 +449,11 @@ async fn reject_join_table_full() -> Result<(),> {
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
     assert_eq!(
-        alice.players().len(),
+        alice.get_players().len(),
         2,
         "table is full, charlie has not joined"
     );
-    assert_eq!(bob.players().len(), 2, "table is full, charlie has not joined");
+    assert_eq!(bob.get_players().len(), 2, "table is full, charlie has not joined");
     assert_eq!(
         alice.hash_chain().len(),
         2,
@@ -538,8 +538,8 @@ async fn reject_join_game_started() -> Result<(),> {
     },);
     pump_messages(&mut alice, &mut bob,).await;
 
-    assert_eq!(alice.players().len(), 1);
-    assert_eq!(bob.players().len(), 0); // bob has not added alice, since he has not synced yet and therefore rejects any log entries that he receives.
+    assert_eq!(alice.get_players().len(), 1);
+    assert_eq!(bob.get_players().len(), 0); // bob has not added alice, since he has not synced yet and therefore rejects any log entries that he receives.
     assert!(!bob.has_joined_table());
 
     Ok((),)
@@ -600,8 +600,8 @@ async fn reject_join_already_joined() -> Result<(),> {
     alice.tick();
     bob.tick();
 
-    assert_eq!(alice.players().len(), 1); // expect that alice joined her own instance.
-    assert_eq!(bob.players().len(), 0); // expect that alice has not joined bobs instance, because he has not synced yet.
+    assert_eq!(alice.get_players().len(), 1); // expect that alice joined her own instance.
+    assert_eq!(bob.get_players().len(), 0); // expect that alice has not joined bobs instance, because he has not synced yet.
     assert!(!bob.has_joined_table()); // expect that bob has not joined a table, yet.
     assert_ne!(alice.hash_chain(), bob.hash_chain()); // expect that the chains diverge, because bob has not sent a SyncRequest, yet.
 
@@ -627,8 +627,8 @@ async fn reject_join_already_joined() -> Result<(),> {
     },);
     pump_messages(&mut alice, &mut bob,).await;
 
-    assert_eq!(alice.players().len(), 2);
-    assert_eq!(bob.players().len(), 2);
+    assert_eq!(alice.get_players().len(), 2);
+    assert_eq!(bob.get_players().len(), 2);
     assert_eq!(
         alice.hash_chain().len(),
         chain_len_before,
@@ -729,9 +729,9 @@ async fn reject_invalid_sync_resp() -> Result<(),> {
 
     pump_messages(&mut alice, &mut bob,).await;
 
-    assert!(!bob.players().iter().any(|p| p.peer_id == bob.peer_id())); // bob should not have joined his own state.
+    assert!(!bob.get_players().iter().any(|p| p.peer_id == bob.peer_id())); // bob should not have joined his own state.
     assert_eq!(bob.hash_chain().len(), 0);
-    assert_eq!(bob.players().len(), 0); // No one, since Alice's join not propagated
+    assert_eq!(bob.get_players().len(), 0); // No one, since Alice's join not propagated
     assert_eq!(bob.hash_head(), *GENESIS_HASH); // bobs state hash chain should still be at the genesis hash state.
 
     Ok((),)
@@ -813,8 +813,8 @@ async fn late_join_replay_chain() -> Result<(),> {
     alice.tick();
     charlie.tick();
 
-    assert_eq!(alice.players().len(), 2);
-    assert_eq!(charlie.players().len(), 2);
+    assert_eq!(alice.get_players().len(), 2);
+    assert_eq!(charlie.get_players().len(), 2);
 
     // Now create Bob late
     let transport_b =
@@ -856,9 +856,9 @@ async fn late_join_replay_chain() -> Result<(),> {
     bob.tick();
     charlie.tick();
 
-    assert_eq!(alice.players().len(), 3);
-    assert_eq!(bob.players().len(), 3);
-    assert_eq!(charlie.players().len(), 3);
+    assert_eq!(alice.get_players().len(), 3);
+    assert_eq!(bob.get_players().len(), 3);
+    assert_eq!(charlie.get_players().len(), 3);
     assert_eq!(alice.hash_head(), bob.hash_head());
     assert_eq!(alice.hash_head(), charlie.hash_head());
     assert_eq!(alice.hash_chain().len(), 3);
@@ -937,9 +937,9 @@ async fn game_starts_correctly() -> Result<(),> {
     bob.tick();
     charlie.tick();
 
-    assert_eq!(alice.players().len(), 1);
-    assert_eq!(charlie.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
-    assert_eq!(bob.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(alice.get_players().len(), 1);
+    assert_eq!(charlie.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(bob.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
     // Bob joins
@@ -955,9 +955,9 @@ async fn game_starts_correctly() -> Result<(),> {
     bob.tick();
     charlie.tick();
 
-    assert_eq!(alice.players().len(), 2);
-    assert_eq!(bob.players().len(), 2);
-    assert_eq!(charlie.players().len(), 0); // charlie has 0 players, since he has not synced yet.
+    assert_eq!(alice.get_players().len(), 2);
+    assert_eq!(bob.get_players().len(), 2);
+    assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
     assert_eq!(alice.hash_chain().len(), 2);
     assert_eq!(bob.hash_chain().len(), 2);
     assert_eq!(charlie.hash_chain().len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
@@ -973,12 +973,12 @@ async fn game_starts_correctly() -> Result<(),> {
 
     pump_three(&mut alice, &mut bob, &mut charlie,).await;
 
-    assert_eq!(alice.players().len(), 3);
-    assert_eq!(bob.players().len(), 3);
-    assert_eq!(charlie.players().len(), 3);
+    assert_eq!(alice.get_players().len(), 3);
+    assert_eq!(bob.get_players().len(), 3);
+    assert_eq!(charlie.get_players().len(), 3);
     assert_eq!(alice.hash_chain().len(), 3);
     assert_eq!(bob.hash_chain().len(), 3);
-    assert_eq!(charlie.players().len(), 3);
+    assert_eq!(charlie.get_players().len(), 3);
     assert_eq!(alice.hash_head(), bob.hash_head());
     assert_eq!(alice.hash_head(), charlie.hash_head());
     assert_eq!(bob.hash_head(), charlie.hash_head());
@@ -1061,9 +1061,9 @@ async fn enter_start_hand_test() -> Result<(),> {
     bob.tick();
     charlie.tick();
 
-    assert_eq!(alice.players().len(), 1);
-    assert_eq!(charlie.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
-    assert_eq!(bob.players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(alice.get_players().len(), 1);
+    assert_eq!(charlie.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(bob.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
     assert_eq!(bob.hash_head(), charlie.hash_head());
 
     // Bob joins
@@ -1079,9 +1079,9 @@ async fn enter_start_hand_test() -> Result<(),> {
     bob.tick();
     charlie.tick();
 
-    assert_eq!(alice.players().len(), 2);
-    assert_eq!(bob.players().len(), 2);
-    assert_eq!(charlie.players().len(), 0); // charlie has 0 players, since he has not synced yet.
+    assert_eq!(alice.get_players().len(), 2);
+    assert_eq!(bob.get_players().len(), 2);
+    assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
     assert_eq!(alice.hash_chain().len(), 2);
     assert_eq!(bob.hash_chain().len(), 2);
     assert_eq!(charlie.hash_chain().len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
@@ -1102,12 +1102,12 @@ async fn enter_start_hand_test() -> Result<(),> {
     assert_eq!(alice.phase(), HandPhase::StartingGame);
     assert_eq!(bob.phase(), HandPhase::StartingGame);
     assert_eq!(charlie.phase(), HandPhase::StartingGame);
-    assert_eq!(alice.players().len(), 3);
-    assert_eq!(bob.players().len(), 3);
-    assert_eq!(charlie.players().len(), 3);
+    assert_eq!(alice.get_players().len(), 3);
+    assert_eq!(bob.get_players().len(), 3);
+    assert_eq!(charlie.get_players().len(), 3);
     assert_eq!(alice.hash_chain().len(), 3);
     assert_eq!(bob.hash_chain().len(), 3);
-    assert_eq!(charlie.players().len(), 3);
+    assert_eq!(charlie.get_players().len(), 3);
     assert_eq!(alice.hash_head(), bob.hash_head());
     assert_eq!(alice.hash_head(), charlie.hash_head());
     assert_eq!(bob.hash_head(), charlie.hash_head());
@@ -1185,9 +1185,9 @@ async fn test_mock_gui() -> Result<(),> {
     bob.poll_game_state().await;
     charlie.poll_game_state().await;
 
-    assert_eq!(alice.last_game_state().players().len(), 1);
-    assert_eq!(charlie.last_game_state().players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
-    assert_eq!(bob.last_game_state().players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(alice.last_game_state().get_players().len(), 1);
+    assert_eq!(charlie.last_game_state().get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(bob.last_game_state().get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
     assert_eq!(
         bob.last_game_state().hash_head,
         charlie.last_game_state().hash_head
@@ -1207,9 +1207,9 @@ async fn test_mock_gui() -> Result<(),> {
     bob.poll_game_state().await;
     charlie.poll_game_state().await;
 
-    assert_eq!(alice.last_game_state().players().len(), 2);
-    assert_eq!(bob.last_game_state().players().len(), 2);
-    assert_eq!(charlie.last_game_state().players().len(), 0); // charlie has 0 players, since he has not synced yet.
+    assert_eq!(alice.last_game_state().get_players().len(), 2);
+    assert_eq!(bob.last_game_state().get_players().len(), 2);
+    assert_eq!(charlie.last_game_state().get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
     assert_eq!(alice.last_game_state().hash_chain.len(), 2);
     assert_eq!(bob.last_game_state().hash_chain.len(), 2);
     assert_eq!(charlie.last_game_state().hash_chain.len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
@@ -1242,9 +1242,9 @@ async fn test_mock_gui() -> Result<(),> {
     assert_eq!(bob_gs.hand_phase, HandPhase::StartingGame);
     assert_eq!(charlie_gs.hand_phase, HandPhase::StartingGame);
 
-    assert_eq!(alice_gs.players().len(), 3);
-    assert_eq!(bob_gs.players().len(), 3);
-    assert_eq!(charlie_gs.players().len(), 3);
+    assert_eq!(alice_gs.get_players().len(), 3);
+    assert_eq!(bob_gs.get_players().len(), 3);
+    assert_eq!(charlie_gs.get_players().len(), 3);
 
     let bob_gs = bob.poll_game_state().await;
     let charlie_gs = charlie.poll_game_state().await;
