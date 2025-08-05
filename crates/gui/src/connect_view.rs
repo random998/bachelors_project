@@ -28,7 +28,7 @@ impl ConnectView {
     fn update_chips(&mut self,) {
         let us = self
             .game_state
-            .players()
+            .get_players()
             .into_iter()
             .find(|p| p.peer_id == self.peer_id(),);
         if let Some(p,) = us {

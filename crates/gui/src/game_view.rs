@@ -1,4 +1,4 @@
-// crates/gui/src/account_view.rs
+// crates/gui/src/game_view.rs
 // -----------------------------------------------------------------------------
 //  “Game View” — table rendering + input handling
 //  (file name kept from the original freezeout example)
@@ -310,7 +310,7 @@ impl GameView {
         paint_oval(ui, &rect.shrink(162.0,), Color32::from_gray(160,),);
         paint_oval(ui, &rect.shrink(164.0,), inner,);
 
-        if self.game_state.players().is_empty() {
+        if self.game_state.get_players().is_empty() {
             ui.painter().text(
                 rect.center(),
                 Align2::CENTER_CENTER,
@@ -365,7 +365,7 @@ impl GameView {
 
     // ---------- every seat / player box ---------------------------
     fn paint_players(&mut self, ui: &mut Ui, rect: &Rect, app: &App,) {
-        let seats = match self.game_state.players().len() {
+        let seats = match self.game_state.get_players().len() {
             1 => vec![Align2::CENTER_BOTTOM],
             2 => vec![Align2::CENTER_BOTTOM, Align2::CENTER_TOP],
             3 => {
@@ -852,7 +852,7 @@ B  Bet
             // Maximum bet is the local player chips.
             let max_bet = self
                 .game_state
-                .players()
+                .get_players()
                 .first()
                 .map(|p| (p.chips + p.bet).into(),)
                 .unwrap();
@@ -953,12 +953,24 @@ B  Bet
             return;
         }
 
-        let (tx1, tx2,) = match player.public_cards {
-            PlayerCards::None => return,
-            PlayerCards::Covered => (textures.back(), textures.back(),),
-            PlayerCards::Cards(c1, c2,) => {
-                (textures.card(c1,), textures.card(c2,),)
-            },
+        let (tx1, tx2,) = if player.peer_id == self.game_state.player_id {
+            // Local player: Show uncovered hole cards.
+            match player.hole_cards {
+                PlayerCards::None => return,
+                PlayerCards::Covered => (textures.back(), textures.back(),),
+                PlayerCards::Cards(c1, c2,) => {
+                    (textures.card(c1,), textures.card(c2,),)
+                },
+            }
+        } else {
+            // Others: Show public cards (covered).
+            match player.public_cards {
+                PlayerCards::None => return,
+                PlayerCards::Covered => (textures.back(), textures.back(),),
+                PlayerCards::Cards(c1, c2,) => {
+                    (textures.card(c1,), textures.card(c2,),)
+                },
+            }
         };
 
         let cards_rect = if align.x() == Align::RIGHT {
