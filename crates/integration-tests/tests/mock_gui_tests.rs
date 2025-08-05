@@ -1,6 +1,7 @@
 //! `crates/integration-tests/tests/mock_gui_tests.rs`
 mod support;
 use anyhow::Result;
+use env_logger::Env;
 use poker_core::crypto::KeyPair;
 use poker_core::game_state::HandPhase;
 use poker_core::message::UIEvent;
@@ -9,6 +10,14 @@ use poker_core::poker::{Chips, TableId};
 use crate::support::mock_gui::MockUi;
 
 const CHIPS_JOIN_AMOUNT: u32 = 1_000;
+
+// Initialize logger for tests to print info and warn messages.
+fn init_logger() {
+    let _ = env_logger::Builder::from_env(
+        Env::default().default_filter_or("error",),
+    )
+        .try_init();
+}
 
 /// Test successful join of two peers: seed (Alice) joins directly, non-seed
 /// (Bob) sends SyncReq -> Alice processes, appends JoinTableReq, sends SyncResp
@@ -24,13 +33,16 @@ const CHIPS_JOIN_AMOUNT: u32 = 1_000;
 /// - has_joined_table flags are set correctly.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn two_peers_join_success_mock_gui() -> Result<(),> {
+    init_logger();
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
     let table_id = TableId::new_id();
     let num_seats = 2;
+    
     let mut alice_ui =
         MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
+    
     let mut bob_ui = MockUi::new(
         kp_b,
         "Bob".into(),
@@ -46,7 +58,7 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
             table_id,
             player_requesting_join: alice_ui.peer_id(),
             nickname: "Alice".into(),
-            chips: Chips::new(1_000,),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT),
         },)
         .await?;
 
@@ -72,13 +84,11 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
             table_id,
             player_requesting_join: bob_ui.peer_id(),
             nickname: "Bob".into(),
-            chips: Chips::new(1_000,),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
         },)
         .await?;
 
     {
-        let _= alice_ui.poll_game_state().await;
-        let _= bob_ui.poll_game_state().await;
         let alice = alice_ui.poll_game_state().await;
         let bob = bob_ui.poll_game_state().await;
         // Final assertions
@@ -456,7 +466,7 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
 
 /// tests whether the same cards are dealt at each instance.
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-async fn test_card_dealing()-> Result<(),> {
+async fn test_card_dealing() -> Result<(),> {
     // setup: 3 peers join
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -567,20 +577,20 @@ async fn test_card_dealing()-> Result<(),> {
         assert_eq!(charlie.get_players().len(), 3);
         // Sort players by peer_id for consistent order across instances
         let mut alice_players = alice.get_players();
-        alice_players.sort_by_key(|p| p.peer_id.to_string());
+        alice_players.sort_by_key(|p| p.peer_id.to_string(),);
         let mut bob_players = bob.get_players();
-        bob_players.sort_by_key(|p| p.peer_id.to_string());
+        bob_players.sort_by_key(|p| p.peer_id.to_string(),);
         let mut charlie_players = charlie.get_players();
-        charlie_players.sort_by_key(|p| p.peer_id.to_string());
-        let alice_player1 = alice_players.get(0).unwrap();
-        let alice_player2 = alice_players.get(1).unwrap();
-        let alice_player3 = alice_players.get(2).unwrap();
-        let bob_player1 = bob_players.get(0).unwrap();
-        let bob_player2 = bob_players.get(1).unwrap();
-        let bob_player3 = bob_players.get(2).unwrap();
-        let charlie_player1 = charlie_players.get(0).unwrap();
-        let charlie_player2 = charlie_players.get(1).unwrap();
-        let charlie_player3 = charlie_players.get(2).unwrap();
+        charlie_players.sort_by_key(|p| p.peer_id.to_string(),);
+        let alice_player1 = alice_players.first().unwrap();
+        let alice_player2 = alice_players.get(1,).unwrap();
+        let alice_player3 = alice_players.get(2,).unwrap();
+        let bob_player1 = bob_players.first().unwrap();
+        let bob_player2 = bob_players.get(1,).unwrap();
+        let bob_player3 = bob_players.get(2,).unwrap();
+        let charlie_player1 = charlie_players.first().unwrap();
+        let charlie_player2 = charlie_players.get(1,).unwrap();
+        let charlie_player3 = charlie_players.get(2,).unwrap();
         // Check cards for each sorted position (now consistent by peer_id)
         // Player 1 (same peer_id across)
         assert_eq!(alice_player1.peer_id, bob_player1.peer_id);
@@ -609,12 +619,12 @@ async fn test_card_dealing()-> Result<(),> {
     alice_ui.shutdown().await?;
     bob_ui.shutdown().await?;
     charlie_ui.shutdown().await?;
-    Ok(())
-
+    Ok((),)
 }
-/// tests whether the local player is the first in the player list at each instance.
+/// tests whether the local player is the first in the player list at each
+/// instance.
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
-async fn test_local_player_first()-> Result<(),> {
+async fn test_local_player_first() -> Result<(),> {
     // setup: 3 peers join
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -723,15 +733,14 @@ async fn test_local_player_first()-> Result<(),> {
         assert_eq!(alice.get_players().len(), 3);
         assert_eq!(bob.get_players().len(), 3);
         assert_eq!(charlie.get_players().len(), 3);
-        assert_eq!(alice.players.get(0).unwrap().peer_id, alice.player_id);
-        assert_eq!(bob.players.get(0).unwrap().peer_id, bob.player_id);
-        assert_eq!(charlie.players.get(0).unwrap().peer_id, charlie.player_id);
+        assert_eq!(alice.players.first().unwrap().peer_id, alice.player_id);
+        assert_eq!(bob.players.first().unwrap().peer_id, bob.player_id);
+        assert_eq!(charlie.players.first().unwrap().peer_id, charlie.player_id);
     }
 
     // clean up && shutdown
     alice_ui.shutdown().await?;
     bob_ui.shutdown().await?;
     charlie_ui.shutdown().await?;
-    Ok(())
-
+    Ok((),)
 }
