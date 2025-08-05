@@ -126,7 +126,6 @@ impl ContractState {
         self.players.clear();
     }
 
-
     #[must_use]
     pub const fn get_num_seats(&self,) -> usize {
         self.num_seats
@@ -139,9 +138,7 @@ impl ContractState {
         self.players.values_mut()
     }
 
-    pub fn get_players(
-        &self,
-    ) -> Vec<PlayerPrivate> {
+    #[must_use] pub fn get_players(&self,) -> Vec<PlayerPrivate,> {
         self.players.values().cloned().collect()
     }
 
