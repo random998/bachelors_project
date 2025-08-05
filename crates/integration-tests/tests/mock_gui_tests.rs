@@ -16,7 +16,7 @@ fn init_logger() {
     let _ = env_logger::Builder::from_env(
         Env::default().default_filter_or("error",),
     )
-        .try_init();
+    .try_init();
 }
 
 /// Test successful join of two peers: seed (Alice) joins directly, non-seed
@@ -38,11 +38,11 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
     let kp_b = KeyPair::generate();
     let table_id = TableId::new_id();
     let num_seats = 2;
-    
+
     let mut alice_ui =
         MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
-    
+
     let mut bob_ui = MockUi::new(
         kp_b,
         "Bob".into(),
@@ -58,7 +58,7 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
             table_id,
             player_requesting_join: alice_ui.peer_id(),
             nickname: "Alice".into(),
-            chips: Chips::new(CHIPS_JOIN_AMOUNT),
+            chips: Chips::new(CHIPS_JOIN_AMOUNT,),
         },)
         .await?;
 
