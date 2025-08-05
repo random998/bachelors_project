@@ -453,7 +453,11 @@ async fn reject_join_table_full() -> Result<(),> {
         2,
         "table is full, charlie has not joined"
     );
-    assert_eq!(bob.get_players().len(), 2, "table is full, charlie has not joined");
+    assert_eq!(
+        bob.get_players().len(),
+        2,
+        "table is full, charlie has not joined"
+    );
     assert_eq!(
         alice.hash_chain().len(),
         2,
