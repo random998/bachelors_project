@@ -318,7 +318,8 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         assert_eq!(
             bob.hash_chain().len(),
             2,
-            "table is full, charlie has not joined"
+            "bobs hash chain: {:?}",
+            bob.hash_chain.clone(),
         );
         assert!(
             !charlie.has_joined_table(),
