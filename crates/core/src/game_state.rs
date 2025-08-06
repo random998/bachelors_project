@@ -105,16 +105,16 @@ pub struct Projection {
 }
 
 impl Projection {
-    
+
     #[must_use]
     pub fn get_last_bet(&self) -> Chips {
         self.last_bet.clone()
     }
-    
+
     pub fn get_game_id(&self) -> GameId {
         self.game_id.clone()
     }
-    
+
     pub fn get_table_id(&self) -> TableId {
         self.table_id.clone()
     }
@@ -148,7 +148,7 @@ impl Projection {
     ) -> Vec<&mut PlayerPrivate> {
         self.contract.get_players_mut()
     }
-    
+
     pub fn get_player_mut(
         &mut self,
         id: &PeerId,
@@ -728,9 +728,11 @@ pub struct GameState {
 
 impl PartialEq for GameState {
     fn eq(&self, other: &Self,) -> bool {
-        self.hash_head == other.hash_head
-            && self.has_sent_start_game_notification
-                == other.has_sent_start_game_notification
+        let self_bytes = bincode::serialize(&self).unwrap();
+        let self_hash = blake3::hash(self_bytes.as_slice());
+        let other_bytes = bincode::serialize(&other).unwrap();
+        let other_hash = blake3::hash(other_bytes.as_slice());
+        self_hash == other_hash 
     }
 }
 
@@ -1111,7 +1113,7 @@ impl Projection {
         let pot_chips = self.current_pot.total_chips.clone();
         if let Some(id,) = self.active_player_id {
             let player = self.get_player_mut(&id,).expect("err",);
-            player.chips += pot_chips; 
+            player.chips += pot_chips;
             if let Some(payoff,) = payoffs
                 .iter_mut()
                 .find(|po| po.player_id == player.peer_id,)
@@ -1322,13 +1324,13 @@ impl Projection {
 
     /// Request action to the active player.
     fn request_action(&mut self,) {
-        let last_bet = self.get_last_bet(); 
+        let last_bet = self.get_last_bet();
         let game_id = self.get_game_id();
         let table_id = self.get_table_id();
-        
+
         if let Some(id,) = self.active_player_id {
             let player = self.get_player_mut(&id).expect("err");
-            
+
             let mut actions = vec![PlayerAction::Fold];
             if player.bet == last_bet {
                 actions.push(PlayerAction::Check,);
