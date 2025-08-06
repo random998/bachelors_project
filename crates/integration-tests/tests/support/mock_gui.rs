@@ -10,17 +10,11 @@ use poker_core::poker::TableId;
 use tokio::time::sleep;
 
 pub struct MockUi {
-    ui_handle:      UiHandle,
+    ui_handle: UiHandle,
     last_gamestate: GameState,
 }
 
 impl MockUi {
-    pub async fn shutdown(&mut self,) -> Result<(), anyhow::Error,> {
-        // Call UiHandle's shutdown method
-        let _ = self.ui_handle.shutdown().await;
-        self.last_gamestate.listen_addr = None; // Clear listen_addr
-        Ok((),)
-    }
     pub fn new(
         nick: String,
         seed_addr: Option<Multiaddr>,
@@ -29,10 +23,18 @@ impl MockUi {
     ) -> Self {
         let keypair = KeyPair::generate();
         let ui = runtime_bridge::start(table_id, num_seats, keypair, nick, seed_addr);
-        Self {
+        let last_gamestate = GameState::default();
+        
+        MockUi {
             ui_handle: ui,
-            last_gamestate: GameState::default(),
+            last_gamestate,
         }
+    }
+
+    pub async fn shutdown(&mut self) -> Result<(), anyhow::Error> {
+        let _ = self.ui_handle.shutdown().await;
+        self.last_gamestate.listen_addr = None;
+        Ok(())
     }
     #[allow(dead_code)]
     pub const fn peer_id(&self,) -> PeerId {
@@ -49,7 +51,7 @@ impl MockUi {
             .await
             .map_err(std::convert::Into::into,);
         // update to pull the latest gamestate after sending msg to engine.
-        self.poll_game_state().await;
+        self.update().await;
         err
     }
 
@@ -89,16 +91,19 @@ impl MockUi {
 
     #[allow(dead_code)]
     pub async fn last_game_state(&mut self,) -> GameState {
-        self.poll_game_state().await;
+        self.update().await;
         self.last_gamestate.clone()
     }
 
-    pub async fn poll_game_state(&mut self,) {
-        while let Ok(res,) = self.try_recv_from_engine() {
-            if let EngineEvent::Snapshot(gs,) = res {
+    pub async fn update(&mut self,) {
+        loop {
+            while let Ok(res,) = self.try_recv_from_engine() {
+                if let EngineEvent::Snapshot(gs,) = res {
                     self.last_gamestate = *gs;
+                }
+                tokio::time::sleep(Duration::from_millis(10),).await;
             }
+            return;
         }
-        return;
     }
 }
