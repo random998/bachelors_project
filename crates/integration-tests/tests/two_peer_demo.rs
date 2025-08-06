@@ -1150,83 +1150,86 @@ async fn enter_start_hand_test() -> Result<(),> {
 async fn test_mock_gui() -> Result<(),> {
     init_logger();
 
+    let num_seats = 3;
     let table_id = TableId::new_id();
-    let mut alice = MockUi::default(None, table_id, "Alice".into(),);
-    alice.wait_for_listen_addr().await;
-    let alice_addr = alice.get_listen_addr();
+    let mut alice_ui = MockUi::new("Alice".into(), None, num_seats, table_id);
+    alice_ui.wait_for_listen_addr().await;
+    let alice_addr = alice_ui.get_listen_addr();
     info!("alice addr: {alice_addr:?}");
-    let mut bob = MockUi::default(alice_addr.clone(), table_id, "Bob".into(),);
-    bob.wait_for_listen_addr().await;
-    let mut charlie =
-        MockUi::default(alice_addr.clone(), table_id, "Charlie".into(),);
-    charlie.wait_for_listen_addr().await;
-    let _ = charlie.get_listen_addr();
+    let mut bob_ui = MockUi::new("Bob".into(), alice_ui.get_listen_addr(), num_seats, table_id);
+    bob_ui.wait_for_listen_addr().await;
+    let mut charlie_ui =
+        MockUi::new("Charlie".into(), alice_ui.get_listen_addr(), num_seats, table_id);
+    charlie_ui.wait_for_listen_addr().await;
+    let _ = charlie_ui.get_listen_addr();
 
+    let alice = alice_ui.last_game_state().await;
+    let bob = bob_ui.last_game_state().await;
+    let charlie = charlie_ui.last_game_state().await;
     // expect the Handphase of each peer to be WaitingForPlayers.
     assert_eq!(
-        alice.last_game_state().hand_phase,
+        alice.hand_phase,
         HandPhase::WaitingForPlayers
     );
-    assert_eq!(bob.last_game_state().hand_phase, HandPhase::WaitingForPlayers);
+    assert_eq!(bob.hand_phase, HandPhase::WaitingForPlayers);
     assert_eq!(
-        charlie.last_game_state().hand_phase,
+        charlie.hand_phase,
         HandPhase::WaitingForPlayers
     );
 
     // three peers all join.
     // Alice joins
-    let res = alice
-        .send_to_engine(UIEvent::PlayerJoinTableRequest {
+    let res = alice_ui.send_to_engine(UIEvent::PlayerJoinTableRequest {
             table_id,
-            player_requesting_join: alice.last_game_state().player_id(),
+            player_requesting_join: alice.player_id(),
             nickname: "Alice".into(),
             chips: Chips::new(CHIPS_JOIN_AMOUNT,),
         },)
         .await;
     info!("{res:?}");
 
-    alice.poll_game_state().await;
-    bob.poll_game_state().await;
-    charlie.poll_game_state().await;
+    let alice = alice_ui.last_game_state().await;
+    let bob = bob_ui.last_game_state().await;
+    let charlie = charlie_ui.last_game_state().await;
 
-    assert_eq!(alice.last_game_state().get_players().len(), 1);
-    assert_eq!(charlie.last_game_state().get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
-    assert_eq!(bob.last_game_state().get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(alice.get_players().len(), 1);
+    assert_eq!(charlie.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
+    assert_eq!(bob.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
     assert_eq!(
-        bob.last_game_state().hash_head,
-        charlie.last_game_state().hash_head
+        bob.hash_head,
+        charlie.hash_head
     );
 
     // Bob joins
-    let _ = bob
+    let _ = bob_ui
         .send_to_engine(UIEvent::PlayerJoinTableRequest {
             table_id,
-            player_requesting_join: bob.last_game_state().player_id,
+            player_requesting_join: bob.player_id,
             nickname: "Bob".into(),
             chips: Chips::new(CHIPS_JOIN_AMOUNT,),
         },)
         .await;
 
-    alice.poll_game_state().await;
-    bob.poll_game_state().await;
-    charlie.poll_game_state().await;
+    let alice = alice_ui.last_game_state().await;
+    let bob  = bob_ui.last_game_state().await;
+    let charlie = charlie_ui.last_game_state().await;
 
-    assert_eq!(alice.last_game_state().get_players().len(), 2);
-    assert_eq!(bob.last_game_state().get_players().len(), 2);
-    assert_eq!(charlie.last_game_state().get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
-    assert_eq!(alice.last_game_state().hash_chain.len(), 2);
-    assert_eq!(bob.last_game_state().hash_chain.len(), 2);
-    assert_eq!(charlie.last_game_state().hash_chain.len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
+    assert_eq!(alice.get_players().len(), 2);
+    assert_eq!(bob.get_players().len(), 2);
+    assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
+    assert_eq!(alice.hash_chain.len(), 2);
+    assert_eq!(bob.hash_chain.len(), 2);
+    assert_eq!(charlie.hash_chain.len(), 0); // charlie has not advanced his hash chain, since he has not synced yet.
     assert_eq!(
-        alice.last_game_state().hash_head,
-        bob.last_game_state().hash_head
+        alice.hash_head,
+        bob.hash_head
     );
 
     // Charlie joins
-    let _ = charlie
+    let _ = charlie_ui
         .send_to_engine(UIEvent::PlayerJoinTableRequest {
             table_id,
-            player_requesting_join: charlie.last_game_state().player_id(),
+            player_requesting_join: charlie.player_id, 
             nickname: "Charlie".into(),
             chips: Chips::new(CHIPS_JOIN_AMOUNT,),
         },)
@@ -1234,13 +1237,10 @@ async fn test_mock_gui() -> Result<(),> {
 
     // now after all three peers have joined, we expect the state of the
     // hand phase of each peer to have moved to GameStarting.
-    alice.poll_game_state().await;
-    bob.poll_game_state().await;
-    charlie.poll_game_state().await;
 
-    let alice_gs = alice.last_game_state();
-    let bob_gs = bob.last_game_state();
-    let charlie_gs = charlie.last_game_state();
+    let alice_gs = alice_ui.last_game_state().await;
+    let bob_gs = bob_ui.last_game_state().await;
+    let charlie_gs = charlie_ui.last_game_state().await;
 
     assert_eq!(alice_gs.hand_phase, HandPhase::StartingGame);
     assert_eq!(bob_gs.hand_phase, HandPhase::StartingGame);
@@ -1250,9 +1250,9 @@ async fn test_mock_gui() -> Result<(),> {
     assert_eq!(bob_gs.get_players().len(), 3);
     assert_eq!(charlie_gs.get_players().len(), 3);
 
-    let bob_gs = bob.poll_game_state().await;
-    let charlie_gs = charlie.poll_game_state().await;
-    let alice_gs = alice.poll_game_state().await;
+    let bob_gs = bob_ui.last_game_state().await;
+    let charlie_gs = charlie_ui.last_game_state().await;
+    let alice_gs = alice_ui.last_game_state().await;
 
     //    assert_eq!(alice_gs.hash_chain.len(), 3, "{}", format!("{:?}",
     // alice_gs.hash_chain).to_string()); assert_eq!(charlie_gs.hash_chain.
@@ -1284,18 +1284,18 @@ async fn test_mock_gui() -> Result<(),> {
     assert_eq!(alice_gs.hash_head, charlie_gs.hash_head);
     assert_eq!(bob_gs.hash_head, charlie_gs.hash_head);
 
-    let alice_gs = alice.poll_game_state().await;
-    let bob_gs = bob.poll_game_state().await;
-    let charlie_gs = charlie.poll_game_state().await;
+    let alice_gs = alice_ui.last_game_state().await;
+    let bob_gs = bob_ui.last_game_state().await;
+    let charlie_gs = charlie_ui.last_game_state().await;
 
     assert_eq!(alice_gs.hand_phase, HandPhase::StartingHand);
     assert_eq!(bob_gs.hand_phase, HandPhase::StartingHand);
     assert_eq!(charlie_gs.hand_phase, HandPhase::StartingHand);
 
     // Explicitly shut down MockUi instances
-    let _ = alice.shutdown().await;
-    let _ = bob.shutdown().await;
-    let _ = charlie.shutdown().await;
+    let _ = alice_ui.shutdown().await;
+    let _ = bob_ui.shutdown().await;
+    let _ = charlie_ui.shutdown().await;
 
     Ok((),)
 }

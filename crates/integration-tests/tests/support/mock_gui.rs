@@ -22,17 +22,15 @@ impl MockUi {
         Ok((),)
     }
     pub fn new(
-        keypair: KeyPair,
         nick: String,
-        seed_addr: Option<Multiaddr,>,
+        seed_addr: Option<Multiaddr>,
         num_seats: usize,
         table_id: TableId,
     ) -> Self {
-        let ui = runtime_bridge::start(
-            table_id, num_seats, keypair, nick, seed_addr,
-        );
+        let keypair = KeyPair::generate();
+        let ui = runtime_bridge::start(table_id, num_seats, keypair, nick, seed_addr);
         Self {
-            ui_handle:      ui,
+            ui_handle: ui,
             last_gamestate: GameState::default(),
         }
     }
@@ -40,18 +38,6 @@ impl MockUi {
     pub const fn peer_id(&self,) -> PeerId {
         self.last_gamestate.player_id
     }
-
-    #[allow(dead_code)]
-    pub fn default(
-        seed_addr: Option<Multiaddr,>,
-        table_id: TableId,
-        nick: String,
-    ) -> Self {
-        let kp = KeyPair::generate();
-
-        Self::new(kp, nick, seed_addr, 3, table_id,)
-    }
-
     pub async fn send_to_engine(
         &mut self,
         ui_cmd: UIEvent,
@@ -102,33 +88,17 @@ impl MockUi {
     }
 
     #[allow(dead_code)]
-    pub fn last_game_state(&self,) -> GameState {
+    pub async fn last_game_state(&mut self,) -> GameState {
+        self.poll_game_state().await;
         self.last_gamestate.clone()
     }
 
-    pub async fn poll_game_state(&mut self,) -> GameState {
-        let mut tries = 0u64;
-        let max_tries = 100;
-        let delay_ms = 20;
-        loop {
-            while let Ok(res,) = self.try_recv_from_engine() {
-                if let EngineEvent::Snapshot(gs,) = res {
-                    if self.last_gamestate != *gs {
-                        self.last_gamestate = *gs;
-                        return self.last_gamestate.clone();
-                    }
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(delay_ms,),).await;
-            tries += 1;
-            if tries >= max_tries {
-                return self.last_gamestate.clone();
+    pub async fn poll_game_state(&mut self,) {
+        while let Ok(res,) = self.try_recv_from_engine() {
+            if let EngineEvent::Snapshot(gs,) = res {
+                    self.last_gamestate = *gs;
             }
         }
-    }
-
-    #[allow(dead_code)]
-    pub async fn game_state(&mut self,) -> GameState {
-        self.poll_game_state().await
+        return;
     }
 }

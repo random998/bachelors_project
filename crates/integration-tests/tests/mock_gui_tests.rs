@@ -2,7 +2,6 @@
 mod support;
 use anyhow::Result;
 use env_logger::Env;
-use poker_core::crypto::KeyPair;
 use poker_core::game_state::HandPhase;
 use poker_core::message::UIEvent;
 use poker_core::poker::{Chips, TableId};
@@ -34,17 +33,14 @@ fn init_logger() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn two_peers_join_success_mock_gui() -> Result<(),> {
     init_logger();
-    let kp_a = KeyPair::generate();
-    let kp_b = KeyPair::generate();
     let table_id = TableId::new_id();
     let num_seats = 3;
 
     let mut alice_ui =
-        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
+        MockUi::new("Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
 
     let mut bob_ui = MockUi::new(
-        kp_b,
         "Bob".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -63,8 +59,8 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
         // Assertions after Alice joins
         assert_eq!(alice.get_players().len(), 1, "Alice should see herself");
         assert_eq!(
@@ -89,8 +85,8 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
         // Final assertions
         assert_eq!(alice.get_players().len(), 2, "Alice sees both players");
         assert_eq!(bob.get_players().len(), 2, "Bob sees both players");
@@ -108,18 +104,14 @@ async fn two_peers_join_success_mock_gui() -> Result<(),> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn three_peers_join_success_mock_gui() -> Result<(),> {
-    let kp_a = KeyPair::generate();
-    let kp_b = KeyPair::generate();
-    let kp_c = KeyPair::generate();
     let table_id = TableId::new_id();
     let num_seats = 3;
 
     let mut alice_ui =
-        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
+        MockUi::new("Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
 
     let mut bob_ui = MockUi::new(
-        kp_b,
         "Bob".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -128,7 +120,6 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
     bob_ui.wait_for_listen_addr().await;
 
     let mut charlie_ui = MockUi::new(
-        kp_c,
         "Charlie".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -147,9 +138,9 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 1);
         assert_eq!(charlie.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
         assert_eq!(bob.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
@@ -167,9 +158,9 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 2);
         assert_eq!(bob.get_players().len(), 2);
         assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
@@ -190,9 +181,9 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
 
         assert_eq!(alice.get_players().len(), 3);
         assert_eq!(bob.get_players().len(), 3);
@@ -217,18 +208,14 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[allow(clippy::too_many_lines)]
 async fn reject_join_table_full_mock_gui() -> Result<(),> {
-    let kp_a = KeyPair::generate();
-    let kp_b = KeyPair::generate();
-    let kp_c = KeyPair::generate();
     let table_id = TableId::new_id();
     let num_seats = 2;
 
     let mut alice_ui =
-        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
+        MockUi::new("Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
 
     let mut bob_ui = MockUi::new(
-        kp_b,
         "Bob".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -237,7 +224,6 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
     bob_ui.wait_for_listen_addr().await;
 
     let mut charlie_ui = MockUi::new(
-        kp_c,
         "Charlie".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -255,9 +241,9 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         },)
         .await?;
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 1);
         assert_eq!(bob.get_players().len(), 0); // bob has not added alice to his player's list, because he has not synced yet.
         assert_eq!(charlie.get_players().len(), 0); // charlie has not added alice to his player's list, because he has not synced yet.
@@ -274,9 +260,9 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 2);
         assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players in his list, because he has not synced, yet.
         assert_eq!(alice.hash_chain().len(), 2);
@@ -296,9 +282,9 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
 
         assert_eq!(
             alice.get_players().len(),
@@ -336,16 +322,13 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
 }
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn reject_join_game_started_mock_gui() -> Result<(),> {
-    let kp_a = KeyPair::generate();
-    let kp_b = KeyPair::generate();
     let table_id = TableId::new_id();
     let num_seats = 1;
 
     let mut alice_ui =
-        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
+        MockUi::new("Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
     let mut bob_ui = MockUi::new(
-        kp_b,
         "Bob".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -374,8 +357,8 @@ async fn reject_join_game_started_mock_gui() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 1);
         assert_eq!(bob.get_players().len(), 0);
         assert!(!bob.has_joined_table());
@@ -390,18 +373,14 @@ async fn reject_join_game_started_mock_gui() -> Result<(),> {
 async fn reject_join_already_joined_mock_gui() -> Result<(),> {
     init_logger();
 
-    let kp_a = KeyPair::generate();
-    let kp_b = KeyPair::generate();
-
     let table_id = TableId::new_id();
     let num_seats = 3;
 
     let mut alice_ui =
-        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
+        MockUi::new("Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
 
     let mut bob_ui = MockUi::new(
-        kp_b,
         "Bob".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -420,8 +399,8 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 1); // expect that alice joined her own instance.
         assert_eq!(bob.get_players().len(), 0); // expect that alice has not joined bobs instance, because he has not synced yet.
         assert!(!bob.has_joined_table()); // expect that bob has not joined a table, yet.
@@ -439,7 +418,7 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
         let chain_len_before = alice.hash_chain().len();
 
         bob_ui
@@ -451,8 +430,8 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
             },)
             .await?;
 
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 2);
         assert_eq!(bob.get_players().len(), 2);
         assert_eq!(
@@ -472,18 +451,14 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn test_card_dealing() -> Result<(),> {
     // setup: 3 peers join
-    let kp_a = KeyPair::generate();
-    let kp_b = KeyPair::generate();
-    let kp_c = KeyPair::generate();
     let table_id = TableId::new_id();
     let num_seats = 3;
 
     let mut alice_ui =
-        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
+        MockUi::new("Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
 
     let mut bob_ui = MockUi::new(
-        kp_b,
         "Bob".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -492,7 +467,6 @@ async fn test_card_dealing() -> Result<(),> {
     bob_ui.wait_for_listen_addr().await;
 
     let mut charlie_ui = MockUi::new(
-        kp_c,
         "Charlie".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -511,9 +485,9 @@ async fn test_card_dealing() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 1);
         assert_eq!(charlie.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
         assert_eq!(bob.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
@@ -531,9 +505,9 @@ async fn test_card_dealing() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 2);
         assert_eq!(bob.get_players().len(), 2);
         assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
@@ -554,9 +528,9 @@ async fn test_card_dealing() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
 
         assert_eq!(alice.get_players().len(), 3);
         assert_eq!(bob.get_players().len(), 3);
@@ -573,9 +547,9 @@ async fn test_card_dealing() -> Result<(),> {
     }
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 3);
         assert_eq!(bob.get_players().len(), 3);
         assert_eq!(charlie.get_players().len(), 3);
@@ -630,18 +604,14 @@ async fn test_card_dealing() -> Result<(),> {
 #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn test_local_player_first() -> Result<(),> {
     // setup: 3 peers join
-    let kp_a = KeyPair::generate();
-    let kp_b = KeyPair::generate();
-    let kp_c = KeyPair::generate();
     let table_id = TableId::new_id();
     let num_seats = 3;
 
     let mut alice_ui =
-        MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
+        MockUi::new("Alice".into(), None, num_seats, table_id,);
     alice_ui.wait_for_listen_addr().await;
 
     let mut bob_ui = MockUi::new(
-        kp_b,
         "Bob".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -650,7 +620,6 @@ async fn test_local_player_first() -> Result<(),> {
     bob_ui.wait_for_listen_addr().await;
 
     let mut charlie_ui = MockUi::new(
-        kp_c,
         "Charlie".into(),
         alice_ui.get_listen_addr(),
         num_seats,
@@ -669,9 +638,9 @@ async fn test_local_player_first() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 1);
         assert_eq!(charlie.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
         assert_eq!(bob.get_players().len(), 0); // we expect that charlie has 0 players, since he rejects any logentries since he has not synced yet.
@@ -689,9 +658,9 @@ async fn test_local_player_first() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 2);
         assert_eq!(bob.get_players().len(), 2);
         assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players, since he has not synced yet.
@@ -712,9 +681,9 @@ async fn test_local_player_first() -> Result<(),> {
         .await?;
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
 
         assert_eq!(alice.get_players().len(), 3);
         assert_eq!(bob.get_players().len(), 3);
@@ -731,9 +700,9 @@ async fn test_local_player_first() -> Result<(),> {
     }
 
     {
-        let alice = alice_ui.poll_game_state().await;
-        let bob = bob_ui.poll_game_state().await;
-        let charlie = charlie_ui.poll_game_state().await;
+        let alice = alice_ui.last_game_state().await;
+        let bob = bob_ui.last_game_state().await;
+        let charlie = charlie_ui.last_game_state().await;
         assert_eq!(alice.get_players().len(), 3);
         assert_eq!(bob.get_players().len(), 3);
         assert_eq!(charlie.get_players().len(), 3);

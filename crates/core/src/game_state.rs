@@ -197,6 +197,12 @@ impl Projection {
     /// grab an immutable snapshot for the GUI
     #[must_use]
     pub fn snapshot(&mut self,) -> GameState {
+        // Cycle the vector until the local peer is at index 0
+        let mut players = self.get_players();
+        if let Some(local_idx) = players.iter().position(|p| p.peer_id == self.peer_id()) {
+            players.rotate_left(local_idx);
+        };
+        
         GameState {
             has_sent_start_game_notification: self
                 .has_sent_start_game_notification,
@@ -213,7 +219,7 @@ impl Projection {
             ),
             player_id:                        self.key_pair.clone().peer_id(),
             nickname:                         self.peer_context.nick.clone(),
-            players:                          self.get_players(),
+            players, 
             board:                            self.board.clone(),
             pot:                              self.current_pot.clone(),
             action_req:                       self.action_request.clone(),
@@ -732,7 +738,7 @@ impl PartialEq for GameState {
         let self_hash = blake3::hash(self_bytes.as_slice());
         let other_bytes = bincode::serialize(&other).unwrap();
         let other_hash = blake3::hash(other_bytes.as_slice());
-        self_hash == other_hash 
+        self_hash == other_hash
     }
 }
 

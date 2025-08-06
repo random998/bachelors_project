@@ -365,6 +365,7 @@ impl GameView {
 
     // ---------- every seat / player box ---------------------------
     fn paint_players(&mut self, ui: &mut Ui, rect: &Rect, app: &App,) {
+
         let seats = match self.game_state.get_players().len() {
             1 => vec![Align2::CENTER_BOTTOM],
             2 => vec![Align2::CENTER_BOTTOM, Align2::CENTER_TOP],
