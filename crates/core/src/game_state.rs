@@ -1134,7 +1134,7 @@ impl Projection {
                 player.chips += player_payoff;
             }
             let mut cards = bh.to_vec();
-            cards.sort_by_key(poker_eval::Card::rank,);
+            cards.sort_by_key(Card::rank,);
             if let Some(payoff,) =
                 payoffs.iter_mut().find(|po| po.player_id == id,)
             {
