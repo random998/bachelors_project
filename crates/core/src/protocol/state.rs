@@ -134,20 +134,27 @@ impl ContractState {
 impl ContractState {
     pub fn get_players_mut(
         &mut self,
-    ) -> impl Iterator<Item = &mut PlayerPrivate,> {
-        self.players.values_mut()
+    ) -> Vec<&mut PlayerPrivate> {
+        self.players.values_mut().collect()
     }
 
     #[must_use]
-    pub fn get_players(&self,) -> Vec<PlayerPrivate,> {
-        self.players.clone().values().cloned().collect()
+    pub fn get_players(&self,) -> BTreeMap<PeerId, PlayerPrivate,> {
+        self.players.clone()
     }
 
     pub fn get_player_mut(
         &mut self,
-        id: PeerId,
+        id: &PeerId,
     ) -> Option<&mut PlayerPrivate,> {
-        self.get_players_mut().find(|p| p.peer_id == id,)
+        self.players.get_mut(id)
+    }
+    
+    pub fn get_player(
+        &mut self,
+        id: &PeerId,
+    ) -> Option<&PlayerPrivate,> {
+        self.players.get(id)
     }
 }
 
