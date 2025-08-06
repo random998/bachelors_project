@@ -326,6 +326,7 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                     p.has_sent_start_game_notification = true;
                 }
             }
+            
             // All good: Advance phase
             if st
                 .players
