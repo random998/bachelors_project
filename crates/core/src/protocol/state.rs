@@ -149,7 +149,7 @@ impl ContractState {
     ) -> Option<&mut PlayerPrivate,> {
         self.players.get_mut(id)
     }
-    
+
     pub fn get_player(
         &mut self,
         id: &PeerId,
@@ -160,7 +160,7 @@ impl ContractState {
 
 impl Default for ContractState {
     fn default() -> Self {
-        Self::new(3,)
+        Self::new(0,)
     }
 }
 
