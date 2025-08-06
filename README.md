@@ -3,7 +3,7 @@
 This repository hosts the **prototype implementation** of a **deterministic, peer-to-peer poker engine written in Rust**.
 The prototype focuses on:
 
-* lock-step hash-chain replication for game-state consensus ([ResearchGate][1])
+* lock-step hash-chain replication for game-state consensus
 * a minimal GUI (egui) front-end
 * network transport over libp2p
 
@@ -21,42 +21,6 @@ The prototype focuses on:
 | **Crypto Utilities** | `poker_core::crypto`                                 | Keys, signatures, commitments                                  |
 | **Tests / CI**       | `cargo test`, `clippy`, GitHub Actions ([GitHub][3]) |                                                                |
 
----
-
-## Quick Start
-
-```bash
-# 1. Install Rust tool-chain
-rustup toolchain install stable
-
-# 2. Clone & build
-git clone https://github.com/your-handle/zk-poker.git
-cd zk-poker
-cargo run --example two_peers
-```
-
-To run the headless integration-tests:
-
-```bash
-cargo test --workspace      # unit & property tests
-cargo clippy -- -D warnings  # lint gate in CI
-```
-
-See the test-writing guide ([Medium][4]).
-
----
-
-## Roadmap & Milestones
-
-### Prototype (Bachelor project)
-
-| Milestone                                 | Target date | Done when…                                          |
-| ----------------------------------------- | ----------- | --------------------------------------------------- |
-| **M1: UI bug-fix pass**                   | 17.07.2025  | All UI tasks in `issues/ux` closed                  |
-| **M2: Deterministic state-machine tests** | 18.07.2025  | Coverage ≥ 80 % on `game_state.rs`; fuzz pass green |
-| **M3: Contract hash-chain review**        | 19.07.2025  | Formal walk-through with advisor                    |
-| **M4: Project report draft**              | 20.07.2025  | 8–10 pp PDF pushed to `docs/`                       |
-| **M5: Submission & tag `v0.1.0`**         | 20.07.2025  | Repo archived & email to exam office                |
 
 ### Follow-up Thesis (outline only)
 
@@ -69,7 +33,7 @@ See the test-writing guide ([Medium][4]).
 
 ---
 
-## Testing Strategy
+## TODO Testing Strategy
 
 * **State-machine property tests** using `proptest`
 * **Network simulation**: spawn 3–5 in-process peers, replay canonical logs
@@ -82,7 +46,6 @@ Guides: Rust testing patterns ([Medium][4]) & open-source commit guidelines ([DE
 ## Documentation
 
 * `docs/report.md` – living project report (export to PDF on tag)
-* API docs with `cargo doc --open`
 * Design notes deriving from the academic references on Mental Poker ([ResearchGate][1]) and CRDT-based game engines ([hackmd.io][2])
 
 ---
