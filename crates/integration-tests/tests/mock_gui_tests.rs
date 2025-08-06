@@ -31,13 +31,13 @@ fn init_logger() {
 ///   length.
 /// - Phases remain WaitingForPlayers until game starts.
 /// - has_joined_table flags are set correctly.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn two_peers_join_success_mock_gui() -> Result<(),> {
     init_logger();
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
     let table_id = TableId::new_id();
-    let num_seats = 2;
+    let num_seats = 3;
 
     let mut alice_ui =
         MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);
@@ -333,7 +333,7 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
     charlie_ui.shutdown().await?;
     Ok((),)
 }
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
 async fn reject_join_game_started_mock_gui() -> Result<(),> {
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
@@ -385,8 +385,10 @@ async fn reject_join_game_started_mock_gui() -> Result<(),> {
     Ok((),)
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn reject_join_already_joined_mock_gui() -> Result<(),> {
+    init_logger();
+
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
     let table_id = TableId::new_id();
@@ -398,7 +400,7 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
 
     let mut bob_ui = MockUi::new(
         kp_b,
-        "Bon".into(),
+        "Bob".into(),
         alice_ui.get_listen_addr(),
         num_seats,
         table_id,

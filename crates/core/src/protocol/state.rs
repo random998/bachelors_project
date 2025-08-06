@@ -140,7 +140,7 @@ impl ContractState {
 
     #[must_use]
     pub fn get_players(&self,) -> Vec<PlayerPrivate,> {
-        self.players.values().cloned().collect()
+        self.players.clone().values().cloned().collect()
     }
 
     pub fn get_player_mut(
