@@ -214,7 +214,7 @@ async fn three_peers_join_success_mock_gui() -> Result<(),> {
     Ok((),)
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[allow(clippy::too_many_lines)]
 async fn reject_join_table_full_mock_gui() -> Result<(),> {
     let kp_a = KeyPair::generate();
@@ -231,7 +231,7 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         kp_b,
         "Bob".into(),
         alice_ui.get_listen_addr(),
-        2,
+        num_seats,
         table_id,
     );
     bob_ui.wait_for_listen_addr().await;
@@ -240,7 +240,7 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         kp_c,
         "Charlie".into(),
         alice_ui.get_listen_addr(),
-        2,
+        num_seats,
         table_id,
     );
     charlie_ui.wait_for_listen_addr().await;
@@ -278,12 +278,12 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         let bob = bob_ui.poll_game_state().await;
         let charlie = charlie_ui.poll_game_state().await;
         assert_eq!(alice.get_players().len(), 2);
-        assert_eq!(bob.get_players().len(), 2);
         assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players in his list, because he has not synced, yet.
         assert_eq!(alice.hash_chain().len(), 2);
         assert_eq!(bob.hash_chain().len(), 2);
         assert_eq!(charlie.hash_chain().len(), 0); // charlies hash chain should have length 0, because he has not synced, yet.
         assert_eq!(alice.hash_chain(), bob.hash_chain());
+        assert_eq!(bob.get_players().len(), 2);
     }
 
     charlie_ui
@@ -391,8 +391,9 @@ async fn reject_join_already_joined_mock_gui() -> Result<(),> {
 
     let kp_a = KeyPair::generate();
     let kp_b = KeyPair::generate();
+
     let table_id = TableId::new_id();
-    let num_seats = 6;
+    let num_seats = 3;
 
     let mut alice_ui =
         MockUi::new(kp_a, "Alice".into(), None, num_seats, table_id,);

@@ -105,6 +105,19 @@ pub struct Projection {
 }
 
 impl Projection {
+    
+    #[must_use]
+    pub fn get_last_bet(&self) -> Chips {
+        self.last_bet.clone()
+    }
+    
+    pub fn get_game_id(&self) -> GameId {
+        self.game_id.clone()
+    }
+    
+    pub fn get_table_id(&self) -> TableId {
+        self.table_id.clone()
+    }
     #[must_use]
     pub const fn game_started(&self,) -> bool {
         self.game_started
@@ -128,28 +141,30 @@ impl Projection {
     // Derived players access
     #[must_use]
     pub fn get_players(&self,) -> Vec<PlayerPrivate,> {
-        self.contract.get_players()
+        self.contract.get_players().values().cloned().collect()
     }
-    pub fn players_mut(
+    pub fn get_players_mut(
         &mut self,
-    ) -> impl Iterator<Item = &mut PlayerPrivate,> + '_ {
+    ) -> Vec<&mut PlayerPrivate> {
         self.contract.get_players_mut()
+    }
+    
+    pub fn get_player_mut(
+        &mut self,
+        id: &PeerId,
+    ) -> Option<&mut PlayerPrivate> {
+        self.contract.get_player_mut(id)
     }
 
     #[must_use]
-    pub fn get_player(&self, id: &PeerId,) -> Option<PlayerPrivate,> {
-        self.contract
-            .get_players()
-            .iter()
-            .find(|p| p.peer_id == *id,)
-            .cloned()
+    pub fn get_player(&mut self, id: &PeerId,) -> Option<&PlayerPrivate,> {
+        self.contract.get_player(id)
     }
 
     // Example derived methods for counts and operations
     #[must_use]
     pub fn count_active(&self,) -> usize {
-        self.contract
-            .get_players()
+        self.get_players()
             .iter()
             .filter(|p| p.is_active,)
             .count()
@@ -157,7 +172,7 @@ impl Projection {
 
     #[must_use]
     pub fn count_with_chips(&self,) -> usize {
-        self.contract
+        self
             .get_players()
             .iter()
             .filter(|p| p.has_chips(),)
@@ -166,7 +181,7 @@ impl Projection {
 
     #[must_use]
     pub fn count_active_with_chips(&self,) -> usize {
-        self.contract
+        self
             .get_players()
             .iter()
             .filter(|p| p.is_active && p.has_chips(),)
@@ -457,7 +472,7 @@ impl Projection {
                     return; // do not apply any syncResponses if we are the seed peer.
                 }
                 // Validate and replay chain from the very beginning.
-                let mut current_state = ContractState::default();
+                let mut current_state = ContractState::new(self.num_seats.clone());
                 let mut current_hash = GENESIS_HASH.clone();
                 let received_chain = chain.iter().cloned();
                 // first check the validity of the chain before applying any
@@ -599,8 +614,7 @@ impl Projection {
         for update in updates {
             let id = self.peer_id();
             if let Some(player,) = self
-                .contract
-                .get_players_mut()
+                .get_players_mut().iter_mut()
                 .find(|p| p.peer_id == update.player_id,)
             {
                 player.chips = update.chips;
@@ -925,7 +939,7 @@ impl Projection {
             .map(|p| p.peer_id,)
             .collect::<Vec<_,>>();
 
-        for player in self.contract.get_players_mut() {
+        for player in self.get_players_mut() {
             if !active_ids.contains(&player.peer_id,) {
                 player.hole_cards = PlayerCards::None;
                 player.public_cards = PlayerCards::None;
@@ -937,8 +951,7 @@ impl Projection {
         for &id in &active_ids {
             let c1 = self.deck.deal();
             let c2 = self.deck.deal();
-            if let Some(player,) =
-                self.contract.get_players_mut().find(|p| p.peer_id == id,)
+            if let Some(player,) = self.get_player_mut(&id)
             {
                 player.public_cards = PlayerCards::Covered;
                 player.hole_cards = if c1.rank() < c2.rank() {
@@ -1002,7 +1015,7 @@ impl Projection {
 
     fn enter_showdown(&mut self,) {
         self.contract.set_phase(HandPhase::Showdown,);
-        for player in self.contract.get_players_mut() {
+        for player in self.get_players_mut() {
             player.action = PlayerAction::None;
             if player.is_active {
                 player.public_cards = player.hole_cards;
@@ -1095,9 +1108,10 @@ impl Projection {
     }
 
     fn handle_single_player_payoff(&mut self, payoffs: &mut Vec<HandPayoff,>,) {
+        let pot_chips = self.current_pot.total_chips.clone();
         if let Some(id,) = self.active_player_id {
-            let player = self.contract.get_player_mut(id,).expect("err",);
-            player.chips += self.current_pot.total_chips;
+            let player = self.get_player_mut(&id,).expect("err",);
+            player.chips += pot_chips; 
             if let Some(payoff,) = payoffs
                 .iter_mut()
                 .find(|po| po.player_id == player.peer_id,)
@@ -1130,7 +1144,7 @@ impl Projection {
             } else {
                 win_payoff
             };
-            if let Some(player,) = self.contract.get_player_mut(id,) {
+            if let Some(player,) = self.contract.get_player_mut(&id,) {
                 player.chips += player_payoff;
             }
             let mut cards = bh.to_vec();
@@ -1292,7 +1306,7 @@ impl Projection {
                     if let Some(player,) = self
                         .contract
                         .get_players_mut()
-                        .find(|p| p.peer_id == id,)
+                        .iter_mut().find(|p| p.peer_id == id,)
                     {
                         player.bet -= min_bet;
                         pot.total_chips += min_bet;
@@ -1308,36 +1322,37 @@ impl Projection {
 
     /// Request action to the active player.
     fn request_action(&mut self,) {
+        let last_bet = self.get_last_bet(); 
+        let game_id = self.get_game_id();
+        let table_id = self.get_table_id();
+        
         if let Some(id,) = self.active_player_id {
-            let player = self
-                .contract
-                .get_players_mut()
-                .find(|p| p.peer_id == id,)
-                .expect("err",);
+            let player = self.get_player_mut(&id).expect("err");
+            
             let mut actions = vec![PlayerAction::Fold];
-            if player.bet == self.last_bet {
+            if player.bet == last_bet {
                 actions.push(PlayerAction::Check,);
             }
-            if player.bet < self.last_bet {
+            if player.bet < last_bet {
                 actions.push(PlayerAction::Call,);
             }
-            if self.last_bet == Chips::ZERO && player.chips > Chips::ZERO {
+            if last_bet == Chips::ZERO && player.chips > Chips::ZERO {
                 actions.push(PlayerAction::Bet {
-                    bet_amount: self.last_bet,
+                    bet_amount: last_bet,
                 },);
             }
-            if player.chips + player.bet > self.last_bet
-                && self.last_bet > Chips::ZERO
+            if player.chips + player.bet > last_bet
+                && last_bet > Chips::ZERO
                 && player.chips > Chips::ZERO
             {
                 actions.push(PlayerAction::Raise {
-                    bet_amount: self.last_bet,
+                    bet_amount: last_bet,
                 },);
             }
             player.action_timer = Some(0,);
             let msg = WireMsg::ActionRequest {
-                game_id:   self.game_id,
-                table:     self.table_id,
+                game_id,
+                table: table_id,
                 player_id: player.peer_id,
                 min_raise: self.min_raise + self.last_bet,
                 big_blind: self.big_blind,
