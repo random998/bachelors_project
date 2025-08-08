@@ -3,10 +3,12 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// Type definitions for p2p messages.
-use anyhow::{Result, bail};
+use anyhow::Result;
+use blake2::digest::Mac;
 use libp2p;
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
+
 
 use crate::crypto::{KeyPair, PeerId, PublicKey, Signature};
 use crate::game_state::GameState;
@@ -14,7 +16,7 @@ use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 use crate::protocol::msg::LogEntry;
 
 /// Represents a message exchanged between peers in the P2P poker protocol.
-#[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq,)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Debug)]
 pub enum NetworkMessage {
     /// protocol entry for zk log.
     ProtocolEntry(LogEntry,),
@@ -41,6 +43,7 @@ pub enum NetworkMessage {
         bb:         Chips,
         sender:     PeerId,
     },
+    Dummy,
 }
 
 /// Represents a message send from the p2p poker instance to the ui.
@@ -115,6 +118,7 @@ impl NetworkMessage {
             Self::SyncReq { .. } => "SyncReq".to_string(),
             Self::SyncResp { .. } => "SyncResp".to_string(),
             Self::StartGameNotify { .. } => "StartGameNotify".to_string(),
+            Self::Dummy => "Dummy".to_string(),
         }
     }
 }
@@ -190,17 +194,17 @@ pub struct HandPayoff {
 }
 
 /// A signed message.
-#[derive(Clone, Deserialize, Serialize,)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct SignedMessage {
     /// Clonable payload for broadcasting to multiple connection tasks.
     payload: Arc<Payload,>,
+    sig:        Signature,
 }
 
 impl SignedMessage {
     #[must_use]
-    pub const fn verify(&self,) -> bool {
-        // TODO, as of now always return true.
-        true
+    pub fn sig(&self,) -> Signature {
+        self.sig.clone()
     }
 }
 
@@ -211,11 +215,16 @@ impl PartialEq for SignedMessage {
 }
 
 /// Private signed message payload.
-#[derive(Clone, serde::Serialize, serde::Deserialize,)]
-struct Payload {
+#[derive(Clone, serde::Serialize, serde::Deserialize, Debug)]
+pub struct Payload {
     msg:        NetworkMessage,
-    sig:        Signature,
     public_key: PublicKey,
+}
+
+impl Payload {
+    pub fn new(msg: NetworkMessage, public_key: PublicKey) -> Self {
+        Self { msg, public_key }
+    }
 }
 
 impl PartialEq for Payload {
@@ -230,9 +239,9 @@ impl SignedMessage {
     pub fn new(key_pair: &KeyPair, msg: NetworkMessage,) -> Self {
         let sig = key_pair.secret().sign(&msg,);
         Self {
+            sig,
             payload: Arc::new(Payload {
                 msg,
-                sig,
                 public_key: key_pair.public(),
             },),
         }
@@ -241,11 +250,7 @@ impl SignedMessage {
     /// Deserializes this message and verifies its signature.
     /// # Errors
     pub fn deserialize_and_verify(buf: &[u8],) -> Result<Self,> {
-        let payload = bincode::deserialize::<Payload,>(buf,)?;
-        let sm = Self {
-            payload: Arc::new(payload,),
-        };
-
+        let sm = bincode::deserialize::<SignedMessage,>(buf,)?;
         Ok(sm,)
     }
 

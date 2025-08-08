@@ -8,7 +8,7 @@ use crate::poker::{Card, Chips, GameId, TableId};
 use crate::zk::{Commitment, Proof, RangeProof, ShuffleProof};
 // empty stub today
 // ---------- Public envelope ------------------------------------------------
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct LogEntry {
     pub prev_hash: Hash,
     pub payload: Transition,
@@ -115,7 +115,7 @@ pub struct DealCards {
     pub(crate) table: TableId,
     pub(crate) game_id: GameId,
 }
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub enum Transition {
     // ── lobby ─────────────────────────────────────────────
     /// Dealer sends each player their two private cards (**plaintext – will be

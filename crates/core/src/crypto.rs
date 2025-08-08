@@ -1,21 +1,22 @@
 //! crates/core/src/crypto.rs
 //! A *working* rewrite that uses `libp2p-identity` instead of `ed25519-dalek`.
 
-use std::cmp::Ordering;
-use std::convert::TryInto;
-use std::fmt;
-use std::fmt::{Debug, Display};
-use anyhow::{Result, bail};
+use crate::message::Payload;
+use crate::message::SignedMessage;
+use anyhow::{bail, Result};
 use bip39::{Language, Mnemonic};
 use blake2::digest::consts;
 use blake2::{Blake2s, Digest};
 use libp2p_identity::ed25519;
-use rand::SeedableRng;
 use rand::rngs::StdRng;
+use rand::SeedableRng;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::cmp::Ordering;
+use std::convert::TryInto;
+use std::fmt;
+use std::fmt::{Debug, Display};
 use zeroize::Zeroizing;
-
 // --------------------------------------------------------------------
 // Constants & type aliases
 
@@ -60,6 +61,16 @@ impl PublicKey {
     #[must_use]
     pub fn new(key_pair: &KeyPair,) -> Self {
         key_pair.public()
+    }
+}
+
+impl PublicKey {
+    pub fn verify_sig(&self, msg: SignedMessage) -> bool {
+       let pubk = self.0.clone();
+        let sig = msg.sig().0;
+        let binding = msg.serialize();
+        let bytes = binding.as_slice();
+        pubk.verify(bytes, &sig)
     }
 }
 
@@ -169,7 +180,7 @@ impl Debug for SecretKey {
 // --------------------------------------------------------------------
 // VerifyingKey + Signature
 
-#[derive(Clone,)]
+#[derive(Clone, PartialOrd, PartialEq, Debug)]
 pub struct PublicKey(pub ed25519::PublicKey,);
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -348,6 +359,7 @@ impl<'de,> Deserialize<'de,> for KeyPair {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::message::NetworkMessage;
 
     #[test]
     fn phrase_round_trip() {
@@ -358,14 +370,9 @@ mod tests {
 
     #[test]
     fn sign_and_verify() {
-        #[derive(Serialize,)]
-        struct Msg {
-            a: u32,
-        }
         let kp = KeyPair::generate();
-        let sk = kp.secret();
-        let pk = kp.public();
-        let sig = sk.sign(&Msg { a: 123, },);
-        assert!(pk.verify(&Msg { a: 123, }, &sig));
+        let pubk = kp.public();
+        let msg = SignedMessage::new(&kp, NetworkMessage::Dummy);
+        assert!(pubk.verify_sig(msg));
     }
 }

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::crypto::{PeerId, Signature};
+use crate::crypto::{PeerId, PublicKey, Signature};
 use crate::protocol::msg::{Hash, Transition};
 use crate::zk::Proof;
 
@@ -32,12 +32,28 @@ pub struct StateTransitionProposal {
     
     prev_hash: Hash, /// reference to the previous ProtocolMsg.
     hash: Hash,  /// hash of the senders current state.
-    signature: Signature,
+    sig: Signature,
+    pubk: PublicKey,
     payload:   Payload,
-    allowed_appenders: Vec<PeerId>,
+    /// players that are allowed to act upon this message (adding a new StateTransitionProposal after this one).
+    legal_actors: Vec<PeerId>,
     
     /// zkVM proof that `step(prev, payload) -> next`
     zk_proof:     Proof,
+}
+
+impl StateTransitionProposal {
+    pub fn get_legal_actors(&self) -> Vec<PeerId> {
+        self.legal_actors.clone()
+    }
+    
+    pub fn get_pubk(&self) -> PublicKey {
+        self.pubk.clone()
+    }
+    
+    pub fn get_sig(&self) -> Signature {
+        self.sig.clone()
+    }
 }
 
 impl PrevHash for StateTransitionProposal {
@@ -85,4 +101,3 @@ pub fn verify_prev_hash(prev_state_transition: StateTransitionProposal, msg: Pro
     let hash = Hash(blake3::hash(&bytes));
     hash == prev_hash
 }
-
