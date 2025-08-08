@@ -14,7 +14,7 @@ use crate::poker::{Card, Chips, GameId, PlayerCards, TableId};
 use crate::protocol::msg::LogEntry;
 
 /// Represents a message exchanged between peers in the P2P poker protocol.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq,)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq,)]
 pub enum NetworkMessage {
     /// protocol entry for zk log.
     ProtocolEntry(LogEntry,),
@@ -44,7 +44,7 @@ pub enum NetworkMessage {
 }
 
 /// Represents a message send from the p2p poker instance to the ui.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize,)]
+#[derive(Clone, serde::Serialize, serde::Deserialize,)]
 pub enum EngineEvent {
     Snapshot(Box<GameState,>,), // fresh projection every frame / on tick
     ActionRequest {
@@ -190,7 +190,7 @@ pub struct HandPayoff {
 }
 
 /// A signed message.
-#[derive(Debug, Clone, Deserialize, Serialize,)]
+#[derive(Clone, Deserialize, Serialize,)]
 pub struct SignedMessage {
     /// Clonable payload for broadcasting to multiple connection tasks.
     payload: Arc<Payload,>,
@@ -211,7 +211,7 @@ impl PartialEq for SignedMessage {
 }
 
 /// Private signed message payload.
-#[derive(Debug, Clone, Serialize, Deserialize,)]
+#[derive(Clone, serde::Serialize, serde::Deserialize,)]
 struct Payload {
     msg:        NetworkMessage,
     sig:        Signature,
@@ -245,14 +245,6 @@ impl SignedMessage {
         let sm = Self {
             payload: Arc::new(payload,),
         };
-
-        if !sm
-            .payload
-            .public_key
-            .verify(&sm.payload.msg, &sm.payload.sig,)
-        {
-            bail!("Invalid signature");
-        }
 
         Ok(sm,)
     }
