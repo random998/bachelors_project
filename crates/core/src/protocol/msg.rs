@@ -194,4 +194,9 @@ impl Transition {
             Self::DealCardsBatch(..) => "DealCards".to_string(),
         }
     }
+    
+    pub fn is_legal(&self) -> bool {
+        //todo
+        true
+    }
 }
