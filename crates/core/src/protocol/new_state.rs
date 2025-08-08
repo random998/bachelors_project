@@ -4,7 +4,7 @@ use crate::protocol::state_transition::{PrevHash, ProtocolMsg, StateTransitionPr
 
 pub struct State {
     /// history of all state transitions applied to the state of this peer ordered from oldest to latest. 
-    msg_log: Vec<ProtocolMsg>,
+    state_transitions: Vec<StateTransitionProposal>,
     /// hash of the last state transition applied to the state of this local peer_id.
     prev_hash: Hash,
     /// most recent (legitimate) proposed state transition sent by this peer or received from other peers.
@@ -57,6 +57,19 @@ impl State {
             false
         }
     }
-
-     
+    
+    pub fn is_legal_appender(&self, proposal: &StateTransitionProposal) -> bool {
+        // check if the sender is contained in the allowed appenders of the most recent state transition.
+        if self.state_transitions.len()==  0 {
+            true
+        } else {
+            let legal_actors = self.state_transitions.last().unwrap().get_legal_actors();
+            let proposal_sender = proposal.get_pubk().to_peer_id();
+            if !legal_actors.contains(&proposal_sender) {
+                return false;
+            }
+            true
+        } 
+    }
+    
 }

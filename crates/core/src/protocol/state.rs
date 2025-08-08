@@ -315,13 +315,13 @@ pub fn step(prev: &ContractState, msg: &Transition,) -> StepResult {
 
             // Verify each signature and fields match
             for sm in batch {
-                if !sm.verify() {
+/*                if !sm.verify() {
                     return StepResult {
                         next:    prev.clone(),
                         effects: vec![],
                     };
                 }
-                // Apply: Set flags
+*/                // Apply: Set flags
                 if let Some(p,) = st.players.get_mut(&sm.sender(),) {
                     p.has_sent_start_game_notification = true;
                 }

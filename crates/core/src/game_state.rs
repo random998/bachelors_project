@@ -522,6 +522,7 @@ impl Projection {
                 self.has_joined_table = true;
                 info!("Chain synced successfully; joined table");
             },
+            NetworkMessage::Dummy => {} //ignore
         }
     }
 
