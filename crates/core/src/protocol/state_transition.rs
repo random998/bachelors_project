@@ -6,10 +6,13 @@ use crate::zk::Proof;
 pub trait PrevHash {
     fn prev_hash(&self) -> Hash;
 }
+
+pub trait SeqNum {
+    fn seq_num(&self) -> SequenceNumber;
+}
 pub enum ProtocolMsg {
     StateTransitionProposal(StateTransitionProposal),
     STProposalAck(STProposalAck),
-    STProposalNAck(STProposalNAck),
 }
 
 // Implement PrevHash for ProtocolMsg by matching on variants
@@ -18,8 +21,17 @@ impl PrevHash for ProtocolMsg {
         match self {
             ProtocolMsg::StateTransitionProposal(proposal) => proposal.prev_hash(),
             ProtocolMsg::STProposalAck(ack) => ack.prev_hash(),
-            ProtocolMsg::STProposalNAck(nack) => nack.prev_hash(),
         }
+    }
+}
+
+impl SeqNum for ProtocolMsg {
+    fn seq_num(&self) -> SequenceNumber {
+        match self {
+            ProtocolMsg::StateTransitionProposal(proposal) => proposal.get_seq_number(),
+            ProtocolMsg::STProposalAck(ack) => ack.get_seq_number(),
+        }
+        
     }
 }
 
@@ -27,11 +39,10 @@ impl PrevHash for ProtocolMsg {
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct StateTransitionProposal {
-    time_stamp_micros: u64,
-    sequence_number: u64,
+    time_stamp_micros: TimeStamp,
+    sequence_number: SequenceNumber,
     
     prev_hash: Hash, /// reference to the previous ProtocolMsg.
-    hash: Hash,  /// hash of the senders current state.
     sig: Signature,
     pubk: PublicKey,
     payload:   Payload,
@@ -45,6 +56,22 @@ pub struct StateTransitionProposal {
 impl StateTransitionProposal {
     pub fn get_legal_actors(&self) -> Vec<PeerId> {
         self.legal_actors.clone()
+    }
+    
+    pub fn get_seq_number(&self) -> SequenceNumber {
+        self.sequence_number.clone()
+    }
+    
+    pub fn get_payload(&self) -> Payload {
+        self.payload.clone()
+    }
+    
+    pub fn get_prev_hash(&self) -> Hash {
+        self.prev_hash.clone()
+    }
+    
+    pub fn sender(&self) -> PeerId {
+        self.get_pubk().to_peer_id()
     }
     
     pub fn get_pubk(&self) -> PublicKey {
@@ -64,11 +91,32 @@ impl PrevHash for StateTransitionProposal {
 
 /// Short for StateTransitionProposalAcknowledgement
 pub struct  STProposalAck {
-    time_stamp_micros: u64,
-    sequence_number: u64,
+    time_stamp_micros: TimeStamp,
+    sequence_number: SequenceNumber, 
     prev_hash: Hash,
     signature: Signature,
+    public_key: PublicKey,
 }
+
+impl STProposalAck {
+    pub fn get_seq_number(&self) -> SequenceNumber {
+        self.sequence_number.clone()
+    }
+    pub fn sender(&self) -> PeerId {
+        self.public_key.to_peer_id()
+    }
+    
+    pub fn is_valid(&self) -> bool {
+        //todo
+        true
+    }
+}
+
+
+#[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash)]
+pub struct SequenceNumber(u64);
+#[derive(Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash)]
+pub struct TimeStamp(u64);
 
 impl PrevHash for STProposalAck {
     fn prev_hash(&self) -> Hash {
@@ -78,8 +126,8 @@ impl PrevHash for STProposalAck {
 
 /// Short for StateTransitionProposalAcknowledgement
 pub struct  STProposalNAck {
-    time_stamp_micros: u64,
-    sequence_number: u64,
+    time_stamp_micros: TimeStamp,
+    sequence_number: SequenceNumber,
     prev_hash: Hash,
     signature: Signature,
 }
@@ -92,6 +140,16 @@ impl PrevHash for STProposalNAck {
 #[derive(Clone, Serialize, Deserialize, PartialEq,)]
 pub enum Payload {
     Transition(Transition),
+}
+
+impl Payload {
+    pub fn is_legal_transition(&self) -> bool {
+        match self {
+            Payload::Transition(transition) => {
+                transition.is_legal()
+            }
+        } 
+    }
 }
 
 // Function to verify previous hash (example implementation)
