@@ -1,6 +1,7 @@
 <component name="ProjectDictionaryState">
   <dictionary name="project">
     <words>
+      <w>appenders</w>
       <w>bincode</w>
       <w>egui</w>
       <w>gamestate</w>

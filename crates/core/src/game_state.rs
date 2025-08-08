@@ -23,7 +23,7 @@ use crate::message::{
 };
 use crate::net::traits::P2pTransport;
 use crate::poker::{Card, Chips, Deck, GameId, PlayerCards, TableId};
-use crate::protocol::msg::{DealCards, Hash, LogEntry, WireMsg};
+use crate::protocol::msg::{DealCards, Hash, LogEntry, Transition};
 pub use crate::protocol::state::{
     self as contract, ContractState, GENESIS_HASH, HandPhase, PeerContext,
     PlayerPrivate,
@@ -75,7 +75,7 @@ pub struct Projection {
     pub connection:                   P2pTransport,
     // Outbound messages that came back from the pure state machine and still
     /// need to be broadcast.
-    pending_effects:                  Vec<WireMsg,>,
+    pending_effects:                  Vec<Transition,>,
     // game state ----------------------------------------------------------
     deck:                             Deck,
     current_pot:                      Pot,
@@ -360,7 +360,7 @@ impl Projection {
                 sorted_buffer.sort_by_key(|sm| sm.sender().to_string(),);
                 if self.peer_id() == self.start_game_proposer.unwrap() {
                     // Proposer: Append batch to chain
-                    let batch_msg = WireMsg::StartGameBatch(sorted_buffer,);
+                    let batch_msg = Transition::StartGameBatch(sorted_buffer,);
                     if self.commit_step(&batch_msg,).is_ok() {
                         info!(
                             "Proposer ({}) appended StartGameBatch",
@@ -453,7 +453,7 @@ impl Projection {
                     self.peer_context.nick.clone()
                 );
                 // Append JoinTableReq to chain
-                let join_msg = WireMsg::JoinTableReq {
+                let join_msg = Transition::JoinTableReq {
                     table:     *table,
                     player_id: *player_id,
                     nickname:  nickname.clone(),
@@ -529,7 +529,7 @@ impl Projection {
     // 2. Commit step: move “canonical state commit” above the side‑effect queue
     // (so that a subsequent self.sign_and_send() sees the new head)
     // ---------------------------------------------------------------------------
-    fn commit_step(&mut self, payload: &WireMsg,) -> anyhow::Result<(),> {
+    fn commit_step(&mut self, payload: &Transition,) -> anyhow::Result<(),> {
         use contract::{Effect, StepResult};
         // 1. pure state transition
         let StepResult { next, effects, } =
@@ -578,7 +578,7 @@ impl Projection {
                     && self.get_player(&peer_id,).is_none()
                     && self.num_seats > self.get_players().len()
                 {
-                    let wire_msg = WireMsg::JoinTableReq {
+                    let wire_msg = Transition::JoinTableReq {
                         table: table_id,
                         player_id: peer_id,
                         nickname: nickname.clone(),
@@ -709,7 +709,7 @@ pub enum TableJoinError {
 }
 
 /// The **immutable** snapshot handed to the GUI every frame.
-#[derive(Debug, Clone, Serialize, Deserialize,)]
+#[derive(Clone, Serialize, Deserialize,)]
 pub struct GameState {
     pub has_sent_start_game_notification: bool,
     pub table_id:                         TableId,
@@ -840,7 +840,7 @@ impl GameState {
 
 impl Projection {
     // send a protocol entry (hash-chained)
-    fn send_contract(&mut self, payload: WireMsg,) -> anyhow::Result<(),> {
+    fn send_contract(&mut self, payload: Transition,) -> anyhow::Result<(),> {
         self.commit_step(&payload,)
     }
 
@@ -854,7 +854,7 @@ impl Projection {
     }
 
     // convenience wrappers ------------------------------------------
-    pub fn sign_and_send(&mut self, payload: WireMsg,) -> anyhow::Result<(),> {
+    pub fn sign_and_send(&mut self, payload: Transition,) -> anyhow::Result<(),> {
         self.send_contract(payload,)
     }
 
@@ -981,7 +981,7 @@ impl Projection {
         deal_cards_list.sort_by_key(|dc| dc.player_id,);
 
         // Append batch to chain
-        let batch_msg = WireMsg::DealCardsBatch(deal_cards_list,);
+        let batch_msg = Transition::DealCardsBatch(deal_cards_list,);
         let _ = self.send_contract(batch_msg,);
 
         self.enter_preflop_betting();
@@ -1047,7 +1047,7 @@ impl Projection {
         let winners = self.pay_bets();
         // Update players and broadcast update to all players.
         self.contract.end_hand();
-        let _ = self.send_contract(WireMsg::EndHand {
+        let _ = self.send_contract(Transition::EndHand {
             payoffs: winners,
             pot:     self.pot().total_chips,
         },);
@@ -1062,7 +1062,7 @@ impl Projection {
                 // Clone to avoid borrow issues
                 if player.chips == Chips::ZERO {
                     // Notify the client that this player has left the table.
-                    let _ = self.send_contract(WireMsg::LeaveTable {
+                    let _ = self.send_contract(Transition::LeaveTable {
                         player_id: player.peer_id,
                     },);
                 }
@@ -1079,7 +1079,7 @@ impl Projection {
         self.contract.set_phase(HandPhase::EndingGame,);
         for player in self.get_players() {
             // Notify the client that this player has left the table.
-            let msg = WireMsg::LeaveTable {
+            let msg = Transition::LeaveTable {
                 player_id: player.peer_id,
             };
             let _ = self.send_contract(msg,);
@@ -1358,7 +1358,7 @@ impl Projection {
                 },);
             }
             player.action_timer = Some(0,);
-            let msg = WireMsg::ActionRequest {
+            let msg = Transition::ActionRequest {
                 game_id,
                 table: table_id,
                 player_id: player.peer_id,
@@ -1378,7 +1378,7 @@ impl Projection {
     }
 
     fn send_throttle(&mut self, millis: u32,) {
-        let msg = WireMsg::Throttle { millis, };
+        let msg = Transition::Throttle { millis, };
         let _ = self.send_contract(msg,);
     }
 }
