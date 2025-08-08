@@ -291,7 +291,7 @@ async fn reject_join_table_full_mock_gui() -> Result<(),> {
         assert_eq!(charlie.get_players().len(), 0); // charlie has 0 players in his list, because he has not synced, yet.
         assert_eq!(charlie.hash_chain().len(), 0); // charlies hash chain should have length 0, because he has not synced, yet.
         // assert_eq!(alice.hash_chain().len(), bob.hash_chain().len());
-        //  assert_eq!(alice.hash_chain(), bob.hash_chain());
+        // assert_eq!(alice.hash_chain(), bob.hash_chain());
         assert_eq!(alice.hash_head(), bob.hash_head());
     }
 

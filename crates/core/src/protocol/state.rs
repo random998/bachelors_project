@@ -9,7 +9,7 @@ use crate::crypto::PeerId;
 use crate::message::{HandPayoff, PlayerAction};
 use crate::poker::PlayerCards::Cards;
 use crate::poker::{Chips, PlayerCards};
-use crate::protocol::msg::{Hash, WireMsg};
+use crate::protocol::msg::{Hash, Transition};
 
 pub static GENESIS_HASH: std::sync::LazyLock<Hash,> =
     std::sync::LazyLock::new(|| {
@@ -102,7 +102,7 @@ pub struct StepResult {
 /// Things that _should_ be sent after the state is committed
 #[derive(Clone, Serialize, Deserialize,)]
 pub enum Effect {
-    Send(WireMsg,),
+    Send(Transition,),
 }
 
 #[derive(Clone, Serialize, Deserialize,)]
@@ -278,12 +278,12 @@ impl fmt::Debug for ContractState {
 
 // ---------- single deterministic transition ------------------------------
 #[must_use]
-pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
+pub fn step(prev: &ContractState, msg: &Transition,) -> StepResult {
     let mut st = prev.clone();
     let mut out = Vec::new();
 
     match msg {
-        WireMsg::StartGameBatch(batch,) => {
+        Transition::StartGameBatch(batch,) => {
             // Verify: Complete, sorted, valid
             let expected_senders: Vec<PeerId,> =
                 st.players.keys().copied().collect();
@@ -340,7 +340,7 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
             let eff = Effect::Send(msg.clone(),);
             out.push(eff,);
         },
-        WireMsg::JoinTableReq {
+        Transition::JoinTableReq {
             player_id,
             table: _table,
             chips,
@@ -355,7 +355,7 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
                 st.phase = HandPhase::StartingGame;
             }
         },
-        WireMsg::DealCardsBatch(batch,) => {
+        Transition::DealCardsBatch(batch,) => {
             // Verify: Complete, sorted, valid for active players
             let expected_receivers: Vec<PeerId,> = st
                 .players
@@ -389,10 +389,10 @@ pub fn step(prev: &ContractState, msg: &WireMsg,) -> StepResult {
             let eff = Effect::Send(msg.clone(),);
             out.push(eff,);
         },
-        WireMsg::ActionRequest { .. } => {
+        Transition::ActionRequest { .. } => {
             todo!()
         },
-        WireMsg::Ping => {
+        Transition::Ping => {
             todo!()
         },
         _ => {

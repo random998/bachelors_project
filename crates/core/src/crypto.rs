@@ -4,8 +4,7 @@
 use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::fmt;
-use std::fmt::Display;
-
+use std::fmt::{Debug, Display};
 use anyhow::{Result, bail};
 use bip39::{Language, Mnemonic};
 use blake2::digest::consts;
@@ -83,12 +82,12 @@ impl SecretKey {
     /// PRNG constructor.
     fn generate_from_rng<R: RngCore + CryptoRng,>(rng: &mut R,) -> Self {
         let mut entropy = [0u8; ENTROPY_LEN];
-        rng.fill_bytes(&mut entropy,);
+        rng.fill_bytes(entropy.as_mut(),);
         Self::generate_from_entropy(entropy,)
     }
 
     pub fn from_phrase(phrase: &str,) -> Result<Self,> {
-        let m = Mnemonic::from_phrase(phrase, Language::English,)?;
+        let m = Mnemonic::from_phrase(phrase, Language::English,).unwrap();
         let bytes = m.entropy();
         if bytes.len() != ENTROPY_LEN {
             bail!("mnemonic entropy must be {ENTROPY_LEN} bytes");
@@ -102,10 +101,10 @@ impl SecretKey {
 
     #[must_use]
     pub fn phrase(&self,) -> String {
-        Mnemonic::from_entropy(&*self.entropy, Language::English,)
-            .unwrap()
-            .phrase()
-            .to_owned()
+        let entropy = self.entropy.clone();
+        let entropy = entropy.to_vec();
+        let phrase = Mnemonic::from_entropy(entropy.as_slice(), Language::English,).unwrap();
+        phrase.phrase().to_string()
     }
     #[must_use]
     pub fn secret_bytes(&self,) -> [u8; SECRET_LEN] {
@@ -125,13 +124,15 @@ impl SecretKey {
 impl Serialize for SecretKey {
     fn serialize<S,>(&self, s: S,) -> Result<S::Ok, S::Error,>
     where S: Serializer {
-        s.serialize_bytes(&self.secret_bytes(),)
+        let mut bytes = self.secret_bytes().clone();
+        s.serialize_bytes(bytes.as_mut(),)
     }
 }
 impl Serialize for PublicKey {
     fn serialize<S,>(&self, s: S,) -> Result<S::Ok, S::Error,>
     where S: Serializer {
-        s.serialize_bytes(&self.to_bytes(),)
+        let mut bytes = self.to_bytes().clone();
+        s.serialize_bytes(bytes.as_mut(),)
     }
 }
 
@@ -159,7 +160,7 @@ impl<'de,> Deserialize<'de,> for PublicKey {
 
 // ---------- Debug --------------------------------------------------
 
-impl fmt::Debug for SecretKey {
+impl Debug for SecretKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(f, "SigningKey({})", self.phrase())
     }
@@ -171,7 +172,7 @@ impl fmt::Debug for SecretKey {
 #[derive(Clone,)]
 pub struct PublicKey(pub ed25519::PublicKey,);
 
-#[derive(Clone,)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Signature(Vec<u8,>,);
 
 #[derive(Clone, Debug,)]
@@ -189,7 +190,7 @@ impl KeyPair {
     #[must_use]
     pub fn from_bytes(bytes: &[u8],) -> Self {
         let mut bytes: [u8; 64] = bytes.try_into().unwrap();
-        let kp = ed25519::Keypair::try_from_bytes(&mut bytes,).expect("error",);
+        let kp = ed25519::Keypair::try_from_bytes(bytes.as_mut(),).expect("error",);
         Self::new(kp,)
     }
 
@@ -216,12 +217,6 @@ impl KeyPair {
 }
 
 impl PublicKey {
-    pub fn verify<T: Serialize,>(&self, msg: &T, sig: &Signature,) -> bool {
-        let mut h = SigHasher::new();
-        bincode::serialize_into(&mut h, msg,).unwrap();
-        self.0.verify(&h.finalize(), sig.0.as_ref(),)
-    }
-
     #[must_use]
     pub fn to_peer_id(&self,) -> PeerId {
         let pubk: libp2p_identity::PublicKey = self.0.clone().into();
@@ -233,27 +228,6 @@ impl PublicKey {
         self.0.to_bytes()
     }
 }
-
-impl fmt::Debug for PublicKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(
-            f,
-            "VerifyingKey({})",
-            bs58::encode(self.0.to_bytes()).into_string()
-        )
-    }
-}
-
-impl fmt::Debug for Signature {
-    fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(
-            f,
-            "Signature({})",
-            bs58::encode::<&Vec<u8,>,>(self.0.as_ref()).into_string()
-        )
-    }
-}
-
 impl Serialize for Signature {
     fn serialize<S,>(
         &self,
@@ -288,7 +262,8 @@ impl Default for PeerId {
 
 impl Display for PeerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
-        write!(f, "{}", bs58::encode(self.0.to_bytes()).into_string())
+        let bytes = self.0.to_bytes();
+        write!(f, "{}", bs58::encode(bytes).into_string())
     }
 }
 
@@ -338,7 +313,7 @@ impl PeerId {
     }
 }
 
-impl fmt::Debug for PeerId {
+impl Debug for PeerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_,>,) -> fmt::Result {
         write!(f, "PeerId({self})")
     }
