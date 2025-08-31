@@ -74,6 +74,7 @@ User action → Signed message → Broadcast → Receive & Validate → Append t
 - **Game State Management (`game_state.rs`)**: Projection orchestrates updates. Example: `commit_step` applies transitions, computes hashes, and queues effects.
 - **Messaging (`message.rs`)**: Signed messages ensure authenticity. Variants like StartGameNotify coordinate game start.
 - **Player Management (`players_state.rs`)**: PlayerStateObjects handles turns with stable indices.
+- **Network (p2p-net)**: service for the core game to send messages to other peers/players.
 - **GUI Integration (`gui/src/game_view.rs`)**: Renders snapshots from Projection::snapshot().
 
 #### Core Crate
@@ -164,12 +165,3 @@ How can we balance this?
 ### Conclusion and Next Steps
 The prototype demonstrates viable P2P poker basics but requires bug fixes for reliability.  
 I propose a meeting to discuss the above questions, refine scope, and plan thesis extensions.
-
-## References
-[1] Shamir, Rivest, Adleman. "Mental Poker" (1979).  
-[2] Shapiro et al. "Conflict-Free Replicated Data Types" (2011).  
-[3] Ongaro, Ousterhout. "In Search of an Understandable Consensus Algorithm (Raft)" (2014).  
-[4] libp2p Documentation.  
-[5] Stateright GitHub Repository.  
-[6] Halo2: Zcash Implementation.  
-[7] Yin et al. "HotStuff: BFT Consensus with Linearity and Responsiveness" (2019).
