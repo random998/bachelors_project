@@ -52,7 +52,7 @@ The prototype focuses on:
 ### Follow-up Thesis (outline only)
 
 1. Literature study: Mental Poker & ZK-shuffle ([Wikipedia][5], [GitHub Docs][6])
-2. Commitment & reveal channels ([doc.rust-lang.org][7])
+2. Commitment & reveal channels
 3. Efficient N-party verifiable shuffling protocol
 4. Circuit design (e.g. Halo 2 / Risc 0) and proof system benchmark ([MetaMask][8])
 5. Punishment layer & escrow logic
@@ -78,14 +78,18 @@ The prototype focuses on:
 
 ---
 
-## TODO Testing Strategy
+## Testing Strategy
+TODO:
+think about what kind of testing strategy should be deployed to test the system.
+Also the tests are structured very badly at the moment. There is need for proper organization.
+Maybe check the rust reference for inspiration? [doc.rust-lang.org][7])
 
 * **State-machine property tests** using `proptest`
 * **Network simulation**: spawn 3–5 in-process peers, replay canonical logs
 * Continuous fuzzing hook via `cargo-fuzz` (optional)
 
-Guides: Rust testing patterns ([Medium][4]) & open-source commit guidelines ([DEV Community][10]).
 
+Guides: Rust testing patterns ([Medium][4]) & open-source commit guidelines ([DEV Community][10]).
 ---
 
 ## Documentation
