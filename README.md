@@ -10,8 +10,8 @@ Roadmap:
     6.5 All messages must be authenticated and verifiable (Noise + signature).
     6.6 Consensus on game state must be maintained among peers.
 7. message passing protocol (DONE? clients just broadcast messages.)
-8. Lobby Advertisement (Peer Discovery)
-    8.1 Use multicast, DNS-SD, libp2p, or DHT to allow a player to advertise a lobby.
+8. Peer Discovery
+    8.1 Use libp2p to allow a player to advertise a lobby.
     8.2 Peers can discover open games and connect via Noise-encrypted WebSockets.
     8.3 No peer should be a permanent coordinator.
 9. Decentralized Game State
@@ -26,12 +26,8 @@ Roadmap:
     10.4 Implement a rollback/timeout system for stalled or invalid actions.
 
 11. look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
-12. look at source code of dark forest zk game, note how they "did things", especially how they implemented the debugging console.
-13. ui improvements:
-    display the current game phase somwehere
-    display the id's of the players at all times.
-14. Add code smell analysis and tools like in sopra.
-15. Add more extensive tests.
+12. look at source code of dark forest zk game, get inspired by their zk-cuircits implementation and their zk debug console.
+13. Add more extensive tests.
 
 
 Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
