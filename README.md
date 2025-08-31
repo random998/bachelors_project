@@ -3,7 +3,6 @@
 This repository hosts the **prototype implementation** of a **deterministic, peer-to-peer poker engine written in Rust**.
 The prototype focuses on:
 
-<<<<<<< HEAD
 * lock-step hash-chain replication for game-state consensus
 * a minimal GUI (egui) front-end
 * network transport over libp2p
@@ -48,7 +47,6 @@ The prototype focuses on:
 11. look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
 12. look at source code of dark forest zk game, get inspired by their zk-cuircits implementation and their zk debug console.
 13. Add more extensive tests.
->>>>>>> f227008 (Update README.md)
 
 
 ### Follow-up Thesis (outline only)
