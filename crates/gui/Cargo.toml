@@ -10,7 +10,6 @@ eframe = {version = "0.31.1", features = ["ron", "serde"]}
 ewebsock = { version = "0.8.0", features = ["tls"] }
 poker-cards = { workspace = true, features = ["egui"] }
 poker-core = { workspace = true }
-poker-table-engine = {workspace = true}
 p2p-net = {workspace = true}
 indoc = "2"
 log = { workspace = true }

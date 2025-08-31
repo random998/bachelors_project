@@ -4531,7 +4531,6 @@ dependencies = [
  "libp2p-swarm-derive",
  "log",
  "poker-core",
- "poker-table-engine",
  "tokio",
 ]
 
@@ -4739,22 +4738,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "poker-table-engine"
-version = "0.0.1"
-dependencies = [
- "ahash",
- "anyhow",
- "async-trait",
- "futures",
- "log",
- "poker-core",
- "poker-eval",
- "rand 0.9.2",
- "thiserror 1.0.69",
- "tokio",
-]
-
-[[package]]
 name = "poker_gui"
 version = "0.0.1"
 dependencies = [
@@ -4775,7 +4758,6 @@ dependencies = [
  "p2p-net",
  "poker-cards",
  "poker-core",
- "poker-table-engine",
  "serde",
  "snow",
  "tokio",

@@ -7,7 +7,6 @@ members = [
     "crates/gui",
     "crates/integration-tests",
     "crates/p2p-net",
-    "crates/table-engine",
 ]
 
 [workspace.package]

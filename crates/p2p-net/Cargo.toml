@@ -9,7 +9,6 @@ description = "libp2p transport layer for the ZK-Poker project"
 [dependencies]
 # --- core project -------------
 poker-core = { path = "../core" }      # SignedMessage, NetTx, etc.
-poker-table-engine = {path = "../../crates/table-engine"}
 
 # --- async / util -------------
 tokio        = { version = "1.38", features = ["rt-multi-thread", "macros", "sync"] }
