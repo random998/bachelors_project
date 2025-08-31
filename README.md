@@ -127,6 +127,6 @@ Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
     Final thesis polishing: references, proofreading, formatting
 
 ====
-relevant webpages:
-https://zcash.github.io/halo2/index.html
-https://docs.zkproof.org/reference#latest-version
+relevant webpages:\
+https://zcash.github.io/halo2/index.html\
+https://docs.zkproof.org/reference#latest-version\
