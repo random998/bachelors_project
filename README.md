@@ -51,8 +51,3 @@ Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
     Prevents cheating and allows verifiable fairness.
     Final thesis polishing: references, proofreading, formatting
     Create README, reproducibility guide, and demo materials
-
-September 23:
-
-    Submit the final thesis
-
