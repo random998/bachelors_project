@@ -69,28 +69,28 @@ User action → Signed message → Broadcast → Receive & Validate → Append t
 
 ```mermaid
 graph TB
-    subgraph "egui_frontend (GUI Crate)"
-        GUI[Purpose: Minimal egui-based GUI for local input/output.<br>Renders game views from snapshots, handles user actions like bets.]
+    subgraph egui_frontend_GUI_Crate[egui_frontend (GUI Crate)]
+        GUI["Minimal egui-based GUI for local input/output. Renders game views from snapshots, handles user actions like bets."]
     end
-    subgraph "poker_core (Core Crate)"
-        GameState[game_state module:<br>Purpose: Deterministic state machine with hash-chained log for game consensus.<br>Manages state transitions, log entries, and effects.]
-        Net[net module:<br>Purpose: libp2p-based network transport.<br>Handles swarm, gossip, peer discovery, and CRDT-style merge buffer for state sync.]
-        Crypto[crypto module:<br>Purpose: Cryptographic utilities.<br>Provides keys, signatures, commitments, and authentication (e.g., Noise + signatures).]
+    subgraph poker_core_Core_Crate[poker_core (Core Crate)]
+        GameState["game_state module: Deterministic state machine with hash-chained log for game consensus. Manages state transitions, log entries, and effects."]
+        Net["net module: libp2p-based network transport. Handles swarm, gossip, peer discovery, and CRDT-style merge buffer for state sync."]
+        Crypto["crypto module: Cryptographic utilities. Provides keys, signatures, commitments, and authentication e.g. Noise and signatures."]
     end
-    subgraph "poker_eval (Eval Crate)"
-        Eval[Purpose: Poker-specific logic.<br>Handles hand ranking, evaluation, and deterministic rules (e.g., evaluate_hand function).]
+    subgraph poker_eval_Eval_Crate[poker_eval (Eval Crate)]
+        Eval["Poker-specific logic. Handles hand ranking, evaluation, and deterministic rules e.g. evaluate_hand function."]
     end
-    subgraph "Integration Tests Crate"
-        Tests[Purpose: Testing framework.<br>Includes unit tests for pure functions, integration with in-memory libp2p simulations, property tests via proptest.]
+    subgraph Integration_Tests_Crate[Integration Tests Crate]
+        Tests["Testing framework. Includes unit tests for pure functions, integration with in-memory libp2p simulations, property tests via proptest."]
     end
-    GUI -->|Depends on: Polls Projection for snapshots, sends signed messages| GameState
-    GameState -->|Depends on: Broadcasts messages, syncs state| Net
-    GameState -->|Depends on: Signs actions, verifies hashes| Crypto
-    Net -->|Depends on: Authenticates messages| Crypto
-    GameState -->|Depends on: Evaluates hands during showdown| Eval
-    Tests -->|Depends on: Simulates and verifies| GUI
-    Tests -->|Depends on: Tests state machine, network| poker_core
-    Tests -->|Depends on: Verifies hand logic| Eval
+    GUI -->|Polls Projection for snapshots, sends signed messages| GameState
+    GameState -->|Broadcasts messages, syncs state| Net
+    GameState -->|Signs actions, verifies hashes| Crypto
+    Net -->|Authenticates messages| Crypto
+    GameState -->|Evaluates hands during showdown| Eval
+    Tests -->|Simulates and verifies| GUI
+    Tests -->|Tests state machine, network| poker_core_Core_Crate
+    Tests -->|Verifies hand logic| Eval
     classDef crate fill:#f9f,stroke:#333,stroke-width:2px;
     class GUI,GameState,Net,Crypto,Eval,Tests crate;
 
