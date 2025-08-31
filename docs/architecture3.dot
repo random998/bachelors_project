@@ -1,0 +1,47 @@
+digraph G {
+compound=true;
+node [shape=box, style=filled, fillcolor=lightblue];
+edge [arrowhead=normal];
+subgraph cluster_egui_frontend {
+label = "egui_frontend (GUI Crate)";
+color = black;
+GUI_Main [label="main.rs\nSets up egui context, renders components like player hands, pot, action buttons."];
+Game_View [label="game_view.rs\nRenders snapshots from Projection, handles user inputs as messages."];
+}
+subgraph cluster_poker_core {
+label = "poker_core (Core Crate)";
+color = black;
+Game_State [label="game_state.rs\nProjection (mutable view), ContractState (immutable state machine), commit_step for transitions, hash chains."];
+Message [label="message.rs\nSigned messages, variants like StartGameNotify, ActionMessage for bets."];
+Players_State [label="players_state.rs\nPlayerStateObjects, manages turns, indices."];
+Crypto [label="crypto.rs\nEd25519 signatures, keys, commitments, Noise authentication."];
+}
+subgraph cluster_p2p_net {
+label = "p2p-net (Network Crate)";
+color = black;
+Net [label="net.rs or lib.rs\nlibp2p Swarm, gossipsub, peer discovery, sync mechanisms (SyncReq/SyncResp)."];
+}
+subgraph cluster_poker_eval {
+label = "poker_eval (Eval Crate)";
+color = black;
+Eval [label="lib.rs or eval.rs\nHand ranking, evaluate_hand function, deterministic poker rules."];
+}
+subgraph cluster_tests {
+label = "Integration Tests";
+color = black;
+Tests [label="tests directory\nUnit tests for eval, integration with in-memory libp2p, property tests via proptest."];
+}
+// Interactions
+GUI_Main -> Game_View [label="Renders"];
+Game_View -> Game_State [label="Polls snapshots, sends user actions as signed messages"];
+Game_State -> Message [label="Processes messages"];
+Game_State -> Players_State [label="Manages players and turns"];
+Game_State -> Net [label="Broadcasts messages, syncs state", ltail=cluster_poker_core, lhead=cluster_p2p_net];
+Game_State -> Crypto [label="Signs/Verifies actions and hashes"];
+Net -> Crypto [label="Authenticates messages", ltail=cluster_p2p_net, lhead=cluster_poker_core];
+Game_State -> Eval [label="Evaluates hands during showdown", ltail=cluster_poker_core, lhead=cluster_poker_eval];
+Tests -> Game_State [label="Tests state machine", ltail=cluster_tests, lhead=cluster_poker_core];
+Tests -> Net [label="Simulates network", ltail=cluster_tests, lhead=cluster_p2p_net];
+Tests -> Eval [label="Verifies hand logic", ltail=cluster_tests, lhead=cluster_poker_eval];
+Tests -> Game_View [label="Simulates GUI", ltail=cluster_tests, lhead=cluster_egui_frontend];
+}
