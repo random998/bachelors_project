@@ -17,8 +17,8 @@ Inspired by Mental Poker protocols [1], the system aims for fairness and resilie
 ### Current Status
 The prototype runs locally and supports basic P2P interactions. However, distributed tests fail due to state divergence under network delays. This report details the architecture, implementation highlights, and unresolved issues.
 
-\section{Background and Related Work}
-\subsection{Poker mechanics and distibuted systems}
+### Background and Related Work
+#### Poker mechanics and distibuted systems
 Poker involves deterministic rules (e.g., hand evaluation using crates like {poker_eval}). For P2P, consensus is key: lock-step replication ensures peers execute identical inputs in order, verified via hash-chains (inspired by CRDTs [2] and Raft-like models [3]).
 Related work:
 
@@ -26,7 +26,7 @@ Mental Poker [1]: Theoretical foundations for fair card dealing without revelati
 libp2p [4]: Used for swarm-based P2P networking.
 Stateright [5]: Considered for model-checking the state machine (not yet integrated).
 
-\subsection{Technologies}
+### Technologies
 Rust: Chosen for safety and performance in concurrent systems.
 libp2p: Handles peer discovery, gossip, and message propagation.
 egui: Simple GUI for user input/output.
@@ -64,12 +64,11 @@ TODO
 
 
 ### Implementation
-\subsection{Core components}
+#### Core components
 - Game State Management ({game_state.rs}): Projection orchestrates updates. Example: {commit_step} applies transitions, computes hashes, and queues effects.
 - Messaging (message.rs): Signed messages ensure authenticity. Variants like StartGameNotify coordinate game start.
 - Player Management ({players_state.rs}): PlayerStateObjects handles turns with stable indices.
 - GUI integration: ({gui/src/game_view.rs}): Renders snapshots from Projection::snapshot().
-
 
 #### core crate
 TODO
