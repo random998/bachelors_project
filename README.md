@@ -104,3 +104,20 @@ Guides: Rust testing patterns ([Medium][4]) & open-source commit guidelines ([DE
 [7]: https://doc.rust-lang.org/book/ch11-03-test-organization.html?utm_source=chatgpt.com "Test Organization - The Rust Programming Language"
 [8]: https://metamask.io/news/polysnap-invoking-polywrap-wasm-wrappers-on-the-fly?utm_source=chatgpt.com "Polysnap: Invoking Polywrap Wasm Wrappers on the fly - MetaMask"
 [9]: https://medium.com/%40kaishinaw/connect-metamask-with-ethers-js-fc9c7163fd4d?utm_source=chatgpt.com "Connect Metamask with Ethers.js - Medium"
+=======
+Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
+1. Improved secure shuffling protocol.
+2. publishing of commitments to game participants.
+3. Verificatoin of commitments/proofs by other game participants.
+4. Penalties to Players who do not follow the agreed upon protocol.
+5. Metamask crypto wallet connections?
+6. Improved shuffle protocol.
+7. Choice of ZK circuit development stack.
+8.  Implementation of ZK circuits.
+9.  Proof of correctness for the protocol.
+10. Deck Shuffling and Card Dealing (Fairness)
+    Implement verifiable shuffling (e.g., Mental Poker):
+    Each player encrypts and permutes the deck using their public key.
+    Cards are revealed through cooperative decryption.
+    Prevents cheating and allows verifiable fairness.
+    Final thesis polishing: references, proofreading, formatting
