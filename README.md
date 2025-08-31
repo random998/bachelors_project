@@ -21,32 +21,31 @@ The prototype focuses on:
 | **Crypto Utilities** | `poker_core::crypto`                                 | Keys, signatures, commitments                                  |
 | **Tests / CI**       | `cargo test`, `clippy`, GitHub Actions ([GitHub][3]) |                                                                |
 =======
-1. p2p game state synchronization (blockchain?):
-    requirements:
-    6.1 No player acts as a permanent server.
-    6.2 Any player can host a lobby, but the game state is replicated.
-    6.3 Game must continue if any peer (including host) disconnects.
-    6.5 All messages must be authenticated and verifiable (Noise + signature).
-    6.6 Consensus on game state must be maintained among peers.
-7. message passing protocol (DONE? clients just broadcast messages.)
-8. Peer Discovery
-    8.1 Use libp2p to allow a player to advertise a lobby.
-    8.2 Peers can discover open games and connect via Noise-encrypted WebSockets.
-    8.3 No peer should be a permanent coordinator.
-9. Decentralized Game State
-    9.1 Replicate the full game state (table, pot, players, deck hash, etc.) across all peers.
-    9.2 Each peer runs a local state machine.
-    9.3 Use signed, timestamped messages and broadcast every state transition.
-10. Consensus Protocol?
-    10.1 Use a deterministic protocol to decide turn order and resolve actions:
-    E.g., fixed round-robin for turns.
-    10.2 Each action includes a signed ActionMessage.
-    10.3 Optionally use a simple majority or BFT protocol for validating transitions.
-    10.4 Implement a rollback/timeout system for stalled or invalid actions.
+TODO
 
-11. look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
-12. look at source code of dark forest zk game, get inspired by their zk-cuircits implementation and their zk debug console.
-13. Add more extensive tests.
+1. p2p game state synchronization (blockchain?):
+requirements:\
+1.1 No player acts as a permanent server.
+1.2 Any player can host a lobby, but the game state is replicated.
+1.3 Game must continue if any peer (including host) disconnects.
+1.4 All messages must be authenticated and verifiable (Noise + signature).
+1.5 Consensus on game state must be maintained among peers.
+
+2. message passing protocol (DONE? clients just broadcast messages.)
+3. Decentralized Game State
+    3.1 Replicate the full game state (table, pot, players, deck hash, etc.) across all peers.
+    3.2 Each peer runs a local state machine.
+    3.3 Use signed, timestamped messages and broadcast every state transition.
+4. Consensus Protocol?
+    4.1 Use a deterministic protocol to decide turn order and resolve actions:
+    E.g., fixed round-robin for turns.
+    4.2 Each action includes a signed ActionMessage.
+    4.3 Optionally use a simple majority or BFT protocol for validating transitions.
+    4.4 Implement a rollback/timeout system for stalled or invalid actions.
+
+5. look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
+6. look at source code of dark forest zk game, get inspired by their zk-cuircits implementation and their zk debug console.
+7. Add more extensive tests.
 
 
 ### Follow-up Thesis (outline only)
