@@ -60,7 +60,8 @@ Potential Issues: The architecture assumes honest peers and no byzantine faults,
 The architecture can be visualized as a stack:  
 - **Top Layer (GUI)**: egui renders game views based on snapshots from the Projection. User inputs (e.g., bet actions) are translated into signed messages and broadcast via the network layer.  
 - **Middle Layer (Game-Core)**: The ContractState maintains an immutable hash-chained log. Incoming messages are validated, appended to the log, and used to step the state machine forward. Effects (e.g., update pot size) are computed deterministically.  
-- **Bottom Layer (Network/Crypto)**: libp2p handles peer discovery and gossip. All messages are signed using keys from the crypto module. A CRDT-style merge buffer resolves conflicts by sorting messages timestamp-wise or by hash order.  
+- **Bottom Layer (Network/Crypto)**: libp2p handles peer discovery and gossip. All messages are signed using keys from the crypto module.
+A CRDT-style merge buffer resolves conflicts by sorting messages timestamp-wise or by hash order.  
 Flow: User action → Signed message → Broadcast → Receive & Validate → Append to Log → Step State → Update GUI.
 
 ### Architecture Diagram / Outline
@@ -77,16 +78,19 @@ User action → Signed message → Broadcast → Receive & Validate → Append t
 - **Network (p2p-net)**: service for the core game to send messages to other peers/players.
 - **GUI Integration (`gui/src/game_view.rs`)**: Renders snapshots from Projection::snapshot().
 
-#### Core Crate
-The `poker_core` crate serves as the backbone, containing modules for game_state, net, and crypto. It defines the deterministic state machine in `game_state.rs`, where the ContractState struct holds the hash-chained log and applies transitions via a `step` method.\
+#### poker_core crate
+The `poker_core` crate serves as the backbone, containing modules for game_state, net, and crypto.
+It defines the deterministic state machine in `game_state.rs`, where the ContractState struct holds the hash-chained log and applies transitions via a `step` method.\
 Network integration in `net.rs` uses libp2p's Swarm to manage behaviors like gossipsub for message propagation.\
 Crypto utilities in `crypto.rs` provide Ed25519 signatures and basic commitments (with ZK stubs for future expansion).\
 The crate is designed for modularity, allowing easy testing of pure functions like state transitions.
 
-#### Eval Crate
-Assuming a separate `poker_eval` crate (or integrated module), it handles poker-specific logic such as hand ranking and evaluation. Using libraries like `poker` or custom implementations, it provides functions like `evaluate_hand(cards: &[Card]) -> HandRank`. This ensures deterministic outcomes across peers, with tests verifying standard poker rules (e.g., royal flush beats straight).
+#### poker_eval crate
+Assuming a separate `poker_eval` crate (or integrated module), it handles poker-specific logic such as hand ranking and evaluation.
+Using libraries like `poker` or custom implementations, it provides functions like `evaluate_hand(cards: &[Card]) -> HandRank`.
+This ensures deterministic outcomes across peers, with tests verifying standard poker rules (e.g., royal flush beats straight).
 
-#### GUI Crate
+#### gui crate
 The `egui_frontend` crate implements a minimal GUI using egui.\
 In `main.rs`, it sets up an egui context and renders components like player hands, pot display, and action buttons (e.g., fold, call, raise).\
 It interfaces with the core crate by polling the Projection for snapshots and sending user actions as messages. The GUI is lightweight, focusing on functionality over aesthetics, with basic event handling for real-time updates.
@@ -112,22 +116,12 @@ solutions/frameworks/libraries to integrate into the application.
 - **Unit Tests**: Basic for card evaluation (eval crate).
 - **Integration**: Manual simulation with 3-in-process peers replaying logs.
 
-
 ### Issues and Bugs
-Many functions / scenarios still remain untested. Maybe it would be handy to
-introduce a notion of `test coverage` but I do not know anything in regards to
-that...
-Failing tests involve state divergence: .Hash mismatches in distributed mode due
-to out-of-order messages, Sync failures under simulated delays, Attempted fixes: Timeouts/retries in gossip; logging replays.\
-I am not satisfied with the current state of the test structure (there is
-neither a plan on how to test / what should be tested, nor do I know how tests
+- Failing tests involve state divergence: .Hash mismatches in distributed mode due to out-of-order messages, Sync failures under simulated delays, Attempted fixes: Timeouts/retries in gossip; logging replays.\
+- Many functions / scenarios still remain untested. Maybe it would be handy to introduce a notion of `test coverage` but I do not know anything in regards to that... \
+I am not satisfied with the current state of the test structure (there is neither a plan on how to test / what should be tested, nor do I know how tests
 should be structured in general).
-
-### Structure Suggestions/Questions
-Unit: Test pure functions (e.g., step in ContractState).  
-Integration: Use libp2p's in-memory transport for multi-peer sims.  
-Property: Assert invariants like "hashes match after replay" via proptest.
-
+- Am missing a structured approach for creating a *working* fault tolerant distributed state machine, don't know where existing solutions can be found and how they could be used/integrated.
 
 ### Open Questions
 #### Scope of Bachelor's Project
@@ -142,19 +136,27 @@ How to organize tests? E.g., separate crates for unit/integration? Best practice
 
 #### Architecture Validation
 Is the lock-step hash-chain approach sound? Potential flaws: Assumes synchrony; vulnerable to partitions without BFT.
+How do I approach implementing a byzantinte fault tolerant state machine?
 
 ### Organization
 I had many points along the way where I got lost and just coded along without a
-real plan. This was very time consuming. There must be better approaches...
+real plan. This was very time consuming. I think I have invested well over 180
+hours into the bachelors project already.
  
 #### Finalizing in a Subsequent Thesis
-Can this prototype be extended in a master's thesis? Ideas:  
-Integrate ZK circuits (e.g., Halo2 for verifiable shuffles).  
-Formal specification of shuffling algorithm.  
-Collusion prevention (e.g., via commitments).  
-Consensus analysis/BFT.  
-How to handle adverse player behaviour?  
-Player audits of hash logs for ZK correctness.
+Can this prototype be extended in a master's thesis?
+Ideas:  
+- review theoretical background on zk-proofs, mental card games, verifiable
+shuffles and specify a protocol to use. 
+- Collusion prevention (e.g., via commitments). Think of ways (or lookup in the
+literature) to prevent collusion of the players / cheating players.
+- Programm zero knowledge circuits (e.g., Halo2 for verifiable shuffles) to integrate the protocol into the game engine.
+- Design a distributed state machine for Consensus on the game progressoin,
+idealy byzantine fault tolerant.
+- How should player disconnects be handled? How can one punish player disconnects (escrow logic?).
+- Player audits of hash logs for ZK correctness: Make it possible or a player to
+verify the published zero knowledge proofs of other players via a console in the
+game.
 
 #### Alignment with Supervisor's Interests and Personal Goals
 Your expertise is in theoretical cryptography (e.g., proofs for mental card games).  
@@ -165,3 +167,12 @@ How can we balance this?
 ### Conclusion and Next Steps
 The prototype demonstrates viable P2P poker basics but requires bug fixes for reliability.  
 I propose a meeting to discuss the above questions, refine scope, and plan thesis extensions.
+
+## References
+[1] Shamir, Rivest, Adleman. "Mental Poker" (1979).  
+[2] Shapiro et al. "Conflict-Free Replicated Data Types" (2011).  
+[3] Ongaro, Ousterhout. "In Search of an Understandable Consensus Algorithm (Raft)" (2014).  
+[4] libp2p Documentation.  
+[5] Stateright GitHub Repository.  
+[6] Halo2: Zcash Implementation.  
+[7] Yin et al. "HotStuff: BFT Consensus with Linearity and Responsiveness" (2019).
