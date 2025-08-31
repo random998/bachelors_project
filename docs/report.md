@@ -40,7 +40,7 @@ The system follows a layered design:
 |------------------|------------------------------------------------|----------------------------------------------:|
 | GUI              | `egui_frontend`                                |                            Local input/output |
 | Game-Core        | `poker_core::game_state`                       | Deterministic state machine, hash-chained log |
-| Network          | `poker_core::net`                              | libp2p swarm, gossip, CRDT-style merge buffer |
+| Network          | `p2p-net`                                      | libp2p swarm, gossip, CRDT-style merge buffer |
 | Crypto Utilities | `poker_core::crypto`                           |                 Keys, signatures, commitments |
 | Tests / CI       | `cargo test` for running the tests, `clippy` for formatting, Actions |                                               |
 
