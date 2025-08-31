@@ -3,6 +3,7 @@
 This repository hosts the **prototype implementation** of a **deterministic, peer-to-peer poker engine written in Rust**.
 The prototype focuses on:
 
+<<<<<<< HEAD
 * lock-step hash-chain replication for game-state consensus
 * a minimal GUI (egui) front-end
 * network transport over libp2p
@@ -20,6 +21,34 @@ The prototype focuses on:
 | **Network**          | `poker_core::net`                                    | libp2p swarm, gossip, CRDT-style merge buffer ([hackmd.io][2]) |
 | **Crypto Utilities** | `poker_core::crypto`                                 | Keys, signatures, commitments                                  |
 | **Tests / CI**       | `cargo test`, `clippy`, GitHub Actions ([GitHub][3]) |                                                                |
+=======
+1. p2p game state synchronization (blockchain?):
+    requirements:
+    6.1 No player acts as a permanent server.
+    6.2 Any player can host a lobby, but the game state is replicated.
+    6.3 Game must continue if any peer (including host) disconnects.
+    6.5 All messages must be authenticated and verifiable (Noise + signature).
+    6.6 Consensus on game state must be maintained among peers.
+7. message passing protocol (DONE? clients just broadcast messages.)
+8. Peer Discovery
+    8.1 Use libp2p to allow a player to advertise a lobby.
+    8.2 Peers can discover open games and connect via Noise-encrypted WebSockets.
+    8.3 No peer should be a permanent coordinator.
+9. Decentralized Game State
+    9.1 Replicate the full game state (table, pot, players, deck hash, etc.) across all peers.
+    9.2 Each peer runs a local state machine.
+    9.3 Use signed, timestamped messages and broadcast every state transition.
+10. Consensus Protocol?
+    10.1 Use a deterministic protocol to decide turn order and resolve actions:
+    E.g., fixed round-robin for turns.
+    10.2 Each action includes a signed ActionMessage.
+    10.3 Optionally use a simple majority or BFT protocol for validating transitions.
+    10.4 Implement a rollback/timeout system for stalled or invalid actions.
+
+11. look at C open source web poker implementation and compare with my own! Incorporate parts of the code if feasible.
+12. look at source code of dark forest zk game, get inspired by their zk-cuircits implementation and their zk debug console.
+13. Add more extensive tests.
+>>>>>>> f227008 (Update README.md)
 
 
 ### Follow-up Thesis (outline only)
