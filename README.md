@@ -21,7 +21,6 @@ The prototype focuses on:
 | **Crypto Utilities** | `poker_core::crypto`                                 | Keys, signatures, commitments                                  |
 | **Tests / CI**       | `cargo test`, `clippy`, GitHub Actions ([GitHub][3]) |                                                                |
 =======
-TODO
 
 1. p2p game state synchronization (blockchain?):
 requirements:\
@@ -50,30 +49,17 @@ requirements:\
 
 ### Follow-up Thesis (outline only)
 
-1. Literature study: Mental Poker & ZK-shuffle ([Wikipedia][5], [GitHub Docs][6])
+1. Literature study: Mental Poker & ZK-shuffle.
 2. Commitment & reveal channels
 3. Efficient N-party verifiable shuffling protocol
-4. Circuit design (e.g. Halo 2 / Risc 0) and proof system benchmark ([MetaMask][8])
-5. Punishment layer & escrow logic
-6. Web3 wallet bridge (Metamask + ethers-rs) ([Medium][9])
-
-Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
-1. Improved secure shuffling protocol.
-2. publishing of commitments to game participants.
-3. Verificatoin of commitments/proofs by other game participants.
-4. Penalties to Players who do not follow the agreed upon protocol.
-5. Metamask crypto wallet connections?
-6. Improved shuffle protocol.
-7. Choice of ZK circuit development stack.
-8.  Implementation of ZK circuits.
-9.  Proof of correctness for the protocol.
-10. Deck Shuffling and Card Dealing (Fairness)
-    Implement verifiable shuffling (e.g., Mental Poker):
-    Each player encrypts and permutes the deck using their public key.
-    Cards are revealed through cooperative decryption.
-    Prevents cheating and allows verifiable fairness.
-    Final thesis polishing: references, proofreading, formatting
-    Create README, reproducibility guide, and demo materials
+4. Proof of correctness for the protocol.
+5. Literature study: different types of zk circuits & proof systems.
+6. Circuit design (e.g. Halo 2 / Risc 0) and proof system benchmark.
+7. Implementation of ZK circuits.
+8. Punishment layer & escrow logic
+9. Verificatoin of commitments/proofs by other game participants.
+10. Penalties to Players who do not follow the agreed upon protocol.
+11. Final thesis polishing: references, proofreading, formatting
 
 ---
 
@@ -81,16 +67,10 @@ Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
 TODO:
 think about what kind of testing strategy should be deployed to test the system.
 Also the tests are structured very badly at the moment. There is need for proper organization.
-Maybe check the rust reference for inspiration? [doc.rust-lang.org][7])
 
-* **State-machine property tests** using `proptest`
+* **State-machine tests**: maybe use the stateright formal checker?
 * **Network simulation**: spawn 3–5 in-process peers, replay canonical logs
-* Continuous fuzzing hook via `cargo-fuzz` (optional)
-
-
-Guides: Rust testing patterns ([Medium][4]) & open-source commit guidelines ([DEV Community][10]).
----
-
+* **unit tests**: thorough testing of individual crates
 ## Documentation
 
 * `docs/report.md` – living project report (export to PDF on tag)
@@ -107,23 +87,6 @@ Guides: Rust testing patterns ([Medium][4]) & open-source commit guidelines ([DE
 [7]: https://doc.rust-lang.org/book/ch11-03-test-organization.html?utm_source=chatgpt.com "Test Organization - The Rust Programming Language"
 [8]: https://metamask.io/news/polysnap-invoking-polywrap-wasm-wrappers-on-the-fly?utm_source=chatgpt.com "Polysnap: Invoking Polywrap Wasm Wrappers on the fly - MetaMask"
 [9]: https://medium.com/%40kaishinaw/connect-metamask-with-ethers-js-fc9c7163fd4d?utm_source=chatgpt.com "Connect Metamask with Ethers.js - Medium"
-=======
-Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
-1. Improved secure shuffling protocol.
-2. publishing of commitments to game participants.
-3. Verificatoin of commitments/proofs by other game participants.
-4. Penalties to Players who do not follow the agreed upon protocol.
-5. Metamask crypto wallet connections?
-6. Improved shuffle protocol.
-7. Choice of ZK circuit development stack.
-8.  Implementation of ZK circuits.
-9.  Proof of correctness for the protocol.
-10. Deck Shuffling and Card Dealing (Fairness)
-    Implement verifiable shuffling (e.g., Mental Poker):
-    Each player encrypts and permutes the deck using their public key.
-    Cards are revealed through cooperative decryption.
-    Prevents cheating and allows verifiable fairness.
-    Final thesis polishing: references, proofreading, formatting
 
 ====
 relevant webpages:\
