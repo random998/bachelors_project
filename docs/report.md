@@ -28,11 +28,10 @@ Related work:
 - Stateright [5]: Considered for model-checking the state machine (not yet integrated).
 
 ### Technologies
-Rust: Chosen for safety and performance in concurrent systems.  
-libp2p: Handles peer discovery, gossip, and message propagation.  
-egui: Simple GUI for user input/output.  
-blake3/ahash: For hashing state and logs.  
-Literature on ZK (deferred): SNARKs (e.g., Halo2 [6]) for verifiable shuffles, and byzantine fault tolerance (BFT) in protocols like HotStuff [7].
+Rust: Chosen for safety and performance in concurrent systems.
+libp2p: Handles peer discovery, gossip, and message propagation.\
+egui: Simple GUI for user input/output.\
+blake3/ahash: For hashing state and logs.\
 
 ### Design and Architecture
 The system follows a layered design (as per README):
