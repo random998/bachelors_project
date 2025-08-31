@@ -67,7 +67,7 @@ Flow: User action → Signed message → Broadcast → Receive & Validate → Ap
 The architecture can be visualized as a stack of interdependent crates, with the following flow:  
 User action → Signed message → Broadcast → Receive & Validate → Append to Log → Step State → Update GUI.
 
-[Architecture Diagram](architecture.svg)
+[Architecture Diagram](https://raw.githubusercontent.com/random998/bachelors_project/refs/heads/main/docs/architecture2.svg)
 
 ### Implementation
 #### Core Components
