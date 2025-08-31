@@ -121,3 +121,8 @@ Bachelors thesis: Scope: Improved Efficient ZK Poker protocol + implementation
     Cards are revealed through cooperative decryption.
     Prevents cheating and allows verifiable fairness.
     Final thesis polishing: references, proofreading, formatting
+
+====
+relevant webpages:
+https://zcash.github.io/halo2/index.html
+https://docs.zkproof.org/reference#latest-version
