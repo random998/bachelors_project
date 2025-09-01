@@ -1,37 +1,43 @@
 # Prototype Implementation of a Deterministic Peer-to-Peer Poker Engine in Rust Using Lock-Step Hash-Chain Replication
 
 ## Abstract
-This report summarizes the progress on my bachelor's project, which involves developing a prototype for a deterministic peer-to-peer (P2P) poker application in Rust. The prototype implements lock-step hash-chain replication for game-state consensus, a minimal egui-based GUI, and libp2p for network transport. Zero-knowledge (ZK) shuffling and proof verification are deferred to a potential follow-up thesis. Key achievements include a functional local gameplay loop and basic P2P synchronization for 3 peers. However, challenges remain in debugging distributed state machine bugs, structuring tests, and validating the architecture. This report outlines the current implementation, encountered issues, and open questions regarding scope, bug resolution, testing, architecture, and future extensions. It serves as a basis for discussion on project completion and alignment with theoretical cryptography interests.
+This report summarizes the progress on my bachelor's project, which involves developing a prototype for a deterministic peer-to-peer (P2P) poker application in Rust.
+The prototype implements lock-step hash-chain replication for game-state consensus, a minimal egui-based GUI, and libp2p for network transport. Zero-knowledge (ZK) shuffling and proof verification are deferred to a potential follow-up thesis.
+Key achievements include a functional local gameplay loop and basic P2P synchronization for 3 peers. However, challenges remain in debugging distributed state machine bugs, structuring tests, and validating the architecture.
+This report outlines the current implementation, encountered issues, and open questions regarding scope, bug resolution, testing, architecture, and future extensions.
+It serves as a basis for discussion on project completion.
 
 ## Introduction
 ### Problem Statement
-Traditional online poker relies on centralized servers, introducing trust issues, single points of failure, and potential for cheating. This project explores a P2P alternative where peers collaboratively maintain a deterministic game state using hash-chain replication, ensuring consensus without a central authority. The prototype focuses on core mechanics like dealing, betting, and hand evaluation, with ZK elements (e.g., fair shuffling) planned for later.
+Traditional online poker relies on centralized servers, introducing trust issues, single points of failure, and potential for cheating.
+This project explores a P2P alternative where peers collaboratively maintain a deterministic game state using hash-chain replication, ensuring consensus without a central authority.
+The prototype focuses on core mechanics like dealing, betting, and hand evaluation, with ZK elements (e.g., fair shuffling) planned for later.
 
-Inspired by Mental Poker protocols, the system aims for fairness and resilience in a decentralized environment. The current scope excludes ZK proofs, focusing instead on the replicated state machine and P2P networking.
+Inspired by Mental Poker protocols, the system aims for fairness and resilience in a decentralized environment.
+The current scope excludes ZK proofs, focusing instead on the replicated state machine and P2P networking.
 
 ### Objectives
 - Implement a deterministic poker state machine with lock-step replication.
-- Integrate libp2p for P2P communication and egui for a minimal GUI.
-- Achieve basic gameplay for 3-5 peers in simulated networks.
+- Integrate libp2p for P2P communication.
+- Develop a minimal GUI using egui for playing p2p poker.
+- Achieve basic gameplay for 3 peers.
 - Identify and document challenges for a potential thesis extension.
 
 ### Current Status
-The prototype runs locally and supports basic P2P interactions. However, distributed tests fail due to state divergence under network delays. This report details the architecture, implementation highlights, and unresolved issues.
+The prototype runs locally and supports basic P2P interactions.
+However, distributed tests fail due to state divergence between the peers.
+This report details the architecture, implementation highlights, and unresolved issues.
 
 ### Background and Related Work
 #### Poker Mechanics and Distributed Systems
-Poker involves deterministic rules (e.g., hand evaluation using crates like `poker_eval`). For P2P, consensus is key: lock-step replication ensures peers execute identical inputs in order, verified via hash-chains (inspired by CRDTs [2] and Raft-like models [3]).
-
-Related work:
-- Mental Poker: Theoretical foundations for fair card dealing without revelation.
-- libp2p: Used for swarm-based P2P networking.
-- Stateright: Considered for model-checking the state machine (not yet integrated).
+Poker involves deterministic rules (e.g., hand evaluation using crates like `poker_eval`).
+For P2P, consensus is key: lock-step replication ensures peers execute identical inputs in order, verified via hash-chains.
 
 ### Technologies
 Rust: Chosen for safety and performance in concurrent systems.
 libp2p: Handles peer discovery, gossip, and message propagation.\
 egui: Simple GUI for user input/output.\
-blake3/ahash: For hashing state and logs.\
+blake3/ahash: For hashing state and logs.
 
 ### Design and Architecture
 The system follows a layered design:
