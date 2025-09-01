@@ -44,7 +44,7 @@ The system follows a layered design:
 | Crypto Utilities | `poker_core::crypto`                           |                 Keys, signatures, commitments |
 | Tests / CI       | `integration-tests`                            |`cargo test` for running the tests, `clippy` for formatting, Actions |                                               |
 
-Key components:
+### Key components:
 - **Projection**: A mutable view of the canonical ContractState, enriched with local data (e.g., RNG, connection stats). Handles updates, message processing, and GUI snapshots.
 - **ContractState**: Pure, immutable state machine for consensus. Uses step function to apply transitions and compute effects.
 - **Hash-Chain Replication**: Each LogEntry (with `prev_hash`, payload, `next_hash`) ensures ordered, verifiable execution. Messages like ProtocolEntry append to the chain.
@@ -87,17 +87,17 @@ Pure, immutable state transitions in `game_state.rs` ensure consensus between pe
 (e.g. networking in `net/`) handle I/O (interfacing with peers and interfacing with the frontend).
 
 ##### Overall Structure and Flow:
-Files/Directories: Key files handle state (e.g. `game_state.rs`, `players_state.rs`), messages (`message.rs`),
+- **Files/Directories**: Key files handle state (e.g. `game_state.rs`, `players_state.rs`), messages (`message.rs`),
 crypto primitives (`crypto.rs`), poker rules (`poker.rs`), and utilities (`connection_stats.rs`, `timer.rs`).
  
-Data Flow: User Inputs or network messages -> Signed and validated (`crypto.rs` + `message.rs`) -> Appended to hash-chain log (`protocol/msg.rs` + `game_state.rs`)
+- **Data Flow**: User Inputs or network messages -> Signed and validated (`crypto.rs` + `message.rs`) -> Appended to hash-chain log (`protocol/msg.rs` + `game_state.rs`)
 -> State stepped forward deterministically (`protocol/state.rs`) -> Effects broadcast via network (`net/` traits and `runtime_bridge.rs`).
 This lock-step flow ensures peers replicate the same state, but bugs arise from message reordering (e.g. in `handle_network_msg`).
  
-Interactions:
-1. With `gui` crate: Provides `snapshot()` for rendering: receives UI events like bets.
-2. with `p2p-net` crate: Implements `P2pTransport` traits for libp2p integration.
-3. With tests: Modular pure functions (e.g. `step` in `ContractState` allow unit testing without network mocks).
+**Interactions:**
+- with `gui` crate: Provides `snapshot()` for rendering: receives UI events like bets.
+- with `p2p-net` crate: Implements `P2pTransport` traits for libp2p integration.
+- with tests: Modular pure functions (e.g. `step` in `ContractState` allow unit testing without network mocks).
 
 Challenges in Code:
 Flow is event-driven (e.g., tick() for pending effects), which works locally but fails in distributed simulations due to synchronization problems between the peers.
@@ -125,7 +125,6 @@ Flow is event-driven (e.g., tick() for pending effects), which works locally but
                     +-----------------+
 
 ```
-
 Below are overviews of major files/modules, grouped logically.
 
 #### `lib.rs`
