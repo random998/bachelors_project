@@ -102,7 +102,8 @@ Interactions:
 Challenges in Code:
 Flow is event-driven (e.g., tick() for pending effects), which works locally but fails in distributed simulations due to synchronization problems between the peers.
 
-Crate level Diagram (Data Flow):
+**Crate level Diagram (Data Flow)**:
+```ASCII
 +-------------+     +-----------------+     +-------------------+
 | UI Events   | --> | SignedMessage   | --> | Network Broadcast |
 | (from gui)  |     | (crypto.rs +    |     | (net/runtime_     |
@@ -122,6 +123,8 @@ Crate level Diagram (Data Flow):
                     | GUI Snapshot    |
                     | (game_state.rs) |
                     +-----------------+
+
+```
 
 Below are overviews of major files/modules, grouped logically.
 
