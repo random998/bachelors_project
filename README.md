@@ -41,4 +41,5 @@ $ RUST_LOG=info ./poker_gui --seed-addr /ip4/192.168.2.153/tcp/34643
 13. Now repeat steps 6 to 8 for the second peer and two players should have joined both gui instances:
 ![two_peers](https://github.com/random998/bachelors_project/blob/b44281c4fcd13598950b9f1e9060cf2171687555/docs/two_peers_game_view.png)
 14. Repeat steps 9 to 13 for a third player (peer) to join the game, and for all three gui instances, 3 players should be visible at the table, and the game should have started.
+Provided below is a screenshot depicting the game-view from one of the instances, but the game should be 'running' on all three instances, now.
 ![3_player_game_start](https://github.com/random998/bachelors_project/blob/e206008a49f6e69c88a1c50553992faa8499ea0f/docs/3_players_game_view.png)
