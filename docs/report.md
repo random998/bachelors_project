@@ -438,6 +438,37 @@ pub fn evaluate(cards: &[Card]) -> HandValue {
 - **Interactions**: Called in poker_core during showdown.
 
 #### gui crate
+The `gui` crate implements the user interface using egui, providing a minimal frontend for gameplay visualization and input.
+
+- **Purpose**: Renders game state (e.g., cards, pot, actions) and handles user events like bets or joins.
+- **Structure/Flow**: `main.rs` sets up egui app; `game_view.rs` polls `Projection::snapshot()` for updates. Flow: UI event → UIEvent msg → Sent to core via channel → State update → Rerender.
+- **Key Snippet** (Main Egui Loop in main.rs):
+  ```rust
+  fn main() {
+      let mut projection = Projection::new(/* init */);
+      eframe::run_simple_native("Poker GUI", |ctx, _app| {
+          egui::CentralPanel::default().show(ctx, |ui| {
+              let snapshot = projection.snapshot();
+              ui.label(format!("Pot: {}", snapshot.pot));
+              if ui.button("Bet").clicked() {
+                  projection.handle_ui_msg(UIEvent::Action { kind: PlayerAction::Bet { amount: 10 } });
+              }
+          });
+          projection.tick(); // Handle pending updates
+      });
+  }
+```
+- Interactions: Depends on poker_core for state; sends events to Projection::handle_ui_msg.
+
+- UI Elements:
+The interface includes a central panel for board/pot display,
+player hand views (with covered cards for privacy),
+and action buttons (fold/call/raise).
+Below is a screenshot of the main game view during preflop betting:
+<img src="https://raw.githubusercontent.com/random998/bachelors_project/main/docs/game_view_screenshot.png" alt="Game View Screenshot">
+(Description: Shows 3 players, pot at 100 chips, local player's hole cards visible, others covered. Bug: Occasionally stutters during P2P sync.)
+
+- Strengths/Issues: Responsive for local play; bugs in P2P mode (e.g., stale renders during sync delays).
 
 #### Integration Tests Crate
 The integration-tests crate contains end-to-end tests for multi-peer scenarios, using Rust's test framework.
