@@ -112,13 +112,13 @@ Flow is event-driven (e.g., tick() for pending effects), which works locally but
                             |                        ^
                             v                        |
                     +-----------------+              |
-                    | Log Append &    | <-----------+
+                    | Log Append &    | <----------- +
                     | State Step      |
                     | (game_state.rs +
                     |  protocol/state.rs)
                     +-----------------+
-                    |
-                    v
+                            |
+                            v
                     +-----------------+
                     | GUI Snapshot    |
                     | (game_state.rs) |
