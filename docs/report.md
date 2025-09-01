@@ -222,7 +222,8 @@ impl Deck {
 - **Files:** msg.rs (transitions like Transition::Bet), state.rs (ContractState, step function).
 - **Structure/Flow:** ContractState holds log/phase; step applies payloads, returns next state/effects. Flow: Core of replication—messages trigger steps.
 - **Key Snippet** (From state.rs - step Function):
-```rust
+```
+rust
 #[must_use]
 pub fn step(prev: &ContractState, msg: &Transition,) -> StepResult {
     let mut st = prev.clone();
@@ -350,8 +351,8 @@ pub fn step(prev: &ContractState, msg: &Transition,) -> StepResult {
         effects: out,
     }
 }
-
 ```
+
 - **Interactions:** Central to game_state.rs; ensures hash-chained consensus.
 - Other Utility Files
 `connection_stats.rs`: Tracks network metrics (e.g., RTT); used in Projection for debugging.
@@ -362,21 +363,121 @@ pub fn step(prev: &ContractState, msg: &Transition,) -> StepResult {
 **Summary of Crate Strengths/Issues:**
 Modularity enables easy swaps (e.g., add Raft), but event-driven flow (e.g., tick()) causes sync bugs in tests.
 
-#### poker_eval crate
-Assuming a separate `poker_eval` crate (or integrated module), it handles poker-specific logic such as hand ranking and evaluation.
-Using libraries like `poker` or custom implementations, it provides functions like `evaluate_hand(cards: &[Card]) -> HandRank`.
-This ensures deterministic outcomes across peers, with tests verifying standard poker rules (e.g., royal flush beats straight).
+#### p2p_net crate
+The p2p-net crate abstracts libp2p networking for the core.
+- **Purpose:** Manages swarm, behaviours (e.g. gossip), and message transport.
+- **Structure/Flow**: `swarm_task.rs` runs the event loop; `runtime_bridge.rs`
+interfaces with tokio.
+Flow: Init swarm -> Handle events -> Send/recv via channels.
+- **Key snippet** (swarm setup): 
+```rust
+pub fn new(
+    table_id: &TableId,
+    keypair: poker_core::crypto::KeyPair,
+    seed_peer_addr: Option<Multiaddr,>,
+) -> P2pTransport {
+    // transport setup
+    let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true,)).upgrade(...); // abbreviated
+    // behaviour
+    let topic = gossipsub::IdentTopic::new(format!("poker/{table_id}"));
+    let gossip = gossipsub::Behaviour::new(...);
+    let behaviour = Behaviour { gossipsub: gossip, identify: ... };
+    let mut swarm = SwarmBuilder::with_existing_identity(...).build();
+    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap()).unwrap();
+    swarm.behaviour_mut().gossipsub.subscribe(&topic).unwrap();
+    if let Some(addr) = seed_peer_addr {
+        swarm.dial(addr).unwrap();
+    }
+    // channels and spawn loop
+    let (from_game_to_swarm_tx, mut from_game_to_swarm_rx) = mpsc::channel(64);
+    let (from_swarm_to_game_tx, from_swarm_to_game_rx) = mpsc::channel(64);
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                Some(signed_msg) = from_game_to_swarm_rx.recv() => {
+                    let bytes = bincode::serialize(&signed_msg).unwrap();
+                    swarm.behaviour_mut().gossipsub.publish(topic.clone(), bytes).ok();
+                }
+                event = swarm.select_next_some() => match event {
+                    SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. })) => {
+                        if let Ok(msg) = bincode::deserialize(&message.data) {
+                            from_swarm_to_game_tx.send(msg).await.ok();
+                        }
+                    }
+                    SwarmEvent::NewListenAddr { listener_id, address } => {
+                        let msg = NetworkMessage::NewListenAddr { listener_id: listener_id.to_string(), multiaddr: address };
+                        let smsg = SignedMessage::new(&keypair, msg);
+                        from_swarm_to_game_tx.send(smsg).await.ok();
+                    }
+                    _ => {}
+                }
+            }
+        }
+    });
+    P2pTransport { tx: P2pTx { network_msg_sender: from_game_to_swarm_tx }, rx: P2pRx { network_msg_receiver: from_swarm_to_game_rx } }
+}
+```
+
+- **Interactions**: Channels to `poker_core` for msgs, handles SyncReq.
+- **Strengths/Issues:** Modular; bugs in reordering—needs better buffering.
+
+#### eval Crate
+The eval crate provides poker hand evaluation algorithms.
+
+- **Purpose**: Ranks hands deterministically (e.g., using lookup tables or combinatorial checks).
+- Structure/Flow: lib.rs exports HandValue;
+flow: Input cards → Compute rank.
+- **Key Snippet** (Eval Function):
+```
+rust
+pub fn evaluate(cards: &[Card]) -> HandValue {
+    // Sort and check for flushes, straights, etc.
+    if is_flush(cards) { HandValue::Flush } else { /* ... */ }
+}
+```
+- **Interactions**: Called in poker_core during showdown.
 
 #### gui crate
-The `egui_frontend` crate implements a minimal GUI using egui.\
-In `main.rs`, it sets up an egui context and renders components like player hands, pot display, and action buttons (e.g., fold, call, raise).\
-It interfaces with the core crate by polling the Projection for snapshots and sending user actions as messages. The GUI is lightweight, focusing on functionality over aesthetics, with basic event handling for real-time updates.
 
 #### Integration Tests Crate
-A dedicated `tests` directory or crate contains integration tests.\
-Using Rust's built-in testing framework, it spawns multiple in-process peers via libp2p's memory transport.\
-Scenarios simulate gameplay: e.g., 3 peers join, deal cards, place bets, and verify final state hashes match.\
-Current tests cover local loops but highlight failures in distributed setups.\
+The integration-tests crate contains end-to-end tests for multi-peer scenarios, using Rust's test framework.
+
+- **Purpose**: Simulates full gameplay to verify consensus and state consistency.
+- **Structure/Flow**: Tests spawn peers in-process (via libp2p memory transport); replay logs and assert hash equality. Flow: Setup swarm → Send actions → Check states match.
+- **Key Snippet (Example Test)**:
+```
+rust
+#[test]
+fn test_p2p_sync() {
+    let mut peer1 = Projection::new(/* seed */);
+    let mut peer2 = Projection::new(/* join */);
+    peer2.handle_ui_msg(UIEvent::PlayerJoinTableRequest { /* params */ });
+    // Simulate send/receive
+    assert_eq!(peer1.hash_head, peer2.hash_head);
+}
+```
+- Interactions: Mocks p2p-net; tests poker_core logic.
+- Strengths/Issues: Covers basics; test failures highlight divergence—needs expansion for coverage.
+
+#### Cards crate
+The cards crate handles card representations and assets (e.g., SVG images for GUI rendering).
+
+- Purpose: Defines Card struct and deck logic; loads assets for visual display.
+- Structure/Flow: cards.rs for logic; egui.rs for rendering. Flow: Deck creation → Deal → Render in gui.
+- Key Snippet (Card Struct):
+```
+rust
+#[derive(Clone, Copy)]
+pub struct Card {
+    rank: Rank,
+    suit: Suit,
+}
+impl Card {
+    pub fn from(index: u8) -> Self { /* logic */ }
+}
+```
+- Interactions: Used by poker_core for dealing; assets fed to gui.
+- Strengths/Issues: Simple and reusable; asset loading could be optimized.
 
 ### Progress Highlights
 Local gameplay: Dealing, betting, showdown work deterministically.\
