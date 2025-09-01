@@ -222,8 +222,8 @@ impl Deck {
 - **Files:** msg.rs (transitions like Transition::Bet), state.rs (ContractState, step function).
 - **Structure/Flow:** ContractState holds log/phase; step applies payloads, returns next state/effects. Flow: Core of replication—messages trigger steps.
 - **Key Snippet** (From state.rs - step Function):
-```
-rust
+
+```rust
 #[must_use]
 pub fn step(prev: &ContractState, msg: &Transition,) -> StepResult {
     let mut st = prev.clone();
@@ -259,7 +259,6 @@ pub fn step(prev: &ContractState, msg: &Transition,) -> StepResult {
                     effects: vec![],
                 };
             }
-
             // Verify each signature and fields match
             for sm in batch {
 /*                if !sm.verify() {
@@ -370,6 +369,7 @@ The p2p-net crate abstracts libp2p networking for the core.
 interfaces with tokio.
 Flow: Init swarm -> Handle events -> Send/recv via channels.
 - **Key snippet** (swarm setup): 
+
 ```rust
 pub fn new(
     table_id: &TableId,
@@ -428,13 +428,14 @@ The eval crate provides poker hand evaluation algorithms.
 - Structure/Flow: lib.rs exports HandValue;
 flow: Input cards → Compute rank.
 - **Key Snippet** (Eval Function):
-```
-rust
+
+```rust
 pub fn evaluate(cards: &[Card]) -> HandValue {
     // Sort and check for flushes, straights, etc.
     if is_flush(cards) { HandValue::Flush } else { /* ... */ }
 }
 ```
+
 - **Interactions**: Called in poker_core during showdown.
 
 #### gui crate
@@ -443,7 +444,8 @@ The `gui` crate implements the user interface using egui, providing a minimal fr
 - **Purpose**: Renders game state (e.g., cards, pot, actions) and handles user events like bets or joins.
 - **Structure/Flow**: `main.rs` sets up egui app; `game_view.rs` polls `Projection::snapshot()` for updates. Flow: UI event → UIEvent msg → Sent to core via channel → State update → Rerender.
 - **Key Snippet** (Main Egui Loop in main.rs):
-  ```rust
+
+```rust
   fn main() {
       let mut projection = Projection::new(/* init */);
       eframe::run_simple_native("Poker GUI", |ctx, _app| {
@@ -458,6 +460,7 @@ The `gui` crate implements the user interface using egui, providing a minimal fr
       });
   }
 ```
+
 - Interactions: Depends on poker_core for state; sends events to Projection::handle_ui_msg.
 
 - UI Elements:
@@ -476,6 +479,7 @@ The integration-tests crate contains end-to-end tests for multi-peer scenarios, 
 - **Purpose**: Simulates full gameplay to verify consensus and state consistency.
 - **Structure/Flow**: Tests spawn peers in-process (via libp2p memory transport); replay logs and assert hash equality. Flow: Setup swarm → Send actions → Check states match.
 - **Key Snippet (Example Test)**:
+
 ```
 rust
 #[test]
@@ -487,6 +491,7 @@ fn test_p2p_sync() {
     assert_eq!(peer1.hash_head, peer2.hash_head);
 }
 ```
+
 - Interactions: Mocks p2p-net; tests poker_core logic.
 - Strengths/Issues: Covers basics; test failures highlight divergence—needs expansion for coverage.
 
@@ -496,6 +501,7 @@ The cards crate handles card representations and assets (e.g., SVG images for GU
 - Purpose: Defines Card struct and deck logic; loads assets for visual display.
 - Structure/Flow: cards.rs for logic; egui.rs for rendering. Flow: Deck creation → Deal → Render in gui.
 - Key Snippet (Card Struct):
+
 ```
 rust
 #[derive(Clone, Copy)]
@@ -507,6 +513,7 @@ impl Card {
     pub fn from(index: u8) -> Self { /* logic */ }
 }
 ```
+
 - Interactions: Used by poker_core for dealing; assets fed to gui.
 - Strengths/Issues: Simple and reusable; asset loading could be optimized.
 
