@@ -1,5 +1,4 @@
 use std::time::Duration;
-
 use libp2p::Multiaddr;
 use p2p_net::runtime_bridge;
 use p2p_net::runtime_bridge::UiHandle;
