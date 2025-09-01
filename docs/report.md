@@ -123,7 +123,242 @@ Crate level Diagram (Data Flow):
                     | (game_state.rs) |
                     +-----------------+
 
+Below are overviews of major files/modules, grouped logically.
 
+#### `lib.rs`
+**Purpose:** Crate entry point; re-exports modules for external use; Exposes APIs for the entire application, no internal flow.
+
+#### `game_state.rs`
+- **Purpose:** Manages the replicated state machine via `Projection` (mutable view of the state with local data) and `ContractState` (pure, immutable core state).
+Handles phases like dealing/betting, log appends, and GUI snapshots.
+
+- **Structure/Flow:** `Projection` struct holds state (e.g. `hash_chain`, `contract`)
+and methods like `commit_step` (appends logs, steps state)
+and `handle_network_msg` (processes messages, e.g. sync or transitions).
+Flow: Receive msg -> Validate/commit -> Update state -> Queue effects for broadcast.
+
+- **Key code snippet** (`commit_step` function, Showing Log Append and State Step):
+```rust
+fn commit_step(&mut self, payload: &Transition) -> anyhow::Result<()> {
+    let StepResult { next, effects } = contract::step(&self.contract, payload);
+    let next_hash = contract::hash_state(&next);
+    let entry = LogEntry::with_key(self.hash_head.clone(), payload.clone(), next_hash.clone(), self.peer_id());
+    let signed = SignedMessage::new(&self.key_pair, NetworkMessage::ProtocolEntry(entry.clone()));
+    self.send(signed)?;
+    self.contract = next;
+    self.hash_head = next_hash;
+    self.hash_chain.push(entry);
+    self.pending_effects.extend(effects.into_iter().filter_map(|e| match e { Effect::Send(m) => Some(m) }));
+    Ok(())
+}
+```
+- **Interactions**: Calls `protocol::step` for pure transitions; sends via `net`; provides `snapshot()` to GUI.
+Bugs here: Hash mismatches from unsynced effects between the different instances of the peers.
+
+#### `players_state.rs`
+- **Purpose**: Manages player records (e.g. chips, actions) in a vec-based wrapper (`PlayerStateObjects`) for turn logic and consensus.
+- **Structure/Flow**: Struct with methods like `activate_next_player` (cycles active index which indicates who's players turn it is) and `place_bet` (updates chips/action).
+Flow: state step calls these to enforce rules (e.g. advance turns after bets).
+- **Key snippet** (activate_next_player) method:
+```rust
+pub fn activate_next_player(&mut self) {
+    if self.count_active() > 0 && self.active_player().is_some() {
+        let active_player = self.active_idx.take().unwrap();
+        let iter = self.players.iter().enumerate().cycle().skip(active_player + 1).take(self.players.len() - 1);
+        for (pos, p) in iter {
+            if p.is_active && p.chips > Chips::ZERO {
+                self.active_idx = Some(pos);
+                break;
+            }
+        }
+    }
+}
+``` 
+- **Interactions**: Used by `game_state.rs` for game phase updates (betting phase, reveal phase, game start phase etc....)
+
+#### `message.rs` 
+- **Purpose**: Defines network/UI messages (e.g. `SignedMessage`, `NetworkMessage` variants like `ProtocolEntry`) and player actions.
+- **Structure/Flow**: Enums for messages/actions; `SignedMessage` struct handles signing/verification of mesages.
+Flow: UI events -> Messages -> Broadcast; received messages trigger state steps.
+- **Key snippet** (SignedMessage Struct): 
+```rust
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct SignedMessage {
+    payload: Arc<Payload>,
+    sig: Signature,
+}
+impl SignedMessage {
+    pub fn new(key_pair: &KeyPair, msg: NetworkMessage) -> Self {
+        let sig = key_pair.secret().sign(&msg);
+        Self { sig, payload: Arc::new(Payload { msg, public_key: key_pair.public() }) }
+    }
+}
+```
+- **Interactions**: Used in `crypto.rs` for signing; parsed in `game_state.rs` handlers.
+
+#### `crypto.rs`
+- **Purpose**: Provides cryptographic primitives (e.g., Ed25519 keys, signatures) for message authenticity.
+- **Structure/Flow:** Structs like KeyPair, PeerId; methods for signing/verifying. Flow: All messages signed before send; verified on receive.
+- **Key Snippet** (KeyPair Generation):
+```rust
+pub struct Deck(Vec<Card>);
+impl Deck {
+    pub fn shuffled(rng: &mut impl Rng) -> Self {
+        let mut cards = (0..52).map(Card::from).collect::<Vec<_>>();
+        cards.shuffle(rng);
+        Deck(cards)
+    }
+    pub fn deal(&mut self) -> Card {
+        self.0.pop().unwrap()
+    }
+}
+```
+- **Interactions:** Called deterministically in game_state.rs for fair play.
+
+#### `protocol/Subdirectory`
+- **Purpose:** Defines consensus protocol (e.g., state transitions, log entries).
+- **Files:** msg.rs (transitions like Transition::Bet), state.rs (ContractState, step function).
+- **Structure/Flow:** ContractState holds log/phase; step applies payloads, returns next state/effects. Flow: Core of replication—messages trigger steps.
+- **Key Snippet** (From state.rs - step Function):
+```rust
+#[must_use]
+pub fn step(prev: &ContractState, msg: &Transition,) -> StepResult {
+    let mut st = prev.clone();
+    let mut out = Vec::new();
+
+    match msg {
+        Transition::StartGameBatch(batch,) => {
+            // Verify: Complete, sorted, valid
+            let expected_senders: Vec<PeerId,> =
+                st.players.keys().copied().collect();
+
+            let mut batch_senders_sorted: Vec<PeerId,> = batch
+                .iter()
+                .map(super::super::message::SignedMessage::sender,)
+                .collect();
+            batch_senders_sorted.sort_by_key(std::string::ToString::to_string,);
+
+            let mut expected_senders_sorted: Vec<PeerId,> =
+                expected_senders.clone();
+            expected_senders_sorted
+                .sort_by_key(std::string::ToString::to_string,);
+
+            if batch_senders_sorted != expected_senders_sorted
+                || batch_senders_sorted.len() != expected_senders.len()
+            {
+                info!(
+                    "invalid startGameBatch message, rejecting:\n\
+                    batch_senders_len: {batch_senders_sorted:#?},\n\
+                    expected_senders_len: {expected_senders_sorted:#?}"
+                );
+                return StepResult {
+                    next:    prev.clone(),
+                    effects: vec![],
+                };
+            }
+
+            // Verify each signature and fields match
+            for sm in batch {
+/*                if !sm.verify() {
+                    return StepResult {
+                        next:    prev.clone(),
+                        effects: vec![],
+                    };
+                }
+*/                // Apply: Set flags
+                if let Some(p,) = st.players.get_mut(&sm.sender(),) {
+                    p.has_sent_start_game_notification = true;
+                }
+            }
+            
+            // All good: Advance phase
+            if st
+                .players
+                .values()
+                .all(|p| p.has_sent_start_game_notification,)
+            {
+                st.phase = HandPhase::StartingHand;
+            }
+            // add startGameBatch message to effects, since we want to send it
+            // to our peers.else {
+            let eff = Effect::Send(msg.clone(),);
+            out.push(eff,);
+        },
+        Transition::JoinTableReq {
+            player_id,
+            table: _table,
+            chips,
+            nickname,
+        } => {
+            st.players.insert(
+                *player_id,
+                PlayerPrivate::new(*player_id, nickname.clone(), *chips,),
+            );
+
+            if st.players.len() >= st.num_seats {
+                st.phase = HandPhase::StartingGame;
+            }
+        },
+        Transition::DealCardsBatch(batch,) => {
+            // Verify: Complete, sorted, valid for active players
+            let expected_receivers: Vec<PeerId,> = st
+                .players
+                .values()
+                .filter(|p| p.is_active && p.chips > Chips::ZERO,)
+                .map(|p| p.peer_id,)
+                .collect();
+            let mut batch_receivers_sorted: Vec<PeerId,> =
+                batch.iter().map(|dc| dc.player_id,).collect();
+            batch_receivers_sorted
+                .sort_by_key(std::string::ToString::to_string,);
+            let mut expected_receivers_sorted = expected_receivers.clone();
+            expected_receivers_sorted
+                .sort_by_key(std::string::ToString::to_string,);
+            if batch_receivers_sorted != expected_receivers_sorted
+                || batch.len() != expected_receivers.len()
+            {
+                info!("Invalid DealCardsBatch; rejecting");
+                return StepResult {
+                    next:    prev.clone(),
+                    effects: vec![],
+                };
+            }
+            // Apply: Update hole_cards for each
+            for dc in batch {
+                if let Some(player,) = st.players.get_mut(&dc.player_id,) {
+                    player.hole_cards = Cards(dc.card1, dc.card2,);
+                }
+            }
+            // Add to effects if needed (e.g., broadcast)
+            let eff = Effect::Send(msg.clone(),);
+            out.push(eff,);
+        },
+        Transition::ActionRequest { .. } => {
+            todo!()
+        },
+        Transition::Ping => {
+            todo!()
+        },
+        _ => {
+            todo!()
+        },
+    }
+    StepResult {
+        next:    st,
+        effects: out,
+    }
+}
+
+```
+- **Interactions:** Central to game_state.rs; ensures hash-chained consensus.
+- Other Utility Files
+`connection_stats.rs`: Tracks network metrics (e.g., RTT); used in Projection for debugging.
+`timers.rs`: Manages timeouts (e.g., action delays); integrates with tick() in `game_state.rs`.
+`zk.rs`: Stub for ZK proofs (e.g., shuffle verification); minimal now, for thesis extension.
+`net/ Subdirectory`: Traits (P2pTransport) and runtime bridge for libp2p; flow: Abstracts sending/receiving for `game_state.rs`.
+
+**Summary of Crate Strengths/Issues:**
+Modularity enables easy swaps (e.g., add Raft), but event-driven flow (e.g., tick()) causes sync bugs in tests.
 
 #### poker_eval crate
 Assuming a separate `poker_eval` crate (or integrated module), it handles poker-specific logic such as hand ranking and evaluation.
