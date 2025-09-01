@@ -7,7 +7,7 @@ This report summarizes the progress on my bachelor's project, which involves dev
 ### Problem Statement
 Traditional online poker relies on centralized servers, introducing trust issues, single points of failure, and potential for cheating. This project explores a P2P alternative where peers collaboratively maintain a deterministic game state using hash-chain replication, ensuring consensus without a central authority. The prototype focuses on core mechanics like dealing, betting, and hand evaluation, with ZK elements (e.g., fair shuffling) planned for later.
 
-Inspired by Mental Poker protocols [1], the system aims for fairness and resilience in a decentralized environment. The current scope excludes ZK proofs, focusing instead on the replicated state machine and P2P networking.
+Inspired by Mental Poker protocols, the system aims for fairness and resilience in a decentralized environment. The current scope excludes ZK proofs, focusing instead on the replicated state machine and P2P networking.
 
 ### Objectives
 - Implement a deterministic poker state machine with lock-step replication.
@@ -23,9 +23,9 @@ The prototype runs locally and supports basic P2P interactions. However, distrib
 Poker involves deterministic rules (e.g., hand evaluation using crates like `poker_eval`). For P2P, consensus is key: lock-step replication ensures peers execute identical inputs in order, verified via hash-chains (inspired by CRDTs [2] and Raft-like models [3]).
 
 Related work:
-- Mental Poker [1]: Theoretical foundations for fair card dealing without revelation.
-- libp2p [4]: Used for swarm-based P2P networking.
-- Stateright [5]: Considered for model-checking the state machine (not yet integrated).
+- Mental Poker: Theoretical foundations for fair card dealing without revelation.
+- libp2p: Used for swarm-based P2P networking.
+- Stateright: Considered for model-checking the state machine (not yet integrated).
 
 ### Technologies
 Rust: Chosen for safety and performance in concurrent systems.
@@ -563,12 +563,3 @@ hours into the bachelors project already.
 ### Conclusion and Next Steps
 The prototype demonstrates viable P2P poker basics but requires bug fixes for reliability.  
 I propose a meeting to discuss the above questions, refine scope.
-
-## References
-[1] Shamir, Rivest, Adleman. "Mental Poker" (1979).  
-[2] Shapiro et al. "Conflict-Free Replicated Data Types" (2011).  
-[3] Ongaro, Ousterhout. "In Search of an Understandable Consensus Algorithm (Raft)" (2014).  
-[4] libp2p Documentation.  
-[5] Stateright GitHub Repository.  
-[6] Halo2: Zcash Implementation.  
-[7] Yin et al. "HotStuff: BFT Consensus with Linearity and Responsiveness" (2019).
