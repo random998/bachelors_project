@@ -79,11 +79,51 @@ User action → Signed message → Broadcast → Receive & Validate → Append t
 - **GUI Integration (`gui/src/game_view.rs`)**: Renders snapshots from Projection::snapshot().
 
 #### poker_core crate
-The `poker_core` crate serves as the backbone, containing modules for game_state, net, and crypto.
-It defines the deterministic state machine in `game_state.rs`, where the ContractState struct holds the hash-chained log and applies transitions via a `step` method.\
-Network integration in `net.rs` uses libp2p's Swarm to manage behaviors like gossipsub for message propagation.\
-Crypto utilities in `crypto.rs` provide Ed25519 signatures and basic commitments (with ZK stubs for future expansion).\
-The crate is designed for modularity, allowing easy testing of pure functions like state transitions.
+The `poker_core` crate serves as the foundational backbone of the P2P poker prototype, encapsulating
+the deterministic state machine, networking primitives, cryptographic utilities, and poker-specific logic.
+It is structured as a modular library crate with a `lib.rs` entry point that re-exports key modules for use in other crates
+(e.g., `gui` for frontend integration or `integration-tests` for verification). The crate emphasizes separation of concerns:
+Pure, immutable state transitions in `game_state.rs` ensure consensus between peers, while side-effectful components
+(e.g. networking in `net/`) handle I/O (interfacing with peers and interfacing with the frontend).
+
+##### Overall Structure and Flow:
+Files/Directories: Key files handle state (e.g. `game_state.rs`, `players_state.rs`), messages (`message.rs`),
+crypto primitives (`crypto.rs`), poker rules (`poker.rs`), and utilities (`connection_stats.rs`, `timer.rs`).
+ 
+Data Flow: User Inputs or network messages -> Signed and validated (`crypto.rs` + `message.rs`) -> Appended to hash-chain log (`protocol/msg.rs` + `game_state.rs`)
+-> State stepped forward deterministically (`protocol/state.rs`) -> Effects broadcast via network (`net/` traits and `runtime_bridge.rs`).
+This lock-step flow ensures peers replicate the same state, but bugs arise from message reordering (e.g. in `handle_network_msg`).
+ 
+Interactions:
+1. With `gui` crate: Provides `snapshot()` for rendering: receives UI events like bets.
+2. with `p2p-net` crate: Implements `P2pTransport` traits for libp2p integration.
+3. With tests: Modular pure functions (e.g. `step` in `ContractState` allow unit testing without network mocks).
+
+Challenges in Code:
+Flow is event-driven (e.g., tick() for pending effects), which works locally but fails in distributed simulations due to synchronization problems between the peers.
+
+Crate level Diagram (Data Flow):
++-------------+     +-----------------+     +-------------------+
+| UI Events   | --> | SignedMessage   | --> | Network Broadcast |
+| (from gui)  |     | (crypto.rs +    |     | (net/runtime_     |
++-------------+     |  message.rs)    |     |  bridge.rs)       |
+                    +-----------------+     +-------------------+
+                            |                        ^
+                            v                        |
+                    +-----------------+              |
+                    | Log Append &    | <-----------+
+                    | State Step      |
+                    | (game_state.rs +
+                    |  protocol/state.rs)
+                    +-----------------+
+                    |
+                    v
+                    +-----------------+
+                    | GUI Snapshot    |
+                    | (game_state.rs) |
+                    +-----------------+
+
+
 
 #### poker_eval crate
 Assuming a separate `poker_eval` crate (or integrated module), it handles poker-specific logic such as hand ranking and evaluation.
