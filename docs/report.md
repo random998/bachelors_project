@@ -36,13 +36,13 @@ blake3/ahash: For hashing state and logs.\
 ### Design and Architecture
 The system follows a layered design:
 
-| Layer            | Crate / Module                                 |                                       Purpose |
-|------------------|------------------------------------------------|----------------------------------------------:|
-| GUI              | `egui_frontend`                                |                            Local input/output |
-| Game-Core        | `poker_core::game_state`                       | Deterministic state machine, hash-chained log |
-| Network          | `p2p-net`                                      | libp2p swarm, gossip, CRDT-style merge buffer |
-| Crypto Utilities | `poker_core::crypto`                           |                 Keys, signatures, commitments |
-| Tests / CI       | `integration-tests`                            |`cargo test` for running the tests, `clippy` for formatting, Actions |                                               |
+| Layer            | Crate / Module           |                                                              Purpose |
+|------------------|--------------------------|---------------------------------------------------------------------:|
+| GUI              | `egui_frontend`          |                                                   Local input/output |
+| Game-Core        | `poker_core::game_state` |                        Deterministic state machine, hash-chained log |
+| Network          | `p2p-net`                |                        libp2p swarm, gossip, CRDT-style merge buffer |
+| Crypto Utilities | `poker_core::crypto`     |                                        Keys, signatures, commitments |
+| Tests / CI       | `integration-tests`      | `cargo test` for running the tests, `clippy` for formatting, Actions |                                               |
 
 ### Key components:
 - **Projection**: A mutable view of the canonical ContractState, enriched with local data (e.g., RNG, connection stats). Handles updates, message processing, and GUI snapshots.
@@ -68,7 +68,7 @@ Flow: User action → Signed message → Broadcast → Receive & Validate → Ap
 The architecture can be visualized as a stack of interdependent crates, with the following flow:  
 User action → Signed message → Broadcast → Receive & Validate → Append to Log → Step State → Update GUI.
 
-![Architecture Diagram](https://raw.githubusercontent.com/random998/bachelors_project/refs/heads/main/docs/architecture3.svg){width=400px}
+![Architecture Diagram](https://raw.githubusercontent.com/random998/bachelors_project/refs/heads/main/docs/architecture3.svg)
 
 ### Implementation
 #### Core Components
@@ -395,10 +395,10 @@ solutions/frameworks/libraries to integrate into the application.
 
 ### Issues and Bugs
 - Failing tests involve state divergence: .Hash mismatches in distributed mode due to out-of-order messages, Sync failures under simulated delays, Attempted fixes: Timeouts/retries in gossip; logging replays.\
-- Many functions / scenarios still remain untested. Maybe it would be handy to introduce a notion of `test coverage` but I do not know anything in regards to that... \
+- Many functions / scenarios still remain untested. Maybe it would be handy to introduce a notion of `test coverage` but I do not know anything in regard to that... \
 I am not satisfied with the current state of the test structure (there is neither a plan on how to test / what should be tested, nor do I know how tests
 should be structured in general).
-- Am missing a structured approach for creating a *working* fault tolerant distributed state machine, don't know where existing solutions can be found and how they could be used/integrated.
+- I am missing a structured approach for creating a *working* fault-tolerant distributed state machine, don't know where existing solutions can be found and how they could be used/integrated.
 
 ### Open Questions
 #### Scope of Bachelor's Project
@@ -413,11 +413,11 @@ How to organize tests? E.g., separate crates for unit/integration? Best practice
 
 #### Architecture Validation
 Is the lock-step hash-chain approach sound? Potential flaws: Assumes synchrony; vulnerable to partitions without BFT.
-How do I approach implementing a byzantinte fault tolerant state machine?
+How do I approach implementing a byzantinte fault-tolerant state machine?
 
 ### Organization
 I had many points along the way where I got lost and just coded along without a
-real plan. This was very time consuming. I think I have invested well over 180
+real plan. This was very time-consuming. I think I have invested well over 180
 hours into the bachelors project already.
  
 
