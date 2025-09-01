@@ -143,31 +143,10 @@ I had many points along the way where I got lost and just coded along without a
 real plan. This was very time consuming. I think I have invested well over 180
 hours into the bachelors project already.
  
-#### Finalizing in a Subsequent Thesis
-Can this prototype be extended in a follow-up thesis?
-The following points might offer themselves for the content of the thesis:
-1. review theoretical background on dibstributed consensus / consensus in blockchains / paxos/ raft/ byzantine fault tolerant distributed state machines.
-2. Design a distributed state machine for Consensus on the game progression, ideally byzantine fault tolerant.
-3. Implement the distributed state machine and integrate into existing code base.
-4. review theoretical background on zk-proofs, mental card games, verifiable shuffles.
-5. Formally Specify a protocol which I will use for verifiable shuffling. 
-6. Review background on zero knowledge computation/ circuits.
-7. 7design zero knowledge circuits (e.g. Halo2 for verifiable shuffles) to integrate the verifiable shuffling protocol into the engine.
-8. Integrate the zero-knowledge circuits into the codebase.
-9. Implement: Enable Player audits of logs for ZK correctness: Make it possible or a player to verify the published zero knowledge proofs of other players via a console in the game.
-10. Improvements: How should player disconnects be handled? How can one punish player disconnects (escrow logic?)
-11. UI improvements.
-12. Thorough testing of the codebase.
-
-#### Alignment with Supervisor's Interests and Personal Goals
-Your expertise is in theoretical cryptography (e.g., proofs for mental card games).  
-I aim to focus on software engineering/architecture, with literature analysis on ZK-SNARKs, consensus, and blockchains.  
-I'd like to include a formal specification of the distributed state machine/ZK primitives/cheating prevention, but prioritize SE skills (e.g., refactoring, testing, scalability).  
-How can we balance this?
 
 ### Conclusion and Next Steps
 The prototype demonstrates viable P2P poker basics but requires bug fixes for reliability.  
-I propose a meeting to discuss the above questions, refine scope, and plan thesis extensions.
+I propose a meeting to discuss the above questions, refine scope.
 
 ## References
 [1] Shamir, Rivest, Adleman. "Mental Poker" (1979).  
