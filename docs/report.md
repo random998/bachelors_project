@@ -2,8 +2,7 @@
 ## Section 1: Motivation
 TODO
 
-## Section 2: Specifying the Game and deriving needed Abstractions.
-### Texas Hold’em Rules: Flow of a Hand
+## Section 2: Texas Hold’em Rules
 At the beginning of the first hand of play, one player will be assigned the dealer button (in home games, this player will also traditionally act as the dealer for that hand). The player immediately to the left of the button must post the small blind, while the player two seats to the left of the button must post the big blind. The size of these blinds is typically determined by the rules of the game. If any ante is required – common in a tournament situation – players should also contribute it at this point.
 
 Once all blinds have been posted and antes have been paid, the dealer will deal two cards to each player. Each player may examine their own cards. The play begins with the player to the left of the big blind. That player may choose to fold, in which case they forfeit their cards and are done with play for that hand. The player may also choose to call the bet, placing an amount of money into the pot equal to the size of the big blind. Finally, the player can also choose to raise, increasing the size of the bet required for other players to stay in the hand.
@@ -17,7 +16,7 @@ If two or more players remain in the hand after the second round of betting, the
 After this final round of betting, all remaining players must reveal their hands. The player with the best hand according to the hand rankings above will win the pot. If two or more players share the exact same hand, the pot is split evenly between them. After each hand, the button moves one seat to the left, as do the responsibilities of posting the small and big blinds. [1]
 
 #### Defining the game
-The game which is implemented is the standard version of texas No-Limit holdem' as stated in the [wikipedia page](https://en.wikipedia.org/wiki/Texas_hold_%27em#Rules).
+The game which is implemented is the standard version of texas Limit holdem' as stated in the [wikipedia page](https://en.wikipedia.org/wiki/Texas_hold_%27em#Rules).
 In no-limit hold 'em, players may bet or raise any amount over the minimum raise up to all of the chips the player has at the table (called an all-in bet).
 The minimum raise is equal to the size of the previous bet or raise.
 If someone wishes to re-raise, they must raise at least the amount of the previous raise. 
