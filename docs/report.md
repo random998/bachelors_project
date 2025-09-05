@@ -24,6 +24,6 @@ If there is a deviation from the protocol specified above, either
 ![state_transition_comunication_4](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_5.drawio.svg)
 
 6. The Client acknowledges receiving the message. If the acknowledgement does not arrive at the server, he tries resends it in  exponentially increasing time intervals.
-7. ![state_transition_comunication_4](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_6.drawio.svg)
+![state_transition_comunication_4](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_6.drawio.svg)
 
-8. Finally an error at the Client is raised, informing him about the failure of the application of his proposed state transition.
+7. Finally an error at the Client is raised, informing him about the failure of the application of his proposed state transition.
