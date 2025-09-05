@@ -27,21 +27,58 @@ Phases of the game:
 1. ShufflingPhase
 2. CardDealingPhase
 3. PreflopBetting
-4. Flop
+4. FlopCardReveal
 5. FlopBetting
-6. Turn
+6. TurnCardReveal
 7. TurnBetting
 8. River
 9. RiverBetting
 10. Showdown
 
-ShufflingPhase:
+- ShufflingPhase:
 A standard 52-card deck without jokers is shuffled by the server.
 
-CardDealingPhase:
-Each of the players is dealt 2 cards 'face-down' by the server. This is achieved by encrypting the cards in the following way: It is assumed that the server has access to the public keys of each player. The cards dealt to player1 are simply encrypted using player1's public key. Player1 can then decrypt his cards using his corresponding private key.
+- CardDealingPhase:
+Each of the players is dealt 2 cards 'face-down' by the server. This is achieved by encrypting the cards in the following way: It is assumed that the server has access to the public keys of each player.
+The cards dealt to player i are simply encrypted using player1's public key. player i can then decrypt his cards using his corresponding private key.
 
-Betting Phases (PreflopBetting / FlopBetting / TurnBetting / RiverBettin):
+- PreflopBetting:
+Preflop betting is the first round of betting in Texas Hold'em poker, occurring after each player receives two hole cards and before any community cards are dealt. In this round, players decide to fold, call (match the bet), or raise the current bet. The player to the left of the big blind, known as "Under the Gun" (UTG), acts first.
+
+- The preflop betting process works as follow:
+1. Blinds are Posted: Before any cards are dealt, players in the small and big blind positions post mandatory bets to start the pot.
+2. Cards are Dealt: Each player receives two private hole cards face down.
+3. First Action (Under the Gun): The player immediately to the left of the big blind is the first to act.
+4. Decisions: The player can choose to:
+a) Fold: Discard their hand and give up any chips they have put in.
+b) Call: Match the amount of the big blind.
+c) Raise: Bet more than the big blind, which sets a new, higher target for other players to match or raise again.
+6. Betting proceeds clockwise around the table until every player who is still in the hand has either folded or put the same amount of chips into the pot.
+7. The Flop: If everyone has put in the same amount of chips (or everyone has folded), the "flop" occurs, and the next betting round begins
+
+- FlopCardReveal:
+In this phase the first 3 'community-cards' are dealt.
+The Server randomly chooses 3 cards from the remaining deck, and reveals them 'face-up' on the table (sends the FlopCardRevealMessage to each player, containing the values of the cards)
+
+- Betting (PreflopBetting, FlopBetting, TurnBetting, RiverBetting):
+Betting begins with the player to the left of the big blind choosing an action and continuing clockwise.
+Each player can choose one of the following actions.
+1. Check: If no bet has been made, the player can pass the action to the next player. 
+2. Bet: If no bet has been made,  the player can make the first bet. 
+3. Call: If a bet has been made,  the player can match the previously bet amount to stay in the hand. 
+4. Raise: If a bet has been made,  the player can increase the current bet
+
+- TurnCardReveal:
+The fourth community card is dealt face-up on the board by the server
+
+- RiverCardReveal:  
+A final single community card (called the river or fifth street) is dealt by the server.
+
+- Showdown:
+If a player bets and all other players fold, then the remaining player is awarded the pot and is not required to show their hole cards. If two or more players remain after the final betting round, a showdown occurs.
+On the showdown, each player plays the best poker hand they can make from the seven cards comprising their two hole cards and the five community cards. A player may use both of their own two hole cards, only one, or none at all, to form their final five-card hand.
+If the best hand is shared by more than one player, then the pot is split equally among them, with any extra chips going to the first players after the button in clockwise order. 
+
 
 ##  Section 3: Architecture
 ## Section 3.1: General overview.
