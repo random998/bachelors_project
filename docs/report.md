@@ -90,6 +90,6 @@ If there is a deviation from the protocol specified above, either
 
 [1]: https://web.archive.org/web/20250517014634/https://www.texasholdemonline.com/texas-holdem-rules/
 
-### Section 3.4: Computation Layer
+### Section 3.4: Game Logic
 
 ### Section 3.5: Presentation Layer (GUI)
