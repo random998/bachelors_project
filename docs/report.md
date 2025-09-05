@@ -12,6 +12,19 @@ The layers are as follows:
 ### Section 2.2: Computation layer
 #### Definition of Terms:
 
+### Texas Hold’em Rules: Flow of a Hand
+At the beginning of the first hand of play, one player will be assigned the dealer button (in home games, this player will also traditionally act as the dealer for that hand). The player immediately to the left of the button must post the small blind, while the player two seats to the left of the button must post the big blind. The size of these blinds is typically determined by the rules of the game. If any ante is required – common in a tournament situation – players should also contribute it at this point.
+
+Once all blinds have been posted and antes have been paid, the dealer will deal two cards to each player. Each player may examine their own cards. The play begins with the player to the left of the big blind. That player may choose to fold, in which case they forfeit their cards and are done with play for that hand. The player may also choose to call the bet, placing an amount of money into the pot equal to the size of the big blind. Finally, the player can also choose to raise, increasing the size of the bet required for other players to stay in the hand.
+
+Moving around the table clockwise, each player may then choose to take any of those options: folding, calling the current bet, or raising the bet. A round of betting ends when all players but one have folded (in which case the one remaining player wins the pot), or when all remaining players have called the current bet. On the first round of betting, if no players raise, the big blind will also have the option to check, essentially passing his turn; this is because the big blind has already placed the current bet amount into the pot, but hasn’t yet had a chance to act.
+
+Assuming there are two or more players remaining in the hand after the first round of betting, the dealer will then deal out three community cards in the middle of the table. These cards are known as the flop. Play now begins, starting with the first player to the left of the dealer button (if every player is still in the hand, this will be the small blind). Players have the same options as before; in addition, if no bet has yet been made in the betting round, players have the option to check. A round of betting can also end if all players check and no bets are made, along with the other ways discussed above.
+
+If two or more players remain in the hand after the second round of betting, the dealer will place a fourth community card – known as the turn – on the table. Once again, a round of betting ensues, using the same rules outlined above. Finally, if two or more players are still around after the third round of betting, the dealer will place the final community card – the river – on the table. One last round of betting will commence.
+
+After this final round of betting, all remaining players must reveal their hands. The player with the best hand according to the hand rankings above will win the pot. If two or more players share the exact same hand, the pot is split evenly between them. After each hand, the button moves one seat to the left, as do the responsibilities of posting the small and big blinds. [1]
+
 #### Defining the game
 The game which is implemented is the standard version of texas No-Limit holdem' as stated in the [wikipedia page](https://en.wikipedia.org/wiki/Texas_hold_%27em#Rules).
 In no-limit hold 'em, players may bet or raise any amount over the minimum raise up to all of the chips the player has at the table (called an all-in bet).
@@ -74,5 +87,9 @@ If there is a deviation from the protocol specified above, either
 6. The Client acknowledges receiving the message. If the acknowledgement does not arrive at the server, he tries resends it in  exponentially increasing time intervals.\
 ![state_transition_comunication_4](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_6.drawio.svg)
 
-7. Finally an error at the Client is raised, informing him about the failure of the application of his proposed state transition.
+
+
+[1]: https://web.archive.org/web/20250517014634/https://www.texasholdemonline.com/texas-holdem-rules/
+
+8. Finally an error at the Client is raised, informing him about the failure of the application of his proposed state transition.
 
