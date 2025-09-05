@@ -1,17 +1,8 @@
 # Prototype Implementation of a Deterministic Peer-to-Peer Poker Engine in Rust Using Lock-Step Hash-Chain Replication
 ## Section 1: Motivation
 TODO
-##  Section 2: Architecture
-The architecture of the application can be abstracted into mulitple layers, where each layer builds upon the layer below, and each lower layer provides a service to the next upper layer.
-The layers are as follows:
-1. Presentation layer (GUI).
-2. Computation layer: Specifies how the server computes state transitions, and how the client programs update their internal game states.
-2. Communication Layer: Specifies the protocols which define how the clients communicate with the server and with each other to (1) reach consensus on the game state, and (2) exchange information with each other in general.
-3. Networking layer: contains the specification on how clients (1) initialize a lobby, (2) identify each other, (3) address each other, (4) send messages to each other, (5) reconnect/disconnect etc.
 
-### Section 2.2: Computation layer
-#### Definition of Terms:
-
+## Section 2: Specifying the Game and deriving needed Abstractions.
 ### Texas Hold’em Rules: Flow of a Hand
 At the beginning of the first hand of play, one player will be assigned the dealer button (in home games, this player will also traditionally act as the dealer for that hand). The player immediately to the left of the button must post the small blind, while the player two seats to the left of the button must post the big blind. The size of these blinds is typically determined by the rules of the game. If any ante is required – common in a tournament situation – players should also contribute it at this point.
 
@@ -52,16 +43,24 @@ Each of the players is dealt 2 cards 'face-down' by the server. This is achieved
 
 Betting Phases (PreflopBetting / FlopBetting / TurnBetting / RiverBettin):
 
+##  Section 3: Architecture
+## Section 3.1: General overview.
+The architecture of the application can be abstracted into mulitple layers, where each layer builds upon the layer below, and each lower layer provides a service to the next upper layer.
+The layers are as follows:
+1. Presentation layer (GUI).
+2. Computation layer: Specifies how the server computes state transitions, and how the client programs update their internal game states.
+2. Communication Layer: Specifies the protocols which define how the clients communicate with the server and with each other to (1) reach consensus on the game state, and (2) exchange information with each other in general.
+3. Networking layer: contains the specification on how clients (1) initialize a lobby, (2) identify each other, (3) address each other, (4) send messages to each other, (5) reconnect/disconnect etc.
 
 
+### Section 3.2: Networking Layer
+TODO:
+1. how do clients and server initialize 'Session'
+2. encryption of traffic.
+3. public keys as identifiers
+4. signing of messages via private key.
 
-
-#### Defining the (legal) state space.
-
-#### Computation of State Transitions.
-TODO
-
-### Section 2.3 Communication Protocols
+### Section 3.3 Communication Protocols
 #### Communication between the Clients and the Server for a state Transition
 Below, see an outline of the communication protocol between the clients and the server for transitioning the game state.\
 
@@ -82,14 +81,15 @@ If there is a deviation from the protocol specified above, either
 (b) by the StatetransitionProposal leading to an illegal GameState,
 
 5. The server sends a StateTransitionFailedMessage to the Client who sent the initial proposal.\
-![state_transition_comunication_4](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_5.drawio.svg)
+![state_transition_comunication_5](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_5.drawio.svg)
 
 6. The Client acknowledges receiving the message. If the acknowledgement does not arrive at the server, he tries resends it in  exponentially increasing time intervals.\
-![state_transition_comunication_4](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_6.drawio.svg)
+![state_transition_comunication_6](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_6.drawio.svg)
 
-
+7. Finally an error at the Client is raised, informing him about the failure of the application of his proposed state transition.
 
 [1]: https://web.archive.org/web/20250517014634/https://www.texasholdemonline.com/texas-holdem-rules/
 
-8. Finally an error at the Client is raised, informing him about the failure of the application of his proposed state transition.
+### Section 3.4: Computation Layer
 
+### Section 3.5: Presentation Layer (GUI)
