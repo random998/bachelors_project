@@ -121,6 +121,22 @@ If there is a deviation from the protocol specified above, either
 
 [1]: https://web.archive.org/web/20250517014634/https://www.texasholdemonline.com/texas-holdem-rules/
 
-### Section 3.4: Game Logic
+### Section 3.4: Server
+TODO:
+1. Representation of the game state.
+2. Server State machine tracking the gamestate.
+3. eval-crate: Evaluating players hands
 
-### Section 3.5: Presentation Layer (GUI)
+
+### Section 3.5: Client Engine.
+TODO:
+1. Representation of the game state.
+2. Interface with gui
+
+### Section 3.6: GUI
+TODO:
+1. account_view
+2. connect_view
+3. cards
+4. game_view
+5. interface with engine
