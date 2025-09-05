@@ -17,8 +17,13 @@ Below, see an outline of the communication protocol between the clients and the 
 
 
 If there is a deviation from the protocol specified above, either
-1. by a acknowledgement not arriving as specified (TODO Timeout specification), or 
-2. by the StatetransitionProposal leading to an illegal GameState, or
-3. by TODO
+(a) by a acknowledgement not arriving as specified.
+(b) by the StatetransitionProposal leading to an illegal GameState,
 
-The server sends a StateTransitionFailedMessage to the Client who sent the initial proposal. 
+5. The server sends a StateTransitionFailedMessage to the Client who sent the initial proposal.
+![state_transition_comunication_4](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_5.drawio.svg)
+
+6. The Client acknowledges receiving the message. If the acknowledgement does not arrive at the server, he tries resends it in  exponentially increasing time intervals.
+7. ![state_transition_comunication_4](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_6.drawio.svg)
+
+8. Finally an error at the Client is raised, informing him about the failure of the application of his proposed state transition.
