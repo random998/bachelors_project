@@ -1,7 +1,7 @@
 # Prototype Implementation of a Deterministic Peer-to-Peer Poker Engine in Rust Using Lock-Step Hash-Chain Replication
 
 ### Communication between the Clients and the Server for a state Transition
-Below, the communication protocol between the clients and the server for transition the game state is outlined. \
+Below, see an outline of the communication protocol between the clients and the server for transitioning the game state. \
 
 1. If at any client an event occurs, which modifies the state of the game, the client sends a StateTransitionProposalMessage to the server. \
  ![state_transition_comunication_1](https://github.com/random998/bachelors_project/blob/main/docs/state_transition_communication_1.drawio.svg)
