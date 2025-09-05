@@ -45,28 +45,23 @@ The cards dealt to player i are simply encrypted using player1's public key. pla
 - PreflopBetting:
 Preflop betting is the first round of betting in Texas Hold'em poker, occurring after each player receives two hole cards and before any community cards are dealt. In this round, players decide to fold, call (match the bet), or raise the current bet. The player to the left of the big blind, known as "Under the Gun" (UTG), acts first.
 
-- The preflop betting process works as follow:
-1. Blinds are Posted: Before any cards are dealt, players in the small and big blind positions post mandatory bets to start the pot.
-2. Cards are Dealt: Each player receives two private hole cards face down.
-3. First Action (Under the Gun): The player immediately to the left of the big blind is the first to act.
-4. Decisions: The player can choose to:
-a) Fold: Discard their hand and give up any chips they have put in.
-b) Call: Match the amount of the big blind.
-c) Raise: Bet more than the big blind, which sets a new, higher target for other players to match or raise again.
-6. Betting proceeds clockwise around the table until every player who is still in the hand has either folded or put the same amount of chips into the pot.
-7. The Flop: If everyone has put in the same amount of chips (or everyone has folded), the "flop" occurs, and the next betting round begins
+The preflop betting process works as follow:
+
 
 - FlopCardReveal:
 In this phase the first 3 'community-cards' are dealt.
 The Server randomly chooses 3 cards from the remaining deck, and reveals them 'face-up' on the table (sends the FlopCardRevealMessage to each player, containing the values of the cards)
 
 - Betting (PreflopBetting, FlopBetting, TurnBetting, RiverBetting):
-Betting begins with the player to the left of the big blind choosing an action and continuing clockwise.
-Each player can choose one of the following actions.
-1. Check: If no bet has been made, the player can pass the action to the next player. 
-2. Bet: If no bet has been made,  the player can make the first bet. 
-3. Call: If a bet has been made,  the player can match the previously bet amount to stay in the hand. 
-4. Raise: If a bet has been made,  the player can increase the current bet
+The betting process works as follows:
+1. Blinds are Posted: Before any cards are dealt, players in the small and big blind positions post mandatory bets to start the pot.
+2. First Action (Under the Gun): The player immediately to the left of the big blind is the first to act.
+3. Decisions: The player can choose to:
+a) Fold: Discard their hand and give up any chips they have put in.
+b) Call: Match the amount of the big blind.
+c) Raise: Bet more than the big blind, which sets a new, higher target for other players to match or raise again.
+4. Betting proceeds clockwise around the table until every player who is still in the hand has either folded or put the same amount of chips into the pot.
+5. The Flop: If everyone has put in the same amount of chips (or everyone has folded), the the game enters the next phase.
 
 - TurnCardReveal:
 The fourth community card is dealt face-up on the board by the server
