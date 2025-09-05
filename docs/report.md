@@ -10,10 +10,41 @@ The layers are as follows:
 3. Networking layer: contains the specification on how clients (1) initialize a lobby, (2) identify each other, (3) address each other, (4) send messages to each other, (5) reconnect/disconnect etc.
 
 ### Section 2.2: Computation layer
-#### Defining the poker_game
-TODO
+#### Definition of Terms:
+
+#### Defining the game
+The game which is implemented is the standard version of texas No-Limit holdem' as stated in the [wikipedia page](https://en.wikipedia.org/wiki/Texas_hold_%27em#Rules).
+In no-limit hold 'em, players may bet or raise any amount over the minimum raise up to all of the chips the player has at the table (called an all-in bet).
+The minimum raise is equal to the size of the previous bet or raise.
+If someone wishes to re-raise, they must raise at least the amount of the previous raise. 
+All terms used in this document refer to the terms as specified in this [glossary](https://en.wikipedia.org/wiki/Glossary_of_poker_terms).
+
+Phases of the game:
+1. ShufflingPhase
+2. CardDealingPhase
+3. PreflopBetting
+4. Flop
+5. FlopBetting
+6. Turn
+7. TurnBetting
+8. River
+9. RiverBetting
+10. Showdown
+
+ShufflingPhase:
+A standard 52-card deck without jokers is shuffled by the server.
+
+CardDealingPhase:
+Each of the players is dealt 2 cards 'face-down' by the server. This is achieved by encrypting the cards in the following way: It is assumed that the server has access to the public keys of each player. The cards dealt to player1 are simply encrypted using player1's public key. Player1 can then decrypt his cards using his corresponding private key.
+
+Betting Phases (PreflopBetting / FlopBetting / TurnBetting / RiverBettin):
+
+
+
+
+
 #### Defining the (legal) state space.
-TODO
+
 #### Computation of State Transitions.
 TODO
 
